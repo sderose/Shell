@@ -1,0 +1,232 @@
+#!/usr/bin/perl -w
+#
+# indente: indent and edit a file.
+#
+# 2006-12-11: Ported from shell function in ~.utilities.
+#     Written by Steven J. DeRose.
+# 2007-09-04 sjd: Add -n. Clean up.
+# 2007-10-02 sjd: Add -it to -norm; factor out options; warn if no $EDITOR.
+# 2007-11-02 sjd: strict, add -w. change temp-file name.
+# 2012-09-12, 2014-01-09: Cleanup.
+#
+# To do:
+#    Option to break before comments, pis, end-tags,...
+#
+use strict;
+use Getopt::Long;
+
+our $VERSION_DATE = "2014-01-09";
+
+# Default options for normalizeXML:
+my $dft_normOpts = "-i -it -btags -btext -empty F -noparam";
+
+my @addedOptions = ();
+my $all          = 0;
+my $geometry     = "";
+my $lnum     	 = 0;
+my $normOpts 	 = $dft_normOpts;
+my $norm     	 = 0;
+my $prefix   	 = "";
+my $preserve 	 = 0;
+my $quiet    	 = 0;
+my $starts   	 = 0;
+my $verbose  	 = 0;
+my $write    	 = 0;
+my $xoptions 	 = "";
+
+# Process options
+#
+Getopt::Long::Configure ("ignore_case");
+my $result = GetOptions(
+    "all"            => \$all,
+    "geometry=s"     => \$geometry,
+    "h|help|?"       => sub { system "perldoc $0"; exit; },
+    "lnum"           => \$lnum,
+    "n|norm"         => \$norm,
+    "nopts=s"        => \$normOpts,
+    "prefix=s"       => \$prefix,
+	"preserve!"      => \$preserve,
+    "q|quiet!"       => \$quiet,
+    "starts"         => \$starts,
+    "write"          => \$write,
+    "v|verbose+"     => \$verbose,
+    "version"        => sub {
+        die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
+    },
+    "xopts=s"        => \@addedOptions,
+    );
+
+($result) || die "Bad options.\n";
+
+
+###############################################################################
+# Validate and default options
+#
+if ($geometry) { $xoptions .= " -geometry $geometry"; }
+$xoptions .= " " . join(" ",@addedOptions);
+if ($lnum) { $norm = 1; }
+
+($ARGV[0] && -e $ARGV[0]) || die "Couldn't find file.\n";
+my $file = $ARGV[0];
+
+
+###############################################################################
+###############################################################################
+# Main
+#
+(my $short = $file) =~ s/.*\///;
+if ($prefix ne "") { $short = "$prefix" . "__" . "$short"; }
+
+# Make new name, but keep extension so editor knows how to handle it.
+my $tfile = "/tmp/_indente_" . int(rand(100000)) . "__" . $short;
+
+my $cmd;
+if ($all) {
+    $cmd = "splitAtMatches -e '\\<' $file >$tfile";
+}
+elsif ($starts) {
+    $cmd = "splitAtMatches $file >$tfile";
+}
+elsif ($norm) {
+    $cmd = "normalizeXML $normOpts";
+    if ($lnum) { $cmd .= " -lnum"; }
+    $cmd .= " $file >$tfile";
+}
+else {
+    $cmd = "indent $file >$tfile";
+}
+
+# Finally, indent the file as requested
+#
+($quiet) || print "Running: $cmd\n";
+system "$cmd";
+
+(-f $tfile) || die "Indenting failed, can't find output file '$tfile'.\n";
+if (!$write) {
+    system "chmod -w $tfile"; # so user doesn't confuse with original file
+}
+
+my $ed = $ENV{EDITOR};
+if ($ed eq "emacs") {
+    my $emacsOpts = "-bg mistyRose -geometry 82x70";
+    system "$ed $emacsOpts $xoptions -T $short $tfile &";
+	if ($preserve) {
+		warn "The indented data is in '$tfile'.\n";
+	}
+	else {
+		sleep 5;
+		system "chmod +w $tfile";
+		system "rm $tfile";
+	}
+}
+elsif ($ed ne "") {
+    system "$ed $tfile &";
+	if ($preserve) {
+		warn "The indented data is in '$tfile'.\n";
+	}
+	else {
+		sleep 5;
+		system "chmod -w $tfile";
+		system "rm $tfile";
+	}
+}
+else {
+    warn "Your \$EDITOR environment variable isn't set, so I don't know what"
+		. " editor to start up for you. The indented data is in '$tfile'.\n";
+}
+
+exit;
+
+
+###############################################################################
+###############################################################################
+###############################################################################
+#
+
+=pod
+
+=head1 Usage
+
+indente [file]
+
+Indent a file and then open it in your $EDITOR.
+You can use the *nix C<indent> command, or C<normalizeXml>.
+
+
+
+=head1 Options
+
+=over
+
+=item * B<--all>
+
+Break before all XML start-tags, not just where C<indent> does.
+
+=item * B<--lnum>
+
+Number the lines (implies C<-norm>).
+
+=item * B<--norm>
+
+Use C<normalizeXML> instead of C<indent>.
+
+=item * B<--nopts> I<'string'>
+
+Send extra options to normalizeXML.
+
+=item * B<--prefix> I<name>
+
+Prefix 'name' to filename for edited file.
+
+=item * B<--preserve>
+
+Don't remove the tmp file.
+
+=item * B<--quiet> OR B<-q>
+Suppress most messages.
+
+=item * B<--starts>
+
+Break before XML start-tags, end-tags, comments, and PIs.
+
+=item * B<--version>
+
+Display version info and exit.
+
+=item * B<--write>
+
+Make the temp file read-write (it's normally read-only so
+you don't edit it and forget it's saved only in F</tmp>).
+
+=item * B<--xopts 'opts'>
+
+Set X Windows options, such as:
+    -x '-geometry WxH+y+x -T title -fg color'
+
+=back
+
+
+
+=head1 Related commands
+
+=head2 SJD
+
+C<splitAtMatches> --  implements I<--all>.
+
+C<normalizeXML> -- implements I<-n>.
+
+C<stdin2Editor> -- Take input from STDIN and open it in an editor.
+You can pipe any pretty-printer you like into this, to get something
+like C<indente>.
+
+
+
+=head1 Ownership
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities/>.
+
+=cut

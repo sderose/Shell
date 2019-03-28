@@ -1,0 +1,157 @@
+#!/usr/bin/perl -w
+#
+# duByUser: du-like information by user.
+#
+# 2008-01-16: Written by Steven J. DeRose.
+# 2010-09-12, 2012-09-05 sjd: Clean up.
+#
+# To do:
+#     Let user specify what to count
+#     Recursive
+#
+use strict;
+use Getopt::Long;
+
+use sjdUtils;
+use alogging;
+
+our $VERSION_DATE = "2012-09-05";
+
+my $quiet      = 0;
+my $sortBySize = 0;
+my $verbose    = 0;
+
+
+# Process options
+#
+my %getoptHash = (
+	"h|help|?"          => sub { system "perldoc $0"; exit; },
+	"q|quiet!"          => \$quiet,
+    "size"              => \$sortBySize,
+	"v|verbose+"        => \$verbose,
+    "version"           => sub {
+		die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
+	},
+	);
+
+Getopt::Long::Configure ("ignore_case");
+GetOptions(%getoptHash) || die("Bad options.\n");
+
+
+###############################################################################
+###############################################################################
+# Main
+#
+my %names     = ();
+my %counts    = ();
+my %sizes     = ();
+my $fileCount = 0;
+my $fileSpace = 0;
+
+for my $f (`ls -d *`) {
+	chomp $f;
+	my ($dev, $ino, $mode, $nlink, $uid, $gid,
+	 $rdev, $size, $atime, $mtime, $ctime, $blksize, $blocks) = stat $f;
+	#warn "'$f': inode $ino, uid '$uid'\n";
+	$names{$uid} .= "$f ";
+	$counts{$uid}++;
+	$sizes{$uid} += $size;
+	$fileCount++;
+	$fileSpace += $size;
+}
+
+my %sorted = ();
+for my $u (sort keys %sizes) {
+	my $uline = `grep '^[^:]*:[^:]*:$u:' /etc/passwd`;
+	my @utokens = split(/:/,$uline);
+	if ($verbose) {
+		print "user line: $uline\n";
+		print "tokens: " . join(", ", @utokens) . "\n";
+	}
+	my $rec = sprintf "%6d  %-12s %8d %10d %8dK\n",
+	    $u, $utokens[0], $counts{$u}, $sizes{$u}, ($sizes{$u}>>10);
+	if ($sortBySize) {
+		$sorted{lpad($sizes{$u})} = $rec;
+	}
+	else {
+		$sorted{$utokens[0]} = $rec;
+	}
+}
+
+report();
+
+exit;
+
+
+
+###############################################################################
+###############################################################################
+#
+sub report {
+    if (!$quiet) {
+        print "Total space by user:\n";
+        print "   UID  USER NAME       FILES      BYTES    KBYTES\n";
+    }
+    for my $r (sort keys %sorted) {
+        print $sorted{$r};
+    }
+    ($quiet) ||
+        print "Total files: $fileCount, total size: $fileSpace, "
+        . ($fileSpace>>10) . "K, "
+        . ($fileSpace>>20) . "M.\n";
+}
+
+
+
+###############################################################################
+###############################################################################
+###############################################################################
+#
+
+=pod
+
+=head1 Usage
+
+duByUser [options] [file]
+
+Total up files/space per user, used by files in current directory.
+
+
+
+=head1 Options
+
+=over
+
+=item * B<--quiet> OR B<-q>
+Suppress most messages, including headings.
+
+=item * B<--size>
+
+Sort results by size.
+
+=item * B<--verbose> OR B<-v>
+Add more detailed messages.
+
+=item * B<--version>
+
+Display version info and exit.
+
+=back
+
+
+
+=head1 Known bugs and limitations
+
+No -recursive option.
+
+
+
+=head1 Ownership
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities/>.
+
+=cut

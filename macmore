@@ -1,0 +1,10 @@
+#/bin/bash
+#
+# more a file with Mac linends
+#
+if [ "$1" == "-h" ]; then
+    echo "macmore (bash): properly 'more' a file with Mac-style line ends."
+    exit
+fi
+
+cat $* | tr '\n' '\r' | more

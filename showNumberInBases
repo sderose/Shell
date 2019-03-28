@@ -1,0 +1,309 @@
+#!/usr/bin/perl -w
+#
+# bases: Convert numbers to various bases and forms.
+#
+# Written: ?? By Steven J. DeRose.
+# 2007-11-~~ sjd: Add -k, -t, -u, input multiplier letters.
+# 2010-09-12 sjd: Cleanup.
+# 2011-06-29 sjd: Eine kleine nichtKleenup.
+# 2012-02-23 sjd: Add #rgb support.
+# 2012-03-22 sjd: Handle multiple numbers. Support decimal colors #d,d,d
+#
+# To do:
+#     Make short colors round, not just shift?
+#     Handle UTF-8.
+#     Break long numbers into groups of digits via sjdUtils::lpadc().
+#
+use strict;
+use Getopt::Long;
+use Encode;
+use charnames ':full';
+use sjdUtils;
+use alogging;
+
+our $VERSION_DATE = "2012-03-22";
+
+my $humanUnits = 0;
+my $quiet      = 0;
+my $time       = 0;
+my $verbose    = 0;
+
+
+# Process options
+#
+Getopt::Long::Configure ("ignore_case");
+my $result = GetOptions(
+    "h|help|?"          => sub { system "perldoc $0"; exit; },
+    "human|k"           => \$humanUnits,
+    "q|quiet!"          => \$quiet,
+    "t|time"            => \$time,
+    "v|verbose+"        => \$verbose,
+    "version"           => sub {
+     	die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
+    }
+);
+
+($result) || die "Bad options.\n";
+
+($ARGV[0]) ||
+    die "No argument specified.\n";
+
+
+###############################################################################
+#
+my $k = 1000;
+my $m = 1000*1000;
+my $g = 1000*1000*1000;
+my $t = 1000*1000*1000*1000;
+my $p = 1000*1000*1000*1000*1000;
+
+my $K = 1024;
+my $M = 1024*1024;
+my $G = 1024*1024*1024;
+my $T = 1024*1024*1024*1024;
+my $P = 1024*1024*1024*1024*1024;
+
+my $tot;
+
+while (defined ($tot=shift)) {
+    ($verbose) && print "Got '$tot'\n";
+
+    if ($tot =~ m/^#[0-9a-f]{3,}/i) {
+        decodeColor($tot);
+        next;
+    }
+
+    $tot = handleScaleSuffix($tot);
+    $tot = oct($tot) if ($tot =~ m/^0/);
+
+    if ($time) {
+        print timeCode($tot) . "\n";
+        exit;
+    }
+
+    print sprintf("    o0%o, d%d, 0x%x, 0b%08b\n", $tot, $tot, $tot, $tot);
+    if ($humanUnits && $tot>1023) {
+        print sprintf(
+            "    Human-readable units: %4.2fK, %4.2fM, %4.2fG, %4.2fT\n",
+            $tot/$K, $tot/$M, $tot/$G, $tot/$T);
+    }
+    if (!$quiet) {
+        if ($tot > 31 && $tot < 128) {
+            print "    Printable character:  '" . chr($tot) . "'\n";
+        }
+        elsif ($tot >= 128 && $tot <= 0x2FFFF) {
+            print "    If that's a Unicode code point, the UTF-8 is: " .
+                sjdUtils::getUTF8($tot) .".\n";
+            my $uname = charnames::viacode($tot);
+            if ($uname) { print "    Unicode character name: $uname\n"; }
+        }
+    }
+} # shift
+
+exit;
+
+
+
+###############################################################################
+###############################################################################
+# See if user typed in a number with a suffix letter, and figure it in.
+#
+sub handleScaleSuffix {
+    my ($tot) = @_;
+    $tot =~ m/\d+([KMGTP])$/i;
+    if (defined $1) {
+        my $unit = $1;
+        if    ($unit eq "k") { $tot *= $k; }
+        elsif ($unit eq "m") { $tot *= $m; }
+        elsif ($unit eq "g") { $tot *= $g; }
+        elsif ($unit eq "t") { $tot *= $t; }
+        elsif ($unit eq "p") { $tot *= $p; }
+        
+        elsif ($unit eq "K") { $tot *= $K; }
+        elsif ($unit eq "M") { $tot *= $M; }
+        elsif ($unit eq "G") { $tot *= $G; }
+        elsif ($unit eq "T") { $tot *= $T; }
+        elsif ($unit eq "P") { $tot *= $P; }
+    }
+    return($tot);
+}
+
+
+###############################################################################
+#
+sub decodeColor {
+    my ($raw) = @_;
+
+    $raw =~ s/^#//;
+    my $len = length($raw);
+    my $digitsPer = int($len/3);
+    my $r = my $g = my $b = 0;
+
+    if ($raw =~ m/^(\d+),(\d+),(\d+)\s*$/) {                # Decimal
+        $r = sprintf("%02x",$1);
+        $g = sprintf("%02x",$2);
+        $b = sprintf("%02x",$3);
+        if ($r>255 || $g>255 || $b>255) {
+            warn "Value out of range\n";
+        }
+        $digitsPer = 2; # as if hex
+    }
+    elsif ($len == 3) {                                     # Hex RGB
+        $raw =~ m/^(.)(.)(.)/ || warn "not 3? '$raw'\n";
+        ($r, $g, $b) = ($1, $2, $3);
+    }
+    elsif ($len == 6) {                                     # RRGGBB
+        $raw =~ m/^(..)(..)(..)/ || warn "not 6? '$raw'\n";
+        ($r, $g, $b) = ($1, $2, $3);
+    }
+    elsif ($len == 9) {                                     # RRRGGGBBB
+        $raw =~ m/^(...)(...)(...)/ || warn "not 9? '$raw'\n";
+        ($r, $g, $b) = ($1, $2, $3);
+    }
+    elsif ($len == 12) {                                    # RRRRGGGGBBBB
+        $raw =~ m/^(....)(....)(....)/ || warn "not 12? '$raw'\n";
+        ($r, $g, $b) = ($1, $2, $3);
+    }
+    else {
+        warn "Can't decode color string, '$raw' not a known length.\n";
+        return;
+    }
+
+    print "  Component  d[255]  x[FF]  x[FFFF]  %[100]\n";
+    my $r2 = showColor("Red",   $r, $digitsPer);
+    my $g2 = showColor("Green", $g, $digitsPer);
+    my $b2 = showColor("Blue",  $b, $digitsPer);
+
+    print `findColorName $r2 $g2 $b2` . "\n";
+}
+
+sub showColor {
+    my ($name, $hex, $digits) = @_;
+    my $d = my $x2 = my $x4 = my $pct = 0;
+    if ($digits == 1) {
+        $d  = hex("0x0$hex")*16;
+        $x2 = $hex . "0";
+        $x4 = $hex . "000";
+        $pct = $d * 100.0 / 255.0;
+    }
+    elsif ($digits == 2) {
+        $d  = hex("0x0$hex");
+        $x2 = $hex;
+        $x4 = $hex . "00";
+        $pct = $d * 100.0 / 255.0;
+    }
+    elsif ($digits == 3) {
+        $d  = int(hex("0x0$hex")/16);
+        $x2 = substr($hex,0,2);
+        $x4 = $hex . "0";
+        $pct = $d * 100.0 / 255.0;
+    }
+    elsif ($digits == 4) {
+        $d  = int(hex("0x0$hex")/256);
+        $x2 = substr($hex,0,2);
+        $x4 = $hex;
+        $pct = $d * 100.0 / 255.0;
+    }
+    
+    printf("    %-10s %03d     %2s     %4s   %6.2f\n",
+           $name, $d, $x2, $x4, $pct);
+    return($x2);
+}
+
+
+###############################################################################
+# timeCode: Change elapsed seconds into hh:mm:ss form.
+# Params:   0: Time as a number of seconds.
+# 
+sub timeCode {
+	my $etime = $_[0];
+    my $s = $etime % 60;
+    my $m = int($etime/60) % 60;
+    my $h = int($etime/3660);
+	return(sprintf("%02d:%02d:%02d", $h, $m, $s));
+}
+
+
+
+###############################################################################
+###############################################################################
+###############################################################################
+#
+
+=pod
+
+=head1 Usage
+
+showNumberInBases [options] [numbers]
+
+Display the input number(s) in several bases (or other forms)
+
+Specifically:
+
+=over
+
+=item * as a character, if in ASCII range
+
+=item * as a Unicode UTF-8 byte sequence, if above the ASCII range
+
+=item * as RGB color codes and the nearest X color name,
+if starts with "#" (backslash the "#" if needed).
+The "#" may be followed by 
+3, 6, 9, or 12 hexadecimal digits I<without> intervening punctuation
+(for example, C<#FF0000>), or (soon)
+3 groups of decimal digits I<with> intervening commas or other punctuation
+(for example, C<#255,0,00000>).
+
+=item * as a time (hh:mm:ss) if you specify -t.
+
+=back
+
+I<num> can be decimal, hex (0xFFF), octal (0777), or binary (0b1010);
+and can have a suffix of K, M, G, T, or P for powers of 1024 (like ls -h),
+or k, m, g, t, or p for powers of 1000.
+
+
+
+=head1 Options
+
+=over
+
+=item * B<-k> or B<--human>
+
+Print big numbers in units of K, M, G, T, and P.
+
+=item * B<-t>
+
+Format an elapsed time (from number of seconds).
+
+=back
+
+
+
+=head1 Known bugs and limitations
+
+Knows nothing about any color models but RGB.
+
+Time units larger than hours are not calculated.
+
+
+
+=head1 Related commands
+
+C<chr>, C<ord> -- convert between characters and code point numbers.
+
+C<showrgb> -- displays list of available X colors.
+
+C<findColorName> -- used to find the nearest named X colors.
+
+
+
+=head1 Ownership
+
+This work by Steven J. DeRose is licensed under a Creative Commons 
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities/>.
+
+=cut

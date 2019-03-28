@@ -1,0 +1,107 @@
+#!/usr/bin/perl -w
+#
+# stdinToFirefox: Pipe stdin straight to an editor.
+#
+# 2007-12-17: Written by Steven J. DeRose, as 'stdinToEditor'.
+# 2013-05-06 sjd: Implement stdinToFirefox.
+#
+# To do:
+#     
+use strict;
+use Getopt::Long;
+
+our $VERSION_DATE = "2013-05-06";
+
+my $keep    = 0;
+my $outfile = "";
+my $quiet   = 0;
+my $verbose = 0;
+
+# Process options
+#
+Getopt::Long::Configure ("ignore_case");
+my $result = GetOptions(
+    "h|help|?"          => sub { system "perldoc $0"; exit; },
+    "keep!"             => \$keep,
+    "outfile=s"         => \$outfile,
+    "q|quiet!"          => \$quiet,
+    "v|verbose+"        => \$verbose,
+    "version"           => sub {
+        print "Version of $VERSION_DATE by Steven J. DeRose\n";
+        exit;
+    }
+    );
+
+($result) || die "Bad options.\n";
+
+
+###############################################################################
+# Main
+#
+my $tfile = $outfile;
+if ($tfile eq "") {
+    $tfile = "/tmp/stdinToFirefox_" . int(rand(100000));
+    ($verbose) && warn "Temp file is at '$tfile'.\n";
+}
+open my $ofh, ">$tfile" || die "Unable to open temp file at '$tfile'.\n";
+while (<>) { print $ofh $_; }
+close $ofh;
+
+system "firefox $tfile &";
+
+if (!$keep) {
+    system "sleep 3";
+    system "rm $tfile";
+}
+else {
+    print "stdinToFirefox saved input to '$tfile'.\n";
+}
+
+exit;
+
+
+
+###############################################################################
+###############################################################################
+###############################################################################
+#
+
+=pod
+
+=head1 Usage
+
+stdinToFirefox [options] [file]
+
+Copies STDIN to a temp file, and launches Firefox on it.
+
+
+
+=head1 Options
+
+=over
+
+=item B<--keep>
+
+Don't delete the temp file afterwards.
+
+=item B<--outfile file>
+
+Use this file instead of a temp file.
+
+=item B<--version>
+
+Display version info and exit.
+
+=back
+
+
+
+=head1 Ownership
+
+This work by Steven J. DeRose is licensed under a Creative Commons 
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities/>.
+
+=cut

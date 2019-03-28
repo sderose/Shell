@@ -1,0 +1,131 @@
+#!//usr/bin/perl -w
+#
+# Clean up spurious files in the current directory (only!).
+#
+# Written by Steven J. DeRose, 2006-03-23.
+# 2006-06-15: Indent. Report hidden files. 
+# 2007-10-25 sjd:  Getopt. strict. Report ~n~ numbered backups.
+#     Add -num to clear them, strict, version, quiet, verbose.
+# 2008-03-23 sjd: Make generic.
+#
+use strict;
+use Getopt::Long;
+
+our $VERSION_DATE = "2012-09-12";
+
+my $num       = 0;
+my $quiet     = 0;
+my $recursive = 0;
+my $verbose   = 0;
+
+Getopt::Long::Configure ("ignore_case");
+my $result = GetOptions(
+    "h|help|?"     => sub { system "perldoc $0"; exit; },
+    "num!"         => \$num,
+    "q|quiet!"     => \$quiet,
+    "r!"           => \$recursive,
+    "v|verbose+"   => \$verbose,
+    "version"      => sub {
+        die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
+    },
+    );
+
+($result) || die "Bad options.\n";
+
+if ($recursive) {
+    print "*** RECURSIVE is not implemented. ***\n";
+}
+
+my $ERRLOG = ($verbose) ? "":"2>/dev/null";
+
+
+###############################################################################
+###############################################################################
+# Main
+#
+($quiet) || print "    removing ~*, #, .bck, .bak, .errs files\n";
+system "rm ~*      $ERRLOG";
+system "rm \\#*\\# $ERRLOG";
+system "rm *.bak   $ERRLOG";
+system "rm *.bck   $ERRLOG";
+system "rm *.errs  $ERRLOG";
+
+if ($num) {
+    ($quiet) || print "    removing *.~*~ (numbered backup) and *~ files\n";
+    system "rm *~ $ERRLOG";
+}
+
+my $hidden = `ls -d .[^.]* 2> /dev/null | wc -l`;
+chomp($hidden);
+if ($hidden > 0 && !$quiet) {
+    print "Found $hidden hidden file(s) in this directory.\n";
+}
+
+my $numbered = `ls -d *.~*~ 2> /dev/null | wc -l`;
+chomp($numbered);
+if ($numbered > 0 && !$quiet) {
+    print "Found $numbered numbered backup file(s). Use -num to remove.\n";
+}
+
+exit;
+
+
+
+###############################################################################
+###############################################################################
+#
+
+=pod
+
+=head1 Usage
+ 
+clean [options]
+
+Removes various (hopefully unimportant) files from the current directory.
+Also mentions if there are any hidden files (list them with 'ls -a').
+
+Files are removed if their name:
+    has extension .bak, .bck, or .errs
+    starts with ~ (not ends with ~, that would nuke numbered backups too).
+    starts and ends with \#
+
+
+
+=head1 Options
+
+=over
+
+=item * B<--num>
+
+Also remove numbered backup files, such as created by mv and
+cp with the '-backup=numbered' option (they end in .~n~).
+
+=item * B<--quiet> OR B<-q>
+Suppress messages.
+
+=item * B<--verbose> OR B<-v>
+Show error messages from rm.
+
+=item * B<--version>
+
+Show version informatin and exit.
+
+=back
+
+
+
+=head1 Related commands
+
+C<rmcruft> -- basically the same.
+
+
+
+=head1 Ownership
+
+This work by Steven J. DeRose is licensed under a Creative Commons 
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities/>.
+
+=cut

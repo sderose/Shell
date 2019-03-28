@@ -1,0 +1,519 @@
+#!/usr/bin/perl -w
+#
+# editcmd: Find the implementation of a command and edit it.
+#
+# 2012-05-08f: Written by Steven J. DeRose.
+# 2012-11-02: Find specific line for aliases and shell functions.
+#     Check whole set of bash profile-ish files. Warn on non-bash.
+#     Force 'type' in interactive shell so functions/aliases are visible.
+# 2012-12-06: Add doc on order things are found. Add --noninteractive.
+#     Make -q and -v do something.
+# 2013-04-08: Start adding checks of files sourced from profiles.
+# 2013-08-27: Fix emacs line-seek arg for BSD/Mac.
+# 2014-12-30: Try to get working for shell functions. Add -l.
+# 2015-02-05: Fix bug where it dropped output from 'type' command.
+#     Add --addProfile.
+#
+# To do:
+#     Support an ECMDPATH env. var to list extra places to look?
+#         Or is --addProfile enough?
+#
+use strict;
+use Getopt::Long;
+
+our $VERSION_DATE = "2015-10-07";
+
+my @addProfile    = ();
+my $interactive   = 0;
+my $login         = 1;
+my $quiet         = 0;
+my $verbose       = 0;
+
+
+###############################################################################
+#
+my %getoptHash = (
+    "addProfile=s"            => \@addProfile,
+    "h|help"                  => sub { system "perldoc $0"; exit; },
+    "interactive!"            => \$interactive,
+    "login!"                  => \$login,
+    "q|quiet!"                => \$quiet,
+    "v|verbose+"              => \$verbose,
+    "version"                 => sub {
+        die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
+    },
+    );
+Getopt::Long::Configure ("ignore_case");
+(GetOptions(%getoptHash)) || die "Bad options.\n";
+
+($ARGV[0]) || die "No command name specified.\n";
+
+
+###############################################################################
+###############################################################################
+# Main
+#
+my $cmd     = $ARGV[0];
+my $fndLine = 1;
+my $fndFile = "";
+my $tgtFile = "";
+
+# Warn about environment issues
+#
+my $shell = $ENV{SHELL} || "";
+if ($shell ne "/bin/bash") {
+    ($quiet) || print
+        "Your shell is $ENV{SHELL}, not /bin/bash. This may not work...\n";
+}
+
+# See what 'type' says about the command.
+# Force it to run via an interactive shell, so profiles are in effect.
+# Have 'type' output go to a temp file, in case .bash_profile etc. do any output.
+#
+my $typ = "";
+if (0) {
+    print "***BROKEN*** XXX V: $verbose\n";
+    my $bashCmd = 'bash ' .
+        ($login ? " -l": "") .
+        ($interactive ? " -i" : "") .
+        " -s type $cmd";
+    #print "X\n";
+    if ($verbose) { print "Running: $bashCmd\n"; }
+    die "Eh?\n";
+    $typ = `$bashCmd`;
+    if ($@) {
+        die "Error from command: $@\n";
+    }
+    ($verbose) && print "Response:\n$typ\n";
+    ($typ) || die "No '$cmd' command found by '$bashCmd'.\n";
+    $typ =~ s/.*\W*($cmd is )/$1/s;
+}
+else {
+    my $toRun = "echo 'type $cmd >/tmp/typeOutput' | bash";
+    if ($login) { $toRun .= " -l"; }
+    if ($interactive) { $toRun .= " -i"; }
+    $toRun .= " -s >/dev/null";
+    if ($verbose) { print "Running: $toRun\n"; }
+    my $cruft = `$toRun`;
+    $typ = `cat /tmp/typeOutput`;
+    ($verbose) && print "Response:\n$typ\n";
+    ($typ) || die "No '$cmd' command found by '$toRun'.\n";
+    $typ =~ s/\n.*//s;
+}
+($verbose) && print "Trimmed response:\n$typ\n";
+
+
+# Check for alias/shell function first, in case they overrode a name.
+#
+if ($typ =~ m/a function/) {
+    ($fndFile, $fndLine) = findFunctionDef($cmd);
+    if ($fndLine) {
+        reportType($cmd, "function", $fndFile);
+        $tgtFile = $fndFile;
+    }
+    else {
+        reportType($cmd, "function, but not found in any profile");
+    }
+}
+elsif ($typ =~ m/aliased to `(.*)'/) {
+    ($fndFile, $fndLine) = findAliasDef($cmd);
+    if (defined $fndLine && $fndLine>0) {
+        reportType($cmd, "alias", $fndFile, $fndLine);
+        $tgtFile = $fndFile;
+    }
+    else {
+        reportType($cmd, "alias", "(not found in any profile)");
+        $tgtFile = $fndFile;
+    }
+}
+elsif ($typ =~ m/hashed \((.*)\)/) {
+    $tgtFile = $1;
+    reportType($cmd, "hashed", $tgtFile);
+}
+elsif ($typ =~ m/ is (.*)/) {
+    my $fndFile = $1;
+    if (-B $fndFile) {
+        reportType($cmd, "binary", $fndFile);
+    }
+    elsif (-e $fndFile) {
+        reportType($cmd, "executable", $fndFile);
+        $tgtFile = $fndFile;
+    }
+    else {
+        reportType($cmd, "file", "$fndFile, but it is not executable.");
+    }
+}
+elsif ($typ =~ m/a shell keyword/) {
+    reportType($cmd, "shell keyword", "(nothing to edit)");
+}
+elsif ($typ =~ m/ not found/) {
+    # Could still be alias/shell function that script doesn't see.
+    #
+    my ($fndFile1, $fndLine1) = findAliasDef($cmd);
+    my ($fndFile2, $fndLine2) = findFunctionDef($cmd);
+    if ($fndLine1) {
+        reportType($cmd, "alias", $fndFile1);
+        $tgtFile = $fndFile1;
+        $fndLine = $fndLine1;
+    }
+    elsif ($fndLine2) {
+        reportType($cmd, "function", $fndFile2);
+        $tgtFile = $fndFile2;
+        $fndLine = $fndLine2;
+    }
+    else {
+        reportType($cmd, "??? (not found)");
+    }
+}
+else {
+    ($quiet) || print
+        "Unrecognized response from '$cmd':\n$typ\n";
+}
+
+# If we found it, go edit it.
+#
+if ($tgtFile ne "") {
+    ($quiet) || printf(
+        "  Last modified %3.1f days ago.\n", -M($tgtFile));
+    my $cmd = "$ENV{EDITOR}" . ($fndLine ? " +$fndLine":"") . " $tgtFile";
+    ($verbose) && warn "Running: $cmd\n";
+    system($cmd) || warn("Failed.\n");
+}
+
+exit;
+
+
+###############################################################################
+###############################################################################
+#
+sub reportType {
+    my ($theCmdName, $typ, $file) = @_;
+    if ($quiet) { return; }
+    my $msg = "'$theCmdName' is a" .
+        (($typ =~ m/^[aeiouh]/) ? "n ":" ") .
+        $typ .
+        ($file ? ". Opening '$file'..." : ".") .
+        "\n";
+    print $msg;
+}
+
+
+###############################################################################
+# Places to look for startup/profile files
+#
+# The bash sequence depends on:
+#     Bash options --login, --noprofile, --rcfile, --norc, -c, -i
+#     Whether the shell is interactive and/or login
+#     Whether the shell was invoked as 'bash' or 'sh'
+#     Environment variable $BASH_ENV or $ENV
+#     Whether effective user/group id != real user/group id AND -p not set.
+# Of course, the environment could depend on arbitrary logic in profiles....
+#
+BEGIN {
+    my $profile = "$ENV{HOME}/.bash_profile";
+
+    my @profilePaths = (
+        # For bash (
+        # INTERACTIVE NON-LOGIN (or non-interactive with --login):
+        "/etc/profile",                # 1: system-wide startup
+        "$ENV{HOME}/.bash_profile",    # 2a: personal init
+        "$ENV{HOME}/.bash_login",      # 2b: personal init
+        "$ENV{HOME}/.profile",         # 2c: personal init
+        #"$ENV{HOME}/bin/bash_profile", # 2d: Author's convention
+        # INTERACTIVE NON-LOGIN:
+        "/etc/bash.bashrc",            # system-wide init
+        "$ENV{HOME}/.bashrc",          # personal init
+        "$ENV{HOME}/bin/bash_profile", # I keep stuff here so not invisible.
+    );
+
+    # NON-INTERACTIVE (must be expanded; don't use $PATH)
+    if (defined $ENV{BASH_ENV}) {
+        push @profilePaths, $ENV{BASH_ENV};
+    }
+    if (defined $ENV{ENV}) { # only if 'sh'
+        push @profilePaths, $ENV{ENV};
+    }
+    if (@addProfile) {
+        push @profilePaths, @addProfile;
+    }
+
+    if ($verbose) {
+        warn "\nFiles to be checked for alias/function definitions:\n    " .
+            join("\n    ", @profilePaths) . "\n";
+    }
+
+    sub findFunctionDef {
+        my ($cmd) = @_;
+        my $regex = "^ *$cmd()\\s{";
+        ($verbose) && print "Searching for shell function definition in:\n";
+        for my $path (@profilePaths) {
+            ($verbose) && print "    $path\n";
+            my $rc = findLine($path, $regex);
+            if ($rc) { return($path, $rc); }
+        }
+        for my $path (@profilePaths) {
+            my @sourceLines = getAllLines($path, "^\\s*source ");
+            for my $subpath (@sourceLines) {
+                warn "*** Should also check $subpath (sourced from $path)\n";
+            }
+        }
+        return(0); # not found
+    }
+
+    sub findAliasDef {
+        my ($cmd) = @_;
+        my $regex = "^ *alias *$cmd=";
+        ($verbose) && print "Searching for alias definition in:\n";
+        for my $path (@profilePaths) {
+            ($verbose) && print "    $path\n";
+            my $rc = findLine($path, $regex);
+            if ($rc) { return($path, $rc); }
+        }
+        for my $path (@profilePaths) {
+            my @sourceLines = getAllLines($path, "^\\s*source ");
+            for my $subpath (@sourceLines) {
+                warn "*** Should also check $subpath (sourced from $path)\n";
+            }
+        }
+        return(0); # not found
+        }
+
+    # Return the line number of the first line matching the regex (else 0).
+    #
+    sub findLine {
+        my ($file, $regex) = @_;
+        (-r $file) || return(0);
+        my $rc = `grep -m 1 -n '$regex' $file`;
+        if ($rc =~ m/^(\d+):/) {
+            return($1);
+        }
+        return(0);
+    }
+
+    # Return the text of all lines matching the regex.
+    #
+    sub getAllLines {
+        my ($file, $regex) = @_;
+        (-r $file) || return("");
+        my $rc = `grep -n '$regex' $file`;
+        return($rc);
+    }
+} # END
+
+
+
+###############################################################################
+###############################################################################
+###############################################################################
+#
+
+=pod
+
+=head1 Usage
+
+ecmd [options] commandName
+
+Use C<type> to see what I<commandName> is, and edit its definition accordingly.
+For aliases and shell functions, your editor should end up at the right line.
+
+This script is mainly meant for use with C<bash>. To recognize shell
+functions and aliases, it should be run as an interactive and possibly as
+a login shell (see L<Options> below).
+
+Binaries will not be edited.
+
+Uses your $EDITOR.
+
+
+=head2 Where this script (and bash) look for commands
+
+Commands are identified via the C<type> command, which is run under a fresh
+interactive bash shell (running it straight from Perl's environment would miss a lot).
+
+Aliases and shell functions are sought among the various C<bash>
+profile/startup files (via invoking C<bash -i> to run C<type>),
+as well as ~/bin/bash_profile, which is where the author keeps his profile so
+that it isn't hidden (for Mac Finder, for backup/copy processing, etc).
+
+If you have extra files that define aliases or shell functions (perhaps that are
+sourced from .bash_profile), specify them via I<--addProfile> so they will also
+be checked (it might be wise to set up an alias to do this consistently).
+
+You can use I<-v> to get a list of all the places to be searched.
+
+When an instance of C<bash> starts up:
+
+=over
+
+=item * If it's a B<login> shell, it runs F</etc/profile>. Then
+it looks for ~/.bash_profile, ~/.bash_login, and ~/.profile,
+in  that order, and reads and executes commands from the first one readable.
+
+
+=head1 Notes
+
+=head2 Auto-completion
+
+To enable auto-completion with this script in C<bash> use
+
+    complete -F _command ecmd
+
+On Mac OS X, you may need to install bash_completion first, for example as:
+
+    sudo port install bash-completion
+
+bash-completion >=2.0 requires bash >=4.1. Also, add to your .bash_profile:
+
+  if [ -f /opt/local/etc/profile.d/bash_completion.sh ]; then
+      . /opt/local/etc/profile.d/bash_completion.sh
+  fi
+
+See L<http://superuser.com/questions/288438/bash-completion-for-commands-in-mac-os>.
+
+
+=head2 Categories of commands
+
+The categories of items checked are those distinguished by the C<type>
+command. Commands are found by Bash in this order:
+
+  aliases (can override shell keywords and/or shell builtins)
+  shell keywords
+  shell builtins
+  POSIX special builtins
+  shell functions (B<cannot> define one overriding a shell keyword)
+  files (per $PATH), including:
+      hashed executables
+      other executables
+
+This script declines to edit executable files that are binary.
+
+The POSIX special builtins only apply in POSIX mode. They are exactly:
+
+    break, :, ., continue, eval, exec, exit, export, readonly, return, set,
+shift, trap, unset.
+
+
+=head2 bash configuration
+
+This script runs C<type> in
+a separate I<interactive> C<bash> shell, so it identifies the specified command
+name presuming that context (see I<--interactive> and I<--login>).
+
+Many factors affect how C<bash> ends up configured, and thus what
+a particular command name does. For example:
+
+=over
+
+=item * Whether you're running C<bash> or a different shell altogether
+
+=item * Whether C<bash> is running as a login, interactive, or non-interactive shell
+
+=item * Whether C<bash> is in C<sh> compatibility, C<restricted>,
+or I<POSIX> compatibility mode
+
+=item * Which of these setup files are in effect:
+    F</etc/profile>
+    F<$HOME/.bash_profile>
+    F<$HOME/.bash_login>
+    F<$HOME/.profile>
+    F</etc/bash.bashrc>
+    F<$HOME/.bashrc>
+
+=item * Other files sourced by those files (but see I<--addProfile>)
+
+=item * Logic implemented in setup files
+
+=item * Changes you've done manually
+
+=back
+
+A nice page on bash's startup and other behavior is:
+L<http://wiki.bash-hackers.org/scripting/bashbehaviour>.
+
+
+
+=head1 Options
+
+(prefix 'no' to negate where applicable)
+
+=over
+
+=item * B<--addProfile> I<path>
+
+Add the file at I<path> to (the end of) the list of places to look for
+definitions of aliases and shell functions. The usual suspects, such as
+F<.bash_profile>, F<.bashrc>, etc. are already covered.
+
+=item * B<--interactive>
+
+Run C<type> in an interactive Bash shell (default).
+
+=item * B<--login>
+
+Run C<type> in a Bash login shell.
+
+=item * B<-q> OR B<--quiet>
+
+Suppress most messages.
+
+=item * B<-v> OR B<--verbose>
+
+Add more messages.
+
+=item * B<--version>
+
+Show version info and exit.
+
+=back
+
+
+=head1 Known Bugs and Limitations
+
+With shells other than C<bash>, all bets are off.
+
+Does not check all possible places that an alias or shell function
+could be defined. In particular, does not consider files invoked by a
+setup file, or cases where a setup file defines different things in different
+situations.
+
+Does not expand $BASH_ENV or $ENV before trying it as a path.
+
+Assumes your $EDITOR has a "+n" option to take you to line number I<n>
+(this is used to get you right to the definition of an alias or shell function).
+C<emacs>, C<vi>, C<pico>, C<gedit>, and C<xedit> are all ok.
+C<kompozer> isn't (but see
+L<http://sourceforge.net/tracker/index.php?func=detail&aid=2941487&group_id=170132&atid=853125>).
+
+C<type> returns stereotyped responses for each kind of command.
+If your local C<type> command returns significantly different forms,
+you will need to adjust this script accordingly.
+
+    xxx is aliased to `xxx -i'
+    xxx is a shell keyword
+    xxx is a shell builtin
+    xxx is a function
+    xxx is hashed (/home/mluther/bin/xxx)
+    xxx is /usr/bin/xxx
+    bash: type: xxx: not found
+
+*nix variants differ in how you configure auto-completion of commands, so you may have
+to fiddle around a bit to get that working.
+
+
+
+=head1 Related commands
+
+C<bash>, C<which>, C<type>, C<shopt>.
+
+
+
+=head1 Ownership
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities/>.
+
+=cut
+

@@ -1,0 +1,371 @@
+#!/usr/bin/perl -w
+#
+# prettyprintExpr: Written 2012-12-06 by Steven J. DeRose.
+# 2013-05-09 sjd: Add parseExpr() and tokenize().
+#
+# To do:
+#     Add outputs?
+#         XML, MathML, Perl regex w/ whitespace, XSD expr, HTML 5 drawing.
+#     $name?
+#     quoting
+#     don't break up [[:foo:]]
+#
+use strict;
+use Getopt::Long;
+use Encode;
+
+use sjdUtils;
+use alogging;
+
+my $version = "%DATE%";
+
+my $color         = ($ENV{USE_COLOR} && -t STDERR) ? 1:0;
+my $iencoding     = "";
+my $oencoding     = "";
+my $quiet         = 0;
+my $verbose       = 0;
+
+
+###############################################################################
+#
+my %getoptHash = (
+    "color!"                  => \$color,
+    "h|help"                  => sub { system "perldoc $0"; exit; },
+    "iencoding=s"             => \$iencoding,
+    "listEncodings"           => sub {
+        warn "\nEncodings available:\n";
+        my $last = ""; my $buf = "";
+        for my $k (Encode->encodings(":all")) {
+            my $cur = substr($k,0,2);
+            if ($cur ne $last) {
+                warn "$buf\n";
+                $last = $cur; $buf = "";
+            }
+            $buf .= "$k ";
+        }
+        warn "$buf\n";
+        exit;
+    },
+    "oencoding=s"             => \$oencoding,
+    "q!"                      => \$quiet,
+    "unicode!"                => sub { $iencoding = $oencoding = "utf8"; },
+    "v+"                      => \$verbose,
+    "version"                 => sub {
+        die "Version of $version, by Steven J. DeRose.\n";
+    },
+    );
+Getopt::Long::Configure ("ignore_case");
+GetOptions(%getoptHash) || die "Bad options.\n";
+
+sjdUtils::setColors($color);
+sjdUtils::setVerbose($verbose);
+
+
+###############################################################################
+# Set implied options, validate option values...
+#
+if ($oencoding) {
+    print "";
+    binmode(STDOUT, ":encoding($oencoding)");
+}
+
+my @cs = (
+   getColorString("off"),
+   getColorString("red"),
+   getColorString("yellow"),
+   getColorString("green"),
+   getColorString("blue"),
+   getColorString("magenta"),
+   getColorString("cyan"),
+    );
+my $bad = getColorString("/red");
+my $opener = "/";
+my $closer = "\\";
+my $spacer = "-";
+
+
+###############################################################################
+###############################################################################
+# Main
+#
+my $s = join(" ", @ARGV);
+
+print colorizeExpr($s) . "\n";
+print "\n\n";
+print bracketExpr($s) . "\n";
+
+my $ast = parseExpr($s);
+
+exit;
+
+
+###############################################################################
+###############################################################################
+#
+sub parseExpr {
+    my ($s) = @_;
+    my $tref = tokenize($s);
+    my @tokens = @$tref;
+    print "Token tree: \n";
+    my $depth = 0;
+    for (my $i=0; $i<scalar(@tokens); $i++) {
+        my $t = $tokens[$i];
+        if ($t =~ m/^[\)\}]/) { $depth--; }
+        print "    " . ("    " x $depth) . "'$t'\n";
+        if ($t =~ m/^[({]/) { $depth++; }
+    }
+}
+
+sub tokenize {
+    my ($s) = @_;
+    my @tokens = ();
+    my $t = "";
+    my $len = length($s);
+    if ($s =~ s/^\^//) {
+        push @tokens, "^";
+    }
+    while ($len > 0) {
+        my $c = substr($s, 0, 1);
+        my $type = "";
+        alogging::vMsg(1, "AT '$c':     $s");
+
+        if ($c eq "\\") {
+            $type = "SLASH";
+            if ($s =~ s/^(\\x..)//) {             # \xFF
+                $t = $1;
+            }
+            elsif ($s =~ s/^(\\.)//) {             #  \n, \+,...
+                $t = $1;
+            }
+            else {
+                alogging::eMsg(0, "Bad \\ (at end of expression) in: $s");
+                return(\@tokens);
+            }
+        }
+        elsif ($s =~ s/^[+?*]//) {                # Kleene oper
+            $type = "KLEENE";
+            $t = $1;
+        }
+        elsif ($c eq "(") {
+            $type = "LPAREN";
+            if ($s =~ s/^(\(\?:)// ||             # (?:
+                $s =~ s/^(\(\?<\w+>)// ||         # (?<xx>
+                $s =~ s/^(\()//) {                # (
+                $t = $1;
+            }
+            else {
+                alogging::eMsg(0, "Bad ( at $s");
+                return(\@tokens);
+            }
+        }
+        elsif ($c eq ")") {
+            $type = "RPAREN";
+            if ($s =~ s/^(\)\{[^\}]*\})// ||      # ){1,2}
+                $s =~ s/^(\))//) {                # )
+                $t = $1;
+            }
+            else {
+                alogging::eMsg(0, "Bad ) at $s");
+                return(\@tokens);
+            }
+        }
+        elsif ($c eq "[") {
+            $type = "LBRACK";
+            if ($s =~ s/^(\[([^\]]|\\\])*\])//) { # [...] (imperfect: [\\])
+                $t = $1;
+            }
+            else {
+                alogging::eMsg(0, "Bad [] group at $s");
+                return(\@tokens);
+            }
+        }
+        #elsif ($c eq "]") {
+        elsif ($c eq "{") {
+            $type = "LBRACE";
+            if ($s =~ s/^(\{)//) {                #  {
+                $t = $1;
+            }
+            else {
+                alogging::eMsg(0, "Bad { at $s");
+                return(\@tokens);
+            }
+        }
+        elsif ($c eq "}") {
+            $type = "RBRACE";
+            if ($s =~ s/^(\})//) {                #  }
+                $t = $1;
+            }
+            else {
+                alogging::eMsg(0, "Bad } at $s");
+                return(\@tokens);
+            }
+        }
+        else {                                    # Plain
+            $type = "PLAIN";
+            if ($s =~ s/^(.[^\\\(\[\{\}\]\)\$]*)//) {
+                $t = $1;
+            }
+            else {
+                alogging::eMsg(0, "Bad expr at $s");
+                return(\@tokens);
+            }
+        }
+
+        if (!defined $t || $t eq "" || $type eq "") {
+            alogging::eMsg(0, "No token at: $s");
+            return(\@tokens);
+        }
+        alogging::vMsg(1, sprintf("  %-8s %-12s %s\n", $type, $t, $s));
+        push @tokens, $t;
+        (length($s) < $len) || die
+            "Nothing tokenized at '$s'";
+        $len = length($s);
+    }
+    vMsg(1, "Tokens: ('" . join("', '", @tokens) . "')");
+    return(\@tokens);
+} # tokenize
+
+
+sub colorizeExpr {
+    my ($s) = @_;
+    my $buf = "";
+    my $depth = 0;
+    for my $c (split(//, $s)) {
+        if (index("([{", $c) >= 0) {
+            $depth++;
+            $buf .= (($depth<0) ? $bad:$cs[$depth]) . $c;
+        }
+        elsif (index(")]}", $c) >= 0) {
+            $depth--;
+            $buf .= $c . (($depth<0) ? $bad:$cs[$depth]);
+        }
+        else {
+            $buf .= $c;
+        }
+    }
+    while ($depth>0) {
+        $buf .= $cs[0] . $bad . "*UNCLOSED*";
+        $depth--;
+    }
+
+    $buf .= $cs[0];
+    return($buf);
+}
+
+sub bracketExpr {
+    my ($s) = @_;
+    my ($changes, $maxDepth) = findChanges($s);
+    return(construct($s, $changes, $maxDepth));
+}
+
+# Return a ref to an array containing +level for opens, -level for closes.
+#
+sub findChanges {
+    my ($s) = @_;
+    my $depth = 0;
+    my $maxDepth = 0;
+    my @srcChars = split(//, $s);
+    my @ch = ();
+    for (my $i=0; $i<scalar(@srcChars); $i++) {
+        if (index("([{", $srcChars[$i]) >= 0) {
+            $depth++;
+            if ($depth > $maxDepth) { $maxDepth = $depth; }
+            $ch[$i] = $depth;
+        }
+        elsif (index(")]}", $srcChars[$i]) >= 0) {
+            $ch[$i] = -$depth;
+            $depth--;
+        }
+        else {
+            $ch[$i] = 0;
+        }
+    }
+    return(\@ch, $maxDepth);
+}
+
+sub construct {
+    my ($s, $changes, $maxDepth) = @_;
+    my $arr = join("", @{$changes}) . "\n";
+    $arr =~ s/-(\d)/{ substr("*ABCDEFGHI", $1, 1); }/ge;
+    print "$arr\n";
+
+    my $buf = "";
+    for (my $curDepth=1; $curDepth<=$maxDepth; $curDepth++) {
+        my $atDepth = 0;
+        for (my $i=0; $i<scalar(@{$changes}); $i++) {
+            if ($changes->[$i] == $curDepth) {
+                $atDepth = 1;
+                $buf .= $opener;
+            }
+            elsif ($changes->[$i] == -$curDepth) {
+                $atDepth = 0;
+                $buf .= $closer;
+            }
+            elsif ($atDepth) {
+                $buf .= $spacer;
+            }
+            else {
+                $buf .= " ";
+            }
+        } # i
+        $buf .= "\n";
+    } # curDepth
+    $buf .= "$s\n";
+    return($buf);
+} # construct
+
+
+
+###############################################################################
+###############################################################################
+###############################################################################
+#
+
+=pod
+
+=head1 Usage
+
+prettyprintExpr 'expr'
+
+Pretty-print a bracketed expression (mainly a regex)
+with the scope of (), [], and {} illustrated.
+
+Prints it as a colorized line,
+a display with partition bracketing,
+and an indented outline.
+Other forms will likely be added.
+
+
+
+=head1 Options
+
+(prefix 'no' to negate where applicable)
+
+=over
+
+=back
+
+
+
+=head1 Known Bugs and Limitations
+
+Doesn't handle POSIX [] classes exactly right.
+
+
+
+=head1 Related commands
+
+In Perl, C<use re 'debug';> before compiling a regex, will get a lot of
+information about the regex.
+
+
+
+=head1 Ownership
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities/>.
+
+=cut

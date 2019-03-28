@@ -1,0 +1,158 @@
+#!/usr/bin/perl -w
+#
+# By Steven J. DeRose; ~~2011??
+#
+# To do:
+#
+#
+use strict;
+
+use sjdUtils;
+use alogging;
+
+my @labels = (
+    'Version', 'Last Modified', 'Kind', '64-Bit (Intel)',
+    'App Store', 'Get Info String', 'Location'
+    );
+
+my $thead = qq@
+<thead>
+<tr>
+<th>App Name</th>
+@;
+for my $k (@labels) {
+    $thead .= "<th>$k</th>\n";
+}
+$thead .= "</tr></thead>";
+
+
+##############################################################################
+##############################################################################
+# Main
+#
+if (scalar(@ARGV)<=1) {
+    die "No file specified.\n";
+}
+
+warn "Starting macSystemReportToHtml  for file '$ARGV[1]'.\n";
+my $machine = <>;
+my $date = <>;
+
+print qq@
+<html>
+<head>
+<title>Macintosh System Report for '$machine'</title>
+<style type="text/css">
+    td.Classic   { bgcolor:red; }
+    td.PowerPW   { bgcolor:red; }
+    td.Intel     { bgcolor:green; }
+    td.Universal { bgcolor:green; }
+</style>
+</head>
+
+<body>
+@;
+
+#$/ = "\r";
+#binmode(STDIN, ":utf8");
+
+my $indiv = 0;
+my $recnum = 0;
+my $nh1 = 0;
+my $curSection = "";
+my $nErrors = 0;
+
+while (my $rec = <>) {
+    $recnum++;
+    (index($rec, "\r")>=0) && die "CR.\n";
+    chomp $rec;
+
+    if ($rec =~ m/^([A-Z][-\/() \w]*):$/) {
+        if ($curSection eq "Applications") {
+            print "</tr>\n</table>\n";
+        }
+        $curSection = $1;
+        $nh1++;
+        if ($indiv) { print "</div>\n\n"; $indiv = 1; }
+        warn "Line $recnum: Section $nh1: '$curSection'\n";
+        print "\n<div>\n<h1>Section $nh1: $rec</h1>\n";
+        if ($curSection eq "Applications") {
+            print "\n<table border>\n$thead\n";
+        }
+        else {
+            print "<pre>\n";
+        }
+    }
+
+    elsif ($curSection eq "Applications") {
+        if ($rec =~ m/^      (\w[-\w ()]+): (.*)/i) {      # Field: value
+            my $label = $1;
+            moveTo($label);
+            if ($label eq "Location") {
+                print "<td class='$label'><a href='local://$2'>$2</a></td>\n";
+            }
+            elsif ($label eq "Kind") {
+                print "<td class='$2'>$2</td>\n";
+            }
+            else {
+                print "<td class='$label'>$2</td>\n";
+            }
+        }
+        elsif ($rec =~ m/^    (.*):$/) {                   # Next App
+            print "</tr>\n";
+            print "\n<tr><td class='app'>App$1</td>\n";
+            resetLabel();
+        }
+        elsif ($rec =~ m/^\s*$/) {                         # Blank line
+        }
+        elsif ($rec =~                                     # Crt line
+            m/^\s*(\xc2\xa0)*(Portions )?(\xA9|\xc2\xa9|\(c\)|All Rights|Copyright)/i) {
+            #print "<span class='copyright'>$rec</span>\n";
+        }
+        else {
+            $nErrors++;
+            warn "Error #$nErrors at $recnum: $rec\n";
+            print "<span type='error'>$rec</span>\n";
+        }
+    } # Apps
+
+    else {
+        print "$rec\n";
+    }
+}
+
+print qq@
+</table>
+</body>
+</html>
+@;
+
+warn "$recnum records, $nh1 major sections, $nErrors errors.\n";
+exit;
+
+# Supply any missing fields (like empty version).
+#
+BEGIN {
+my $nextLabelNum = 0;
+
+sub resetLabel {
+    $nextLabelNum = 0;
+}
+
+sub moveTo {
+    my ($label) = @_;
+    my $foundAtNum = -1;
+    for (my $i=$nextLabelNum; $i<scalar(@labels); $i++) {
+        if ($labels[$i] eq $label) {
+            $foundAtNum = $i;
+            last;
+        }
+    }
+    if ($foundAtNum < 0) { warn "Bad Label"; }
+    else {
+        while ($nextLabelNum < $foundAtNum) {
+            print "<td class='" . $labels[$nextLabelNum++] . "'>&#160;</td>\n";
+        }
+    }
+}
+} # END

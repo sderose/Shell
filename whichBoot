@@ -1,0 +1,92 @@
+#!/usr/bin/env python
+#
+# whichBoot: Is it UEFI or BIOS?
+#
+# 2014-08-09: Written by Steven J. DeRose.
+#
+# To do:
+#
+from __future__ import print_function
+import sys
+import os
+import re
+import argparse
+import string
+import subprocess
+
+from sjdUtils import sjdUtils
+from alogging import ALogger
+
+__version__ = "2014-08-09"
+
+
+###############################################################################
+# Process options
+#
+parser = argparse.ArgumentParser(
+    description="""
+=pod
+
+=head1 Usage
+
+whichBoot: Report whether the machine was booted via UEFI or BIOS.
+
+See: L<http://askubuntu.com/questions/162564>.
+
+=head1 Ownership
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
+
+The author's present email is sderose at acm.org.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities/>.
+
+=cut
+""",
+    epilog="(see also 'perldoc "+sys.argv[0]+"')"
+)
+parser.add_argument(
+    "-q",                action='store_true',  dest='quiet',
+    help='Suppress most messages.')
+parser.add_argument(
+    "-verbose",          action='count',       default=0,
+    help='Add more messages (repeatable).')
+parser.add_argument(
+    '-version',          action='version',     version='Version of '+__version__,
+    help='Display version information, then exit.')
+
+global args, su
+#lg = ALogger()
+args = parser.parse_args()
+su = sjdUtils()
+su.setVerbose(args.verbose)
+
+###############################################################################
+###############################################################################
+# Main
+#
+print("\n******* Checking for UEFI vs. BIOS.")
+
+uefiFinds = 0
+
+x = subprocess.check_output([ "dmesg" ]).split("\n")
+gr = []
+for i in range(0, len(x)):
+    if (x[i].find('EFI v')>=0): gr.append(x[i])
+if (len(gr)>0):
+    print("dmesg | grep 'EFI v' gets %d lines, says UEFI." % (len(gr)))
+    print("\n".join(gr))
+    uefiFinds += 1
+
+
+if (os.path.isdir('/sys/firmware/efi')):
+    print("/sys/firmware/efi exists, so UEFI.\n")
+    uefiFinds += 1
+
+if (not uefiFinds):
+    print("dmesg and /sys/firmware/efi checks failed, which means BIOS.")
+
+
+sys.exit(0)

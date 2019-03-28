@@ -1,0 +1,285 @@
+#!/usr/bin/env python
+#
+# checkSync: compare files that ought to be the same, and report.
+#
+# 2015-03-23: Written. Copyright by Steven J. DeRose.
+# Creative Commons Attribution-Share-alike 3.0 unported license.
+# See http://creativecommons.org/licenses/by-sa/3.0/.
+#
+# To do:
+#     Way to check one dir as subset of another, or just common files
+#
+from __future__ import print_function
+import sys, os, argparse
+#import re
+#import string
+#import math
+#import subprocess
+import codecs
+import collections
+
+#import pudb
+#pudb.set_trace()
+
+from sjdUtils import sjdUtils
+from alogging import ALogger
+from MarkupHelpFormatter import MarkupHelpFormatter
+
+global args, su, stats
+#lg = ALogger()
+__version__ = "2015-03-23"
+
+# First col status of index, second status of work tree
+gitStats = {  # With -s option
+    'M':  'Modified, not committed',
+    '?':  'item is not under version control',
+    'A':  'Added',
+    'D':  'Deleted',
+    'R':  'Renamed',
+    'C':  'Copied',
+    'U':  'Updated but unmerged',
+    '!':  'Ignored',
+}
+
+svnStats = {
+    ' ':  'no modifications',
+    'A':  'Added',
+    'C':  'Conflicted',
+    'D':  'Deleted',
+    'I':  'Ignored',
+    'M':  'Modified',
+    'R':  'Replaced',
+    'X':  'an unversioned directory created by an externals definition',
+    '?':  'item is not under version control',
+    '!':  'item is missing (removed by non-svn command) or incomplete',
+    '~':  'versioned item obstructed by some item of a different kind',
+}
+
+###############################################################################
+#
+def processOptions():
+    "Parse command-line options and arguments."
+    global args, su, stats
+    x = sys.argv[0]
+    parser = argparse.ArgumentParser(
+        description="""
+
+=head1 Description
+
+Checks files for whether they're the same, and screams or fixes if not.
+
+=head2 The --filelist option
+
+Use this option to specify a file, which in turn contains a list of files to
+compare. The format:
+
+=over
+
+=item * Empty lines, or lines beginning with '#', are ignored.
+
+=item * Lines starting with a name followed by '=' define variables
+    MYSVN="/Users/Wayne/Projects/C/"
+
+Such variables can be redefined.
+
+=item * Other lines should list 2 or more files or directories, separated by
+colons (or another character as specified by I<--fieldSep>). Whitespace is
+allowed around the field separator, and will be discarded.
+
+=back
+
+When you specify directories rather than lines for checking, they following files
+will be excluded from comparison:
+
+=over
+
+=item * Apparent backup files (~, #, .bak, etc.)
+
+=item * Hidden files or directories
+
+=back
+
+
+=head1 Related Commands
+
+C<diff>
+
+=head1 Known bugs and Limitations
+
+=head1 Licensing
+
+Copyright 2015 by Steven J. DeRose. This script is licensed under a
+Creative Commons Attribution-Share-alike 3.0 unported license.
+See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
+
+=head1 Options
+        """,
+        formatter_class=MarkupHelpFormatter
+    )
+    parser.add_argument(
+        "--color",  # Don't default. See below.
+        help='Colorize the output.')
+    parser.add_argument(
+        "--fieldSep",         type=str, default=":",
+        help='Paths listed in the --filelist file are separated by this (:).')
+    parser.add_argument(
+        "--filelist", "-f",   type=str,
+        help='Read the list of files to compare, from this file.')
+    parser.add_argument(
+        "--quiet", "-q",      action='store_true',
+        help='Suppress most messages.')
+    parser.add_argument(
+        "--verbose", "-v",    action='count',       default=0,
+        help='Add more messages (repeatable).')
+    parser.add_argument(
+        "--version",          action='version',     version='Version of '+__version__,
+        help='Display version information, then exit.')
+
+    parser.add_argument(
+        'files',             type=str,
+        nargs=argparse.REMAINDER,
+        help='Path(s) to input file(s)')
+
+    args = parser.parse_args()
+    su = sjdUtils()
+    su.setVerbose(args.verbose)
+    if (args.color is None):
+        args.color = ("USE_COLOR" in os.environ and sys.stderr.isatty())
+    su.setColors(args.color)
+    sys.argv = [x] + args.files
+    return(args)
+
+
+###############################################################################
+#
+def compareDirs(paths):
+    un = set()
+    lists = []
+    for i in range(len(paths)):
+        lst = os.path.listdir(paths[i])
+        lists.append(lst)
+        un = un.union(set(lst))
+
+    ulist = list(un).sort()
+    for i in (range(len(ulist))):
+        ilist = []
+        for j in range(len(paths)):
+            if (ulist[i] in lists[j]):
+                ilist.append(os.path.join(paths[j],lists[j]))
+            else:
+                ilist.append(None)
+        compareFiles(ilist)
+
+
+def compareFiles(paths):
+    lg.vMsg(0, "Checking: '%s'" % (os.path.split(paths[0])[1]))
+    sawDiff = False
+    su.MsgPush()
+    date = []
+    size = []
+
+    for i in range(len(paths)):
+        msg = ""
+        p = paths[i]
+        if (not os.path.isfile(p)):
+            msg = "Missing"
+            sawDiff = True
+        else:
+            date.append(os.path.getmtime(p))
+            size.append(os.path.getsize(p))
+            if (i==0):
+                msg = "(basis)"
+            elif (size[i] != size[0]):
+                msg = "Size %8d." % (size[i])
+                sawDiff = True
+            else:
+                rc = subprocess.check_output([ 'diff', '-q', paths[0], p ])
+                sawDiff = True
+                msg = "diff '%s'" % (rc)
+        su.pline("%d: %s" % (i, os.path.split(p)[0]), msg)
+        try:
+            rc = subprocess.check_output([ 'git', 'status', '-s', p ])
+            if ("Not a git repository" not in rc):
+                if (rc != ""):
+                    su.pline(p, "git: '%s'." % (rc[0]))
+                    sawDiff = True
+        except subprocess.CalledProcessError:
+            lg.vMsg(0, "git fail")
+
+        try:
+            rc = subprocess.check_output([ 'svn', 'status', p ], stderr=None)
+            if ("is not a working copy" not in rc):
+                if (not rc.startswith(" ")):
+                    su.pline(p, "svn: '%s'." % (rc[0:2]))
+                    sawDiff = True
+        except subprocess.CalledProcessError:
+            lg.vMsg(0, "svn fail")
+    su.MsgPop()
+    return(sawDiff)
+
+
+###############################################################################
+#
+global varDict
+varDict = {}
+def lookup(m):
+    varName = m.group(1)
+    if (varName in varDict): return(varDict[varName])
+    return('$'+varName)
+
+def varSub(s):
+    s = re.sub(r'\$(\w+)', lookup, s)
+    return(s)
+
+
+###############################################################################
+###############################################################################
+# Main
+#
+args = processOptions()
+varDict = {}
+pathSplitExpr = re.compile(r'\s*'+args.fieldSep+r'\s*')
+su.setOption("plineWidth", 65)
+
+if (args.filelist):
+    try:
+        fh = codecs.open(args.filelist, mode='r', encoding='utf-8')
+    except IOError:
+        lg.fatal("Unable to open '%s'" % (args.filelist))
+        sys.exit()
+    recnum = 0
+    while (True):
+        rec = fh.readline()
+        if (rec == ""): break
+        recnum += 1
+        rec = rec.strip()
+        if (rec.startswith('#')): continue
+        if (rec==""): continue
+        if (re.match(r'\s*\w+\s*=', rec)):
+            mat = re.match(r'\s*(\w+)\s*=\s*(.*)$', rec)
+            if (mat):
+                v = mat.group(2).strip('"\'')
+                lg.vMsg(1, "Assigning %s = '%s'" % (mat.group(1), v))
+                varDict[mat.group(1)] = varSub(v)
+            else:
+                lg.error("%s:%d: Bad variable assignment: %s" %
+                    (args.filelist, recnum, rec))
+        else:
+            paths = re.split(pathSplitExpr, rec)
+            if (len(paths) < 2):
+                lg.error("%s:%d: Fewer than 2 paths: %s" %
+                    (args.filelist, recnum, rec))
+                continue
+            for i in range(len(paths)):
+                paths[i] = varSub(paths[i])
+            if (os.path.isdir(paths[0])): compareDirs(paths)
+            else: compareFiles(paths)
+
+elif (len(args.files) > 1):
+    lg.error("Must use --file for now....")
+    pass
+else:
+    lg.error("No fileS or --file specified....")
+    sys.exit()
+
+if (not args.quiet): lg.vMsg(0, "Done.")

@@ -1,0 +1,144 @@
+#!/usr/bin/perl -w
+#
+# checkpath
+#
+# 2007-??: Written by Steven J. DeRose.
+# 2007-11-08 sjd: strict, Getopt, fix -d test.
+# 2010-09-17 sjd: Cleanup. -list.
+# 2012-09-05 sjd: Cleanup.
+# 2013-10-08: Also check for trailing slash and dups.
+#
+# To do:
+#     Quote all printed paths, or escape spaces.
+#
+use strict;
+use Getopt::Long;
+
+our $VERSION_DATE = "2013-10-08";
+
+my @required = (
+    "/bin", "/sbin",
+    "/usr/bin", "/usr/sbin",
+    "/usr/local/bin", "/usr/local/sbin"
+);
+
+my $list    = 0;
+my $quiet   = 0;
+my $verbose = 0;
+
+
+###############################################################################
+# Process options
+#
+my %getoptHash = (
+	"h|help|?"          => sub { system "perldoc $0"; exit; },
+    "list!"             => \$list,
+	"q|quiet!"          => \$quiet,
+	"v|verbose+"        => \$verbose,
+    "version"           => sub {
+		die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
+	},
+	);
+
+Getopt::Long::Configure ("ignore_case");
+GetOptions(%getoptHash) || die("Bad options.\n");
+
+
+###############################################################################
+###############################################################################
+# Main
+#
+print "Checking your PATH for missing directories or executables...\n";
+
+my @places = split(":",$ENV{PATH});
+my %seen = ();
+
+foreach my $x (@places) {
+    ($list || $verbose) && print "Checking dir $x\n";
+    if ($x =~ m|/$|) {
+        print "$x ends with a slash, makes brew &c unhappy.\n";
+    }
+    if (defined $seen{$x}) {
+        print "Duplicate entry for $x.\n";
+        next;
+	}
+    $seen{$x}++;
+    if (!-d $x) {
+        print "$x is not a directory.\n";
+        next;
+	}
+    my $execs = `ls -F $x 2>/dev/null | grep '*'`;
+    if ($execs eq "") {
+        print "$x contains no executables.\n";
+    }
+}
+
+for my $x (@required) {
+    if (!defined $seen{$x}) {
+        print "PATH does not contain expected dir '$x'\n";
+    }
+}
+print "checkpath: done.\n";
+
+exit;
+
+
+
+###############################################################################
+###############################################################################
+###############################################################################
+#
+
+=pod
+
+=head1 Usage
+
+checkpath [options] [file]
+
+Checks \$PATH for problems such as missing directories, directories listed
+more than once, or directories with no executable files. It also checks that
+PATH contains several directories that it normally should, and that names
+do not end in "/".
+
+These are not necessarily errors, but you should probably know I<why> any of
+them is the case.
+
+
+
+=head1 Options
+
+=over
+
+=item * B<--list>
+
+Show each directory as it is checked.
+
+=item * B<--quiet> OR B<-q>
+Suppress most messages.
+
+=item * B<--verbose> OR B<-v>
+Add more detailed messages.
+
+=item * B<--version>
+
+Display version info and exit.
+
+=back
+
+
+
+=head1 Related commands
+
+C<env> -- prints out environment variables (such as \$PATH) legibly.
+
+
+
+=head1 Ownership
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities/>.
+
+=cut

@@ -1,0 +1,123 @@
+#!/usr/bin/env python
+#
+# pressure
+#
+# 2015-10-28: Written. Copyright by Steven J. DeRose.
+# Creative Commons Attribution-Share-alike 3.0 unported license.
+# See http://creativecommons.org/licenses/by-sa/3.0/.
+#
+# To do:
+#
+from __future__ import print_function
+import sys, os, argparse
+
+#from sjdUtils import sjdUtils
+from MarkupHelpFormatter import MarkupHelpFormatter
+
+global args, su, lg
+
+__version__ = "2015-10-28"
+__metadata__ = {
+    'creator'      : "Steven J. DeRose",
+    'cre_date'     : "2015-10-28",
+    'language'     : "Python 2.7.6",
+    'version_date' : "2015-10-28",
+    'src_date'     : "$LastChangedDate$",
+    'src_version'  : "$Revision$",
+}
+
+units = {  # http://www.sensorsone.com/kpa-kilopascal-pressure-unit/
+    "kPa":		     1.000,      # 1.0 kPa is equal to:
+    "hPa":          10.000,
+    "Pa":		  1000.000,
+    "atmTech":	     0.0101972,
+    "atmStd":        0.00986923,
+    "bar":		     0.010,
+    "mbar":		    10.000,
+    "inHg":		     0.2952998,
+    "inw":		     4.01474213,
+    "ftw":           0.334553,
+    "g/cc":         10.1972,
+    "mmHg":		     7.50061505,
+    "mmw":		   101.97442889,
+    "psi":		     0.14503774,
+    "psf":          20.8854,
+    "torr":          7.50061505,
+    "mtorr":      7500.61505,
+    }
+unitNames = sorted(units.keys())
+
+
+###############################################################################
+#
+def processOptions():
+    global args, su, lg
+    parser = argparse.ArgumentParser(
+        description="""
+
+pressure
+
+=head1 Description
+
+Given a pressure as a number and a unit name, display the equivalent pressure
+in lots of other units.
+
+=head1 Related Commands
+
+C<units>
+
+=head1 Known bugs and Limitations
+
+Should probably just learn all the other units; maybe just harvest C<units>'s
+F</usr/share/misc/units.lib> list.
+
+=head1 Licensing
+
+Copyright 2015 by Steven J. DeRose. This script is licensed under a
+Creative Commons Attribution-Share-alike 3.0 unported license.
+See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
+
+=head1 Options
+        """,
+        formatter_class=MarkupHelpFormatter
+    )
+    parser.add_argument(
+        "--quiet", "-q",      action='store_true',
+        help='Suppress most messages.')
+    parser.add_argument(
+        "--verbose", "-v",    action='count',       default=0,
+        help='Add more messages (repeatable).')
+    parser.add_argument(
+        "--version",          action='version', version=__version__,
+        help='Display version information, then exit.')
+
+    parser.add_argument(
+        'p',                  type=float,
+        help='pressure')
+    parser.add_argument(
+        'unit',               type=str,
+        choices = unitNames,
+        help='pressure unit')
+
+
+    args0 = parser.parse_args()
+    #su = sjdUtils()
+    #lg = su.lg
+    #su.setVerbose(args0.verbose)
+    return(args0)
+
+
+###############################################################################
+###############################################################################
+# Main
+#
+args = processOptions()
+
+print("You have: %16.6f %s" % (args.p, args.unit))
+kPa = args.p / units[args.unit]
+
+for u in unitNames:
+    print("        = %16.6f %s" % (kPa*units[u], u))
+
+
+sys.exit()

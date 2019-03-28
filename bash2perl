@@ -1,0 +1,315 @@
+#!/usr/bin/perl -w
+#
+# bash2perl
+#
+# 2006-??: Written by Steven J. DeRose.
+# 2007-07-25 sjd: Draft a little more.
+# 2007-10-31 sjd: strict, Getopt, cleanup.
+# 2010-09-12, 2012-09-05 sjd: Clean up.
+#
+# To do:
+#     case; #PROB cases.
+#    $ENV:
+#    ${}
+#    line-final \
+#    -e, etc.
+#
+use strict;
+use Getopt::Long;
+
+our $VERSION_DATE = "2012-09-05";
+
+my $quiet   = 0;
+my $verbose = 0;
+
+
+###############################################################################
+#
+my %getoptHash = (
+    "h|help|?"          => sub { system "perldoc $0"; exit; },
+    "q|quiet!"          => \$quiet,
+    "v|verbose+"        => \$verbose,
+    "version"           => sub {
+        die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
+    },
+    );
+
+Getopt::Long::Configure ("ignore_case");
+GetOptions(%getoptHash) || die("Bad options.\n");
+
+
+###############################################################################
+#
+my $file = shift;
+(-f $file) || die "bash2perl: Couldn't find file '$file'.\n";
+
+# Useful regexes and other constants
+my $bashVar = "\\$\w+";
+my $PROB = "\t #PROBLEM";
+
+# List some common environment variables, so we can distinguish them from
+# any other shell variables (or should we just convert anything?). Or,
+# We could extract variables and test if they're defined (but there might well
+# be references to undefined shell variables, too). Doesn't seem to be
+# a good solution.
+#
+my $envVars =
+    " BASH        BASH_VERSION                CDPATH          CLASSPATH" .
+    " COLUMNS     DISPLAY EDITOR              HISTCONTROL" .
+    " CPU         CVSROOT     CVSROOT_DIR     CVS_CONVERTER   DISPLAY" .
+    " EDITOR      HISTCONTROL HISTFILE        HISTFILESIZE    HISTSIZE" .
+    " HOME        HOST        HOSTNAME        HOSTTYPE        LANG" .
+    " LD_LIBRARY_PATH         LD_RUN_PATH     LESS            LESSCLOSE" .
+    " LESSKEY     LESSOPEN    LESS_ADVANCED_PREPROCESSOR      LINES" .
+    " LPDEST      MACHTYPE    MAIL            MANPATH         OSTYPE" .
+    " PAGER       PATH        PERL5LIB        POSTSCRIPT      PRINTER     PWD" .
+    " SHELL       SHLVL" .
+    " SSH_AUTH_SOCK           SSH_CLIENT      SSH_CONNECTION  SSH_TTY" .
+    " TERM        USER        VISUAL          WINDOWMANAGER" .
+    " XAUTHLOCALHOSTNAME      XCURSOR_THEME   XKEYSYMDB   ";
+
+
+
+###############################################################################
+###############################################################################
+# Main
+#
+my $rec = <>;
+(substr($rec,0,2) eq "#!") || die "First line doesn't start right.\n";
+
+print "#!/usr/bin/perl\n";
+print "#\n";
+print "# ((converted from Bash to Perl by bash2perl $VERSION_DATE, " .
+    "by Steven J. DeRose.\n";
+print "#\n";
+
+my $probCount = 0;
+my %subList = ();
+
+my $lineCount = 0;
+my $unknownCount = 0;
+while ($rec = <>) {
+    $lineCount++;
+    chomp $rec;
+    while ($rec =~ m/\\$/) { # continued-line
+        $rec .= <>;
+        $lineCount++;
+        chomp $rec;
+    }
+
+    $rec =~ s/\s*;\s*$//;
+    (my $indent = $rec) =~ s/[^\s].*$//;
+    my @tokens = split(/\s+/, $rec);
+    my $key = $tokens[0];
+    my $key1 = substr($key,0,1);
+
+    if (substr($key1,0,1) eq "#") {                   # comment
+        if (substr($key1,1,1) eq "!") {
+            $rec = "#!/usr/bin/perl";
+            $rec .= "\n# (converted from Bash by bash2perl, $VERSION_DATE, " .
+                "by Steven J. DeRose.\n";
+        }
+        print "$rec\n";
+        next;
+    }
+
+    # Remove any final comment
+    my $commentPart = "";
+    if ($rec =~ m/[^\\]\#/) {
+        ($commentPart = $rec) =~ s/^.*[^\\]\#/\#/;
+        $rec =~ s/([^\\])\#.*$/\1/;
+    }
+
+    if ($rec =~ m/()\s+\{/) {                        # subroutine
+        $rec = $indent . "sub " . $rec;
+    }
+
+    elsif ($rec =~ m/^\s*\w+=/) {                       # assignment
+        $rec = "\$" . $rec;
+        $rec =~ s/=/ = /;
+    }
+
+    # Now match on the first token to see if it's a keyword
+
+    elsif ($key1 eq "`") {                            # `
+    }
+    elsif ($key1 eq "\{") {                           # for sub/function
+    }
+    elsif ($key1 eq "\}") {                           #
+    }
+    elsif ($key =~ m/[a-zA-Z_]+=/) {                  # assignment
+        $rec =~ s/([a-zA-Z_]+)=(.*);?$/$\1 = \2\;/;
+    }
+
+    elsif ($key eq "if") {                            # flow...
+        $rec = fixCondition($rec);
+    }
+    elsif ($key eq "elif") {
+        $rec = fixCondition($rec);
+        $rec =~ s/elif/else if/;
+    }
+    elsif ($key eq "fi") {
+        $rec =~ s/fi/\}/;
+    }
+    elsif ($key eq "for") {
+        $rec =~ s/\s+in\s+(.*);\s*do/(\1) {/;
+    }
+    elsif ($key eq "case") {
+        $rec .= $PROB;
+    }
+    elsif ($key eq "esac") {
+        $rec =~ s/esac/\}/;
+    }
+    elsif ($key eq "while") {
+        $rec .= $PROB;
+    }
+    elsif ($key eq "until") {
+        $rec .= $PROB;
+    }
+    elsif ($key eq "done") {
+        $rec =~ s/done/\}/;
+    }
+    elsif ($key eq "exit") {
+        $rec .= ";";
+    }
+    elsif ($key eq "return") {
+        $rec .= ";";
+    }
+
+    elsif ($key eq "echo") {                          # echo
+        $rec =~ s/echo/print/;
+        $rec =~ s/\"\s*$/\\n\"/;
+        $rec .= ";";
+    }
+    elsif ($key eq "let") {                           # assignments
+        $rec =~ s/let\s+/\$/;
+        $rec =~ s/=/ = /;
+    }
+    elsif ($key eq "set") {
+        $rec .= $PROB;
+    }
+    elsif ($key eq "unset") {
+        $rec .= $PROB;
+    }
+    elsif ($key eq "export") {
+        $rec .= $PROB;
+    }
+    elsif ($key eq "cd") {                           # miscellaneous
+        $rec =~ s/^\s+cd\s+/$indent chdir /;
+        $rec .= ";";
+    }
+    elsif ($key eq "shift") {
+        $rec .= ";";
+    }
+    elsif ($key eq "system") {
+        $rec .= ";";
+    }
+    elsif ($key eq "function") {
+        $rec =~ s/function/sub/;
+        $subList{$tokens[1]} = 1;
+    }
+    elsif ($key eq "sub") {
+        $subList{$tokens[1]} = 1;
+    }
+    elsif ($key eq "local") {
+        $rec =~ s/local/my/;
+        # need to add commas
+    }
+
+    elsif ($key eq "alias") {                         # problem commands
+        $rec .= $PROB;
+    }
+
+    elsif ($subList{$key}) {                          # ???
+        # Ok
+    }
+    else {
+        ($verbose) && warn "Unknown keyword '$key' in line $lineCount.\n";
+        $unknownCount++;
+        chomp $rec;
+        $rec =~ s/^\s*(.*)\$/ "system \"$rec\"\n/;
+    }
+
+    # General cleanup
+    $rec =~ s/\$([0-9]+)/$ARGV[{$1-1}]/g;               # parameter names
+
+    my $lastchar = substr($rec,length($rec)-1);           # eh
+    if (index("{};",$lastchar) < 0) {
+        $rec .= ";";
+    }
+
+    print "$rec";
+    if ($commentPart) { print "\t $commentPart"; }
+    print "\n";
+} # while not EOF
+
+warn "Done, $lineCount lines, $unknownCount unidentified (system?)\n";
+
+exit;
+
+
+
+###############################################################################
+###############################################################################
+
+# Bash conditions have complicated syntax... Handle some of it here.
+sub fixCondition {
+    my $bashCond = "\\[ ([^]]*) \\]";
+    if ($rec =~ m/$bashCond/o) {
+        $rec =~ s/$bashCond\s*/(\1)/g;
+    }
+    else {
+        $rec =~ s/([a-z]*)\s+(.*);\s*then/\1 (`\2`) \{/;
+    }
+    # Now enclose the whole condition and fix the "then"
+    $rec =~ s/;\s*then/) \{/;
+    $rec =~ s/^(\s*[elsif]*)\s+/\1 (/;
+
+    # Change operators as needed
+    # eq etc.
+}
+
+
+
+###############################################################################
+###############################################################################
+###############################################################################
+#
+
+=pod
+
+=head1 Usage
+
+bash2perl [options] [file]
+
+Do a rudimentary conversion of a Bash script to Perl.
+This just covers the tedious, simply changes. so it should save a lot
+of pointless typing, but the hard parts are left to you.
+Look for '#PROB' marking things it knows it didn't convert right.
+
+
+
+=head1 Options
+
+=over
+
+=item * B<--quiet> OR B<-q>
+Suppress most messages.
+
+=item * B<--version>
+
+Display version info and exit.
+
+=back
+
+
+
+=head1 Ownership
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities/>.
+
+=cut

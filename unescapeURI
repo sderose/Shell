@@ -1,0 +1,245 @@
+#!/usr/bin/perl -w
+#
+# unescapeURI
+#
+# 2014-04-22: Written by Steven J. DeRose, sderose@acm.org.
+# 2014-08-29: Add --esc to allow other than '%'.
+# 2014-08-31f: Fix --escape to use right context. Multi-file. i/o encodings.
+# 2015-09-15: Adding MIME support, fix use of sjdUtils::unescapeURI().
+#
+# To do:
+#     MIME stuff like:
+#     Subject: =?utf-8?Q?Fwd:_Invite_friends._Earn_credit._=28It=E2=80=99s_really?=
+#
+use strict;
+use Getopt::Long;
+use Encode;
+
+use sjdUtils;
+use alogging;
+
+my $version = "2015-09-15";
+
+my $esc           = '%';
+my $files         = 0;
+my $iencoding     = "";
+my $mime          = 0;
+my $oencoding     = "utf8";
+my $plusToSpace   = 1;
+my $quiet         = 0;
+my $verbose       = 0;
+
+###############################################################################
+#
+my %getoptHash = (
+    "escape=s"                => \$esc,
+    "f|files!"                => \$files,
+    "h|help"                  => sub { system "perldoc $0"; exit; },
+    "iencoding=s"             => \$iencoding,
+    "mime!"                   => \$mime,
+    "oencoding=s"             => \$oencoding,
+    "plusToSpace!"            => \$plusToSpace,
+    "quiet!"                  => \$quiet,
+    "v|verbose+"              => \$verbose,
+    "version"                 => sub {
+        die "Version of $version, by Steven J. DeRose.\n";
+    },
+    );
+Getopt::Long::Configure ("ignore_case");
+GetOptions(%getoptHash) || die "Bad options.\n";
+
+sjdUtils::setVerbose($verbose);
+
+if (length($esc) != 1) {
+    eMsg(-1, "-esc must specify exactly one character.");
+}
+
+print("");
+binmode(STDOUT, ":encoding($oencoding)");
+
+my %MIMEcharsets = (  # Ignore case
+    # MIME name       # Perl Encode name
+    "cp1252"       => "cp1252",
+    "windows-1252" => "cp1252",
+    "us-ascii"     => "ascii",
+    "utf-8"        => "utf8",
+    "iso-8859-1"   => "iso-8859-1",
+    "iso-8859-2"   => "iso-8859-2",
+    "iso-8859-3"   => "iso-8859-3",
+    "iso-8859-4"   => "iso-8859-4",
+    "iso-8859-5"   => "iso-8859-5",
+    "iso-8859-6"   => "iso-8859-6",
+    "iso-8859-7"   => "iso-8859-7",
+    "iso-8859-8"   => "iso-8859-8",
+    "iso-8859-9"   => "iso-8859-9",
+    "shiftjis"     => "shiftjis",
+);
+
+###############################################################################
+#
+sub convertString {
+    my ($s) = @_;
+    vMsg(1, "Converting literal '$s'.");
+    if ($mime) {
+        my @parts = split(/(=\?[-\w]+\?)/, $s);
+        alogging::vMsg(1, "Parts:\n    " . join("\n    ", @parts));
+        my $charset = 'ascii';
+        my $buf = "";
+        for my $p (@parts) {
+            if ($p =~ m/^=\?([-\w]+\?)/) {
+                my $c = lc(substr($p, 2, length($p)-3));
+                alogging::vMsg(1, "Charset change: $c");
+                if (!defined $MIMEcharsets{$c}) {
+                    alogging::vMsg(1, "Unknown MIME charset '$c' in:\n    $s");
+                }
+                else {
+                    $charset = $MIMEcharsets{$c};
+                }
+            }
+            else {
+                $p =~ s/=([a-f0-9][a-f0-9])/{ chr(hex("0x$1")); }/gei;
+                $p = decode($charset, $p, 1);
+                $buf .= $p;
+            }
+        }
+        $s = $buf;
+    }
+    else {
+        $s = sjdUtils::unescapeURI($s, $plusToSpace, $esc);
+    }
+    return($s);
+}
+
+
+###############################################################################
+###############################################################################
+# Main
+#
+if ($files || scalar(@ARGV) == 0) {
+    if (scalar(@ARGV) == 0) {
+        push @ARGV, "-";
+    }
+    while (my $file = shift) {
+        vMsg(1, "Starting file '$file'.");
+        open(F, "<$file");
+        if ($iencoding) {
+            binmode(F, ":encoding($iencoding)");
+        }
+        while (my $u = <F>) {
+            print convertString("$u");
+        }
+        close(F);
+    }
+}
+else {
+    if (-f $ARGV[0] && !$quiet) {
+        vMsg(0, "Did you forget -f?");
+    }
+    my $u = join(" ", @ARGV);
+    print convertString("$u");
+}
+
+exit;
+
+
+###############################################################################
+###############################################################################
+#
+
+=pod
+
+=head1 Usage
+
+unescapeURI [options] [string|file]
+
+Expand %xx special-character codes as if [string]
+(or the content of [uri]) were a URI.
+This works even if the codes represent bytes of UTF-8.
+
+The output is written as UTF-8, unless you set I<--oencoding>.
+
+
+=head1 Options
+
+(prefix 'no' to negate where applicable)
+
+=over
+
+=item * B<--escape> I<char>
+
+Treat I<char> as the character which indicates the next 2 characters should
+be taken as the hexadecimal value of a character or byte. Default: '%'.
+Although '%' is the character specified by HTML for this purpose, 
+some other systems use other characters (such as '=') analogously.
+
+B<Note>: This changes I<char> followed by two hex digits,
+to the standard URI '%' plus the digits, then does a normal URI escape.
+It will still change any pre-existing %-escapes, too. This could be a bug or
+a feature, depending on what you want.
+
+=item * B<--files>
+
+If this flag is set, the remainder of the command line will be treated as paths
+for files to be unescaped. Otherwise, it will be taken as a literal string.
+If the post-option part of the command line is empty, 
+then STDIN will be unescaped.
+
+=item * B<--iencoding> I<e>
+
+Assume the input is in encoding I<e>. Output is always utf-8.
+
+=item * B<--mime>
+
+Instead of decoding URI escapes, decode MIME header ones such as:
+
+    Subject: =?utf-8?Q?Fwd:_Invite_friends._Earn_credit._=28It=E2=80=99s_really?=
+
+These are defined by RFC 2231 and several related RFCs. This script has a list
+of some common character set names encounted in MIME, and uses Perl's
+I<Encode::decode> library to convert them. However, there are certainly
+character sets it doesn't know.
+
+=item * B<--oencoding> I<e>
+
+Write output in encoding I<e>. Default: utf-8.
+
+=item * B<--plusToSpace>
+
+If set, replace "+" with space (this is done before the usual %xx expansion).
+Default: on (use I<--noplusToSpace> to turn off).
+
+=item * B<--quiet> OR B<-q>
+
+Suppress most messages.
+
+=item * B<--verbose> or B<-v>
+
+Add more messages (repeatable).
+
+=item * B<--version>
+
+Show version info and exit.
+
+=back
+
+
+=head1 Known Bugs and Limitations
+
+With I<--mime>, perhaps delete string-final '=' and certain internal '?'.
+Also often [QB]?...?= after a charset change -- not sure what that is.
+
+
+=head1 Related commands
+
+My C<renameFiles> script has an option that does the same thing.
+
+
+=head1 Ownership
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities/>.
+
+=cut

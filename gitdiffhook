@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# gitdiffhook
+# git passes these to an external diff prog:
+#     path  old-file  old-hex old-mode  new-file  new-hex new-mode
+if [ "$5" == "" ]; then
+    echo "gitdiffhook: Not enough arguments (sd be called by 'git diff')"
+    exit
+fi
+echo "gitdiffhook: Running extern diff for git, between:"
+echo "    $2"
+echo "    $5"
+
+if [ "$COLUMNS" == "" ]; then
+    COLUMNS=160
+fi
+
+OPTS="--ignore-space-change --ignore-blank-lines --strip-trailing-cr"
+# --ignore-matching-lines '^ *#'"
+# --minimal
+
+command diff -b -B -y --width $COLUMNS $2 $5 | more
+
+#meld $2 $ &
+

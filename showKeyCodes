@@ -1,0 +1,167 @@
+#!/usr/bin/perl -w
+#
+# showKeyCodes: show what the user typed, from Perl's POV.
+#
+# Written by Steven J. DeRose, 2012-04-30.
+# 2016-09-23: Print controls as pictures instead of selves.
+#
+# To do:
+#
+use strict;
+use Getopt::Long;
+use Term::ReadKey;
+#use sjdUtils;
+
+Term::ReadKey::ReadMode 1;
+
+our $VERSION_DATE = "2016-09-23";
+
+# General options
+#
+my %args = (
+    "quiet"           => 0,
+    "verbose"         => 0,
+    );
+
+binmode(STDOUT, ":encoding(utf8)");
+
+###############################################################################
+# Process options
+#
+Getopt::Long::Configure ("ignore_case");
+my $result = GetOptions(
+    "h|help"           => sub { system "perldoc $0"; exit; },
+    "q|quiet!"         => sub { $args{quiet}         = $_[1]; },
+    "v|verbose+"       => sub { $args{verbose}       = $_[1]; },
+    "version"          => sub {
+        dieCleanly("Version of $VERSION_DATE, by Steven J. DeRose.\n");
+    },
+    );
+
+($result) || dieCleanly("Bad options.\n");
+
+
+###############################################################################
+# Validate and default options
+#
+my %options = ();
+if ($args{interact}) {
+    %options = %args;
+}
+
+
+###############################################################################
+#
+Term::ReadKey::ReadMode 3;
+
+my $prompt = "\n>";
+print $prompt;
+
+my $lasttime = time();
+my $printed = 1;
+my $c = "";
+
+while (1) {
+    while (not defined ($c = Term::ReadKey::ReadKey(-1))) {
+        if ($lasttime != time()) {
+            if (!$printed) {
+                print $prompt;
+                $printed = 1;
+            }
+            $lasttime = time();
+        }
+    }
+    $printed = 0;
+    my $o = ord($c);
+    my $cDisplay = ($o<32) ? chr(0x2400+$o) : $c;
+    print sprintf("\n   Got '%s' (d%d, x%x)", $cDisplay, $o, $o);
+    if ($c eq 'q') { last; }
+}
+
+Term::ReadKey::ReadMode 1;
+($args{"quiet"}) || print("\nDone.");
+
+exit;
+
+
+###############################################################################
+###############################################################################
+# Be sure to reset terminal before exiting.
+#
+sub dieCleanly {
+    my ($msg) = @_;
+    Term::ReadKey::ReadMode 1;
+    die $msg;
+}
+
+
+
+###############################################################################
+###############################################################################
+###############################################################################
+#
+
+=pod
+
+=head1 Usage
+
+showKeyCodes: Echo the codes for whatever keys the user hits.
+
+Some keys produce multi-byte sequences. All the bytes will be
+listed together; then there will be a slight pause before you are
+prompted for the next key. If you hit another key before the prompt,
+it will show up with the preceding group (because it was easy that way).
+
+If C0 control characters occur, they will be display as Unicode
+"Control Pictures" (U+2400 and following), which are tiny renditions
+of the control-character mnemonics, such as ESC.
+
+If the script is terminated abnormally, it may not be able to
+reset the terminal to its normal mode. In that case, use the *nix C<reset>
+command.
+
+
+
+=head1 Options (use '-no...' to negate when applicable)
+
+=over
+
+=item * B<--quiet> OR B<-q>
+Suppress most messages, and line-by-line reporting.
+
+=item * B<--verbose> OR B<-v>
+Add more detailed messages (repeatable).
+
+=item * B<--version>
+
+Show version information and exit.
+
+=back
+
+
+
+=head1 Related commands
+
+C<showkey -a> does essentially the same thing, I just didn't find it
+before writing this.
+
+C<tput>, C<showInvisibles>, C<terminfo2xml>.
+
+
+
+=head1 Known bugs and limitations
+
+Some keys get intercepted (for example by Gnome) before this script
+ever sees them.
+
+
+
+=head1 Ownership
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities/>.
+
+=cut

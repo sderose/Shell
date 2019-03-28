@@ -1,0 +1,442 @@
+#!/usr/bin/perl -w
+#
+# shellvars: show info about Bash shell variables
+#
+# 2006-: Written by Steven J. DeRose.
+# 2010-09-12 sjd: Cleanup, perldoc, Getopt.
+# 2013-01-07 sjd: Cleanup.
+#
+use strict;
+use Getopt::Long;
+
+our $VERSION_DATE = "2012-09-12";
+
+my $quiet            = "";
+my $verbose          = 0;
+
+
+# Make a table of all the shell variable names and descriptions.
+#
+my %shellvars = ();
+setShellVars();
+
+
+###############################################################################
+#
+Getopt::Long::Configure ("ignore_case");
+my $result = GetOptions(
+    "d"         => sub {
+        for my $v (sort keys %shellvars) {
+            print rpad($v,16) . $shellvars{$v} . "\n";
+        }
+        exit;
+    },
+    "h|help"                  => sub {
+        system "perldoc $0";
+        exit;
+    },
+    "l"         => sub {
+        print join(" ", sort keys %shellvars) . "\n";
+        exit;
+    },
+    "q!"                      => \$quiet,
+    "v+"                      => \$verbose,
+    "version"                 => sub {
+        die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
+    },
+    );
+
+($result) || die "Bad options.\n";
+
+
+###############################################################################
+###############################################################################
+# Main
+#
+my $br = "\n" . (" " x 16);
+my $empties = "";
+
+for my $v (sort keys %shellvars) {
+    if (!defined($ENV{$v})) {
+       $empties .= "$v ";
+    }
+    elsif ($ENV{$v} eq "") {
+       $empties .= "$v ";
+    }
+    else {
+        if (index($v,"PATH") > -1) {
+            my $val = $ENV{$v};
+            $val =~ s/:/$br/g;
+            print rpad("$v:",16) . "$val\n";
+        }
+        else {
+            print rpad("$v:",16) . "$ENV{$v}\n";
+        }
+    }
+}
+
+if ($empties) {
+    print "\nShell variables with nil values:\n$empties.\n";
+}
+
+exit;
+
+
+###############################################################################
+###############################################################################
+#
+sub rpad {
+   my $s = $_[0];
+   my $rec = $_[1];
+   my $needed = $rec - length($s);
+   if ($needed > 0) {
+      $s .= " " x $needed;
+   }
+   return($s);
+}
+
+
+###############################################################################
+# Make a hash of all known built-in shell variables, with descriptions.
+#
+sub setShellVars {
+   my $star = "* This variable is available only in shell functions "
+	   . " (and external commands as applicable) invoked by the programmable"
+	   . " completion facilities (see Programmable Completion below).";
+
+   my $twiddle = "~ If this variable is unset, it loses its special properties,"
+	   . " even if it is subsequently reset.";
+
+ $shellvars{"BASH"} =
+     "The full file name of bash.";
+
+ $shellvars{"BASH_VERSINFO"} =
+     "R/O[]: major, minor, patch, build, status, MACHTYPE.";
+
+ $shellvars{"BASH_VERSION"} =
+     "The version of  this instance of bash.";
+
+ $shellvars{"COMP_CWORD"} =
+     "Index into \${COMP_WORDS} for current cursor  position.*";
+
+ $shellvars{"COMP_LINE"} =
+      "The current command line.*";
+
+ $shellvars{"COMP_POINT"} =
+      "Current cursor position relative to the beginning of the current"
+	   . " command. If at end, equal to \${#COMP_LINE}.*";
+
+ $shellvars{"COMP_WORDS"} =
+      "[]: the individual words in the current command line.*";
+
+ $shellvars{"DIRSTACK"} =
+      "[]: Directories saved by pushd.";
+
+ $shellvars{"EUID"} =
+      "R/O: Effective user ID of the current user";
+
+ $shellvars{"FUNCNAME"} =
+      "R/O: Currently-executing shell function.*~";
+
+ $shellvars{"GROUPS"} =
+      "R/O[]: The list of groups of which the current user is a member.~";
+
+ $shellvars{"HISTCMD"} =
+      "The history number (index).~";
+
+ $shellvars{"HOSTNAME"} =
+      "The current host.";
+
+ $shellvars{"HOSTTYPE"} =
+      "The type of machine on which bash is executing.";
+
+ $shellvars{"LINENO"} =
+      "The line number (starting with 1) within a script or function.~";
+
+ $shellvars{"MACHTYPE"} =
+      "The system type on which bash is executing: cpu-company-system.";
+
+ $shellvars{"OLDPWD"} =
+      "The previous working directory as set by the cd command.";
+
+ $shellvars{"OPTARG"} =
+      "The last option argument processed by getopts.";
+
+ $shellvars{"OPTIND"} =
+      "The index of the next argument to be processed by getopts.";
+
+ $shellvars{"OSTYPE"} =
+      "Describes the operating system on which bash is executing.";
+
+ $shellvars{"PIPESTATUS"} =
+      "[]: exit status values from the most-recently-executed foreground"
+	   . " pipeline (or single command).";
+
+ $shellvars{"PPID"} =
+      "R/O: The process ID of the shell's parent.";
+
+ $shellvars{"PWD"} =
+      "The current working directory as set by the cd com- mand.";
+
+ $shellvars{"RANDOM"} =
+      "A random integer between 0 and 32767 is generated."
+	   . " Initialize by assigning to RANDOM.~";
+
+ $shellvars{"REPLY"} =
+      "The line of input read by 'read' when no arguments are supplied.";
+
+ $shellvars{"SECONDS"} =
+      "The number of seconds since shell invocation."
+	   . " Assign to SECONDS to set the value at that time.~";
+
+ $shellvars{"SHELLOPTS"} =
+      "R/O: A colon-separated list of enabled shell options (see 'set').";
+
+ $shellvars{"SHLVL"} =
+      "Incremented by one each time an instance of bash is started.";
+
+ $shellvars{"UID"} =
+      "R/O: User ID of the current user.";
+
+# The following variables are used by the shell. In some cases,
+# bash assigns a default value to a variable; these cases are noted below.
+
+ $shellvars{"BASH_ENV"} =
+      "A filename containing commands to initialize the shell."
+	   . " Subjected to parameter expansion, command substitution, and"
+	   . " arithmetic expansion. PATH is not used to search for"
+	   . " the resultant file name.";
+
+ $shellvars{"CDPATH"} =
+      "The search path for the cd command. This is a colon-separated list"
+	   . " of directories in which the shell looks for destination directories"
+	   . " specified by the cd command. A sample value is ``.:~:/usr''.";
+
+ $shellvars{"COLUMNS"} =
+      "Used by the select builtin command to determine the terminal width"
+	   . " when printing selection lists. Automatically set upon receipt"
+	   . " of a SIGWINCH.";
+
+ $shellvars{"COMPREPLY"} =
+      "An array variable from which bash reads the possible completions"
+	   . " generated by a shell function invoked by the programmable"
+	   . " completion facility (see Programmable Completion below).";
+
+ $shellvars{"FCEDIT"} =
+      "The default editor for the fc builtin command.";
+
+ $shellvars{"FIGNORE"} =
+      "A colon-separated list of suffixes to ignore when performing filename"
+	   . " completion (see READLINE below). A filename whose suffix matches"
+	   . " one of the entries in FIGNORE is excluded from the list of"
+	   . " matched filenames. A sample value is ``.o:~''.";
+
+ $shellvars{"GLOBIGNORE"} =
+      "A colon-separated list of patterns defining the set of"
+	   . " filenames to be ignored by pathname expansion.";
+
+ $shellvars{"HISTCONTROL"} =
+       "If set to a value of ignorespace, lines which begin with a"
+      . " space character are not entered on the his- tory list. If set to"
+      . " a value of ignoredups, lines matching the last history line are"
+      . " not entered. A value of ignoreboth combines the two options. If"
+      . " unset, or if set to any other value than those above, all lines"
+      . " read by the parser are saved on the history list, subject to the"
+      . " value of HISTIG- NORE. This variable's function is superseded by"
+      . " HISTIGNORE. The second and subsequent lines of a multi-line"
+      . " compound command are not tested, and are added to the history"
+      . " regardless of the value of HISTCONTROL.";
+
+ $shellvars{"HISTFILE"} =
+      "File in which command history is saved (default ~/.bash_history)."
+	   . " If unset, the command history is not saved on exit.";
+
+ $shellvars{"HISTFILESIZE"} =
+      "The maximum number of lines contained in the history file (default 500).";
+
+ $shellvars{"HISTIGNORE"} =
+      "A colon-separated list of patterns used to decide which command lines"
+	   . " should be saved on the history list.";
+
+ $shellvars{"HISTSIZE"} =
+      "The number of commands to remember in the command history (default 500).";
+
+ $shellvars{"HOME"} =
+      "The home directory of the current user.";
+
+ $shellvars{"HOSTFILE"} =
+      "Contains the name of a file in the same format as /etc/hosts"
+	   . " that should be read when the shell needs to complete a hostname.";
+
+ $shellvars{"IFS"} =
+      "The Internal Field Separator that is used for word splitting after"
+	   . " expansion and to split lines into words with 'read'."
+	   . " The default value is ``<space><tab><newline>''.";
+
+ $shellvars{"IGNOREEOF"} =
+      "Controls the action of an interactive shell on receipt of an"
+      . " EOF character as the sole input. If set, the value is the number"
+      . " of consecutive EOF characters which must be typed as the first"
+      . " charac- ters on an input line before bash exits. If the variable"
+      . " exists but does not have a numeric value, or has no value, the"
+      . " default value is 10. If it does not exist, EOF signifies the end"
+      . " of input to the shell.";
+
+ $shellvars{"INPUTRC"} =
+      "The filename for the readline startup file, overriding the default"
+	   . " of ~/.inputrc.";
+
+ $shellvars{"LANG"} =
+      "Used to determine the locale category for any category not specifically"
+	   . " selected with a variable starting with LC_.";
+
+ $shellvars{"LC_ALL"} =
+      "Overrides the value of LANG and any other LC_ variable"
+	   . " specifying a locale category.";
+
+ $shellvars{"LC_COLLATE"} =
+      "Determines the collation order used when sorting the results of"
+	   . " pathname expansion, and determines the behavior of range"
+	   . " expressions, equivalence classes, and collating sequences"
+	   . " within pathname expansion and pattern matching.";
+
+ $shellvars{"LC_CTYPE"} =
+      "Determines the interpretation of characters and character classes"
+	   . " in pathname expansion and pattern matching.";
+
+ $shellvars{"LC_MESSAGES"} =
+      "Locale used to translate double-quoted strings preceded by a \$.";
+
+ $shellvars{"LC_NUMERIC"} =
+      "Locale category used for number formatting.";
+
+ $shellvars{"LINES"} =
+      "Used by the select builtin command to determine the column length"
+	   . " for printing selection lists.";
+
+ $shellvars{"MAIL"} =
+      "If this parameter is set to a file name and the MAILPATH variable"
+	   . " is not set, bash informs the user of the arrival of mail"
+	   . " in the specified file.";
+
+ $shellvars{"MAILCHECK"} =
+      "How often (in seconds) bash checks for mail (default 60)";
+
+ $shellvars{"MAILPATH"} =
+      "File names to be checked for mail.";
+
+ $shellvars{"OPTERR"} =
+      "If =1, bash displays error messages generated by 'getopts'."
+	   . " OPTERR is initialized to 1 each time the shell is invoked"
+	   . " or a shell script is executed.";
+
+ $shellvars{"PATH"} =
+      "The search path for commands.";
+
+ $shellvars{"POSIXLY_CORRECT"} =
+      "Set Posix mode.";
+
+ $shellvars{"PROMPT_COMMAND"} =
+      "Executed prior to issuing each primary prompt.";
+
+ $shellvars{"PS1"} =
+      "The primary prompt string.";
+
+ $shellvars{"PS2"} =
+      "The secondary prompt string. The default is ``> ''.";
+
+ $shellvars{"PS3"} =
+      "The prompt for the select command.";
+
+ $shellvars{"PS4"} =
+      "Printed before each command bash displays during an execution trace.";
+
+ $shellvars{"TIMEFORMAT"} =
+      "A format string specifying how the timing information for pipelines"
+	   . " prefixed with the time reserved word should be displayed.";
+
+ $shellvars{"TMOUT"} =
+      "If >0, the number of seconds to wait for input after issuing"
+	   . " the primary prompt, before Bash terminates.";
+
+ $shellvars{"auto_resume"} =
+      "Controls how the shell interacts with the user and job control."
+	   . " If set, single word simple commands without redirections"
+	   . " are treated as candidates for resumption of an existing stopped job.";
+
+ $shellvars{"histchars"} =
+      "Controls history expansion and tokenization. Char 1: signals"
+      . " the start of a history expansion (normally `!'). Char 2:"
+      . " shorthand for re-running the previous command entered,"
+      . " substituting one string for another in the command (default"
+      . " `^'). Char 3: indicates that the remainder of the line is a"
+      . " comment when found as the first character of a word (normally"
+      . " `#').";
+
+} # sub setShellVars
+
+
+
+###############################################################################
+###############################################################################
+###############################################################################
+#
+
+=pod
+
+=head1 Usage
+
+shellvars [options]
+
+Show the values of all shell variables (that is, variables owned/defined by
+Bash, not user environment variables).
+
+Shell variables whose names include "PATH" will get newlines and
+indentation at each ":" for readability.
+
+Shell variables whose value is "" (or unset) will be listed separately at
+the end.
+
+
+
+=head1 Options
+
+=over
+
+=item * B<-l>
+
+Just list all the known shell variable names
+
+=item * B<-d>
+
+List the variables with descriptions.
+
+=item * B<--quiet> OR B<-q>
+Suppress most messages
+
+=item * B<--version>
+
+Display version info and exit.
+
+=back
+
+
+
+=head1 Related commands
+
+'man bash'/'info bash' -- provides the list of variables and descriptions.
+
+'echo \$var' -- print the value of a shell variable directly.
+
+
+
+=head1 Ownership
+
+This work by Steven J. DeRose is licensed under a Creative Commons 
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities/>.
+
+=cut
+

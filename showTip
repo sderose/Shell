@@ -1,0 +1,175 @@
+#!/usr/bin/perl -w
+#
+# showTip: Show a random idea on how to use something in my bin/.
+#
+# 2007-09-20: Written by Steven J. DeRose.
+# 2007-11-20 sjd: Getopt. Add -width, -wrap.
+# 2007-12-18 sjd: Add fold and -h to case with ARGV.
+# 2008-01-02 sjd: Support whitespace escapes in tips.
+# 2010-09-12 sjd: Cleanup.
+#
+# To do:
+#     Limit frequency of tips
+#     Avoid repeating tips
+#
+use strict;
+use Getopt::Long;
+
+our $VERSION_DATE = "2012-09-12";
+
+my $quiet   = 0;
+my $swrap   = 0;
+my $tipfile = "/home/$ENV{USER}/bin/SJD/tips.txt";
+my $verbose = 0;
+my $width   = 80;
+my $wrap    = 0;
+
+###############################################################################
+# Process options
+#
+Getopt::Long::Configure ("ignore_case");
+my $result = GetOptions(
+	"file=s"            => \$tipfile,
+	"help|?"            => sub { system "perldoc $0"; exit; },
+	"quiet!"            => \$quiet,
+	"swrap!"            => \$swrap,
+	"v|verbose+"        => \$verbose,
+    "version"           => sub {
+		die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
+	},
+	"width=i"           => \$width,
+	"wrap!"             => \$wrap
+	);
+
+($result) || die "showTip: Bad options.\n";
+
+(-f "$tipfile") || die "Can't find tip file '$tipfile'.\n";
+
+
+###############################################################################
+###############################################################################
+# Main
+#
+# If they gave an argument, grep the tipfile for it.
+#
+if ($ARGV[0]) {
+	print "\n";
+	my $cmd = "grep -h '" . join(" ",@ARGV) . "' $tipfile"
+		. " | ds | sed 's/\\\\n/\\f/g' | tr '\\014' '\\012'";
+	if ($wrap != 0) { $cmd .= " | fold -s $width"; }
+	system "$cmd";
+	exit;
+}
+
+# Otherwise, just grab a random record.
+my $tip = `randomrecords -q -n 1 $tipfile`;
+$tip =~ s/^\s+//;
+$tip =~ s/\\n/\n/g;
+$tip =~ s/\\r/\r/g;
+$tip =~ s/\\t/\t/g;
+($quiet) || print "TIP:\n";
+
+if    ($wrap != 0)  { print wrap($tip,$width); }
+elsif ($swrap != 0) { swrap($tip,$width); }
+else                { print "$tip"; }
+
+exit;
+
+
+###############################################################################
+###############################################################################
+#
+sub swrap {
+	(my $msg, my $width) = @_;
+	$msg =~ s/([.,?!;")]) /$1\n/g;
+	my @lines = split(/\n/,$msg);
+	my $rc = "";
+	for my $line (@lines) {
+		if (length($rc) + length($line) > 72) {
+			print "$rc\n";
+			$rc = "";
+		}
+		$rc .= "$line ";
+	}
+	print "$rc\n";
+}
+
+sub wrap {
+	(my $msg, my $width) = @_;
+	my $rc = "";
+	while (length($msg) > $width) {
+		my $ind = rindex(substr($msg,0,$width), ' ');
+		if ($ind < 0) { $ind = $width; }
+		$rc .= substr($msg,0,$ind) . "\n";
+		$msg = substr($msg,$ind+1);
+	}
+	if ($msg ne "") { $rc .= $msg; }
+	return($rc);
+}
+
+
+
+###############################################################################
+###############################################################################
+###############################################################################
+#
+
+=pod
+
+=head1 Usage
+
+showTip [options] [arguments]
+
+Show a random tip from the list in $dft_tipfile.
+If you specify arguments, they will be grepped for in the tipfile
+and all matching tips will be shown.
+
+
+
+=head1 Options
+
+=over
+
+=item * B<--file f>
+
+Use I<f> as the file of tips, instead of I<tips.txt>.
+
+=item * B<--quiet> OR B<-q>
+Don't print 'TIP:' before the actual tip.
+
+=item * B<--swrap>
+
+Tries to wrap at sentence/phrase bounds.
+
+=item * B<--version>
+
+Show version info and exit.
+
+=item * B<--width> I<n>
+
+Line length to break to with I<--wrap.>
+
+=item * B<--wrap>
+
+Break into shorter lines.
+
+=back
+
+
+
+=head1 Notes
+
+The tip file has one tip per line. Leading spaces are discarded, and
+any \n, \r, and \t are changed to actual LF, CR, and TAB.
+
+
+
+=head1 Ownership
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities/>.
+
+=cut

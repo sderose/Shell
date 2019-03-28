@@ -1,0 +1,168 @@
+#!/usr/bin/perl -w
+#
+# stdinToEditor: Pipe stdin straight to an editor.
+#
+# 2007-12-17: Written by Steven J. DeRose.
+# 2008-01-16 sjd: Clean up temp file.
+# 2008-09-23 sjd: Option to choose/keep temp file.
+# 2010-08-10 sjd: perldoc, -k, close ofh. Background the editor.
+# 2010-09-12 sjd: Cleanup.
+# 2012-05-14 sjd: Cleanup.
+# 2015-08-25 sjd: Add --title.
+# 2016-02-24: Add --line and --target.
+#
+# To do:
+#
+use strict;
+use Getopt::Long;
+
+our $VERSION_DATE = "2016-02-24";
+
+my $keep    = 0;
+my $line    = 0;
+my $outfile = "";
+my $quiet   = 0;
+my $target  = "";
+my $title   = "";
+my $verbose = 0;
+
+# Process options
+#
+Getopt::Long::Configure ("ignore_case");
+my $result = GetOptions(
+    "h|help|?"          => sub { system "perldoc $0"; exit; },
+    "keep!"             => \$keep,
+	"line|goto-line=n"  => \$line,
+    "outfile=s"         => \$outfile,
+    "q|quiet!"          => \$quiet,
+    "target=s"          => \$target,
+    "t|title=s"         => \$title,
+    "v|verbose+"        => \$verbose,
+    "version"           => sub {
+        print "Version of $VERSION_DATE by Steven J. DeRose\n";
+        exit;
+    }
+    );
+
+($result) || die "Bad options.\n";
+
+
+###############################################################################
+#
+my $tfile = $outfile;
+if ($tfile eq "") {
+    $tfile = "/tmp/stdinToEditor_" . int(rand(100000));
+    ($verbose) && warn "Temp file is at '$tfile'.\n";
+}
+open my $ofh, ">$tfile" || die "Unable to open temp file at '$tfile'.\n";
+my $recnum = 0;
+while (<>) {
+	print $ofh $_;
+	$recnum++;
+}
+close $ofh;
+($verbose) && warn "$recnum records written to temp file '$tfile'.\n";
+
+my $cmd = $ENV{EDITOR};
+if ($title) {
+    $cmd .= " 0-t '$title'";
+}
+if ($line) {
+	$cmd .= " +$line";
+}
+if ($target) {
+	if ($ENV{EDITOR} == "emacs") {
+		$cmd .= " --eval \"(isearch-forward-regexp '$target')\"";
+	}
+	else {
+		warn "Don't know how to do --target for editor '$ENV{EDITOR}'.\n";
+	}
+}
+
+$cmd .= " " . $tfile . " &";
+
+($verbose) && warn "Running: " . $cmd . "\n";
+system $cmd;
+
+if (!$keep) {
+    system "sleep 3";
+    ($verbose) && warn "Deleting temp file '$tfile' (--keep to keep it).\n";
+    system "rm $tfile";
+}
+else {
+    print "stdinToEditor saved input to '$tfile'.\n";
+}
+
+exit;
+
+
+
+###############################################################################
+###############################################################################
+###############################################################################
+#
+
+=pod
+
+=head1 Usage
+
+stdinToEditor [options] [file]
+
+Copies STDIN to a temp file, and launches your $EDITOR
+on it. In other words, lets you pipe straight into your editor.
+
+B<Note>: With a few editors (such as C<bbedit>), you can just pipe into them.
+This script is mainly useful with other editors.
+
+
+=head1 Options
+
+=over
+
+=item * B<--keep>
+
+Don't delete the temp file afterwards.
+
+=item * B<--line> I<n>
+
+After opening, move to line number I<n>.
+
+=item * B<--outfile file>
+
+Use this file instead of a temp file.
+
+=item * B<--target> I<regex>
+
+After opening, move to the first line that matches I<regex> (unfinished).
+Only works for C<emacs> at the moment.
+
+=item * B<--title> I<text>
+
+Add a I<-t> I<text> option to the command line invoking the editor.
+
+=item * B<--verbose> OR B<-v>.
+
+Add more messages.
+
+=item * B<--version>
+
+Display version info and exit.
+
+=back
+
+
+=head1 Known bugs and limitations
+
+I<--target> only works for C<emacs> at the moment. Information on how to
+accomplish this with other editors would be welcome.
+
+
+=head1 Ownership
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities/>.
+
+=cut

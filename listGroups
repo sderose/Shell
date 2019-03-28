@@ -1,0 +1,106 @@
+#!/usr/bin/perl -w
+#
+# grouplist
+#
+# 2007-12-14: From function in .utilities, by Steven J. DeRose.
+# 2012-09-12: ??
+# 2015-09-17: Fix help, add -q and -v.
+#
+# To do:
+#
+use strict;
+use Getopt::Long;
+
+our $VERSION_DATE = "2015-09-17";
+
+my $quiet   = 0;
+my $verbose = 0;
+
+# Process options
+#
+Getopt::Long::Configure ("ignore_case");
+my $result = GetOptions(
+    "h|help|?"          => sub { system "perldoc $0"; exit; },
+    "q|quiet!"          => \$quiet,
+    "v|verbose+"        => \$verbose,
+    "version"           => sub {
+        die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
+    }
+    );
+($result) || die "Bad options.\n";
+
+
+###############################################################################
+###############################################################################
+# Main
+#
+my $col = $ENV{COLUMNS};
+if ($col == 0) { $col = 79; }
+
+my $cmd = "cat /etc/group | grep -v '^#'";
+
+if (scanlar(@ARGV) eq 0) {
+    $cmd .= " | sed 's/:.*\$//'";
+    if ($quiet) {
+        $cmd .= " | grep -v '^_'";
+    }
+    $cmd .= " | sort"
+        . " | wrap -width $col -rpad 20";
+}
+else {
+    $cmd .= " | grep \'^$ARGV[0]:'"
+        . " | cut -d ':' -f 4-"
+        . " | tr ',' '\012'"
+        . " | sort"
+        . " | wrap -width $col -rpad 20";
+}
+
+if ($verbose) {
+    warn "Running:\n    $cmd\n";
+}
+system $cmd;
+
+exit;
+
+
+###############################################################################
+###############################################################################
+
+=pod
+
+=head1 Usage
+
+    listGroups [options] [file]
+
+With no argument, show list of all *nix groups legibly.
+With an argument, show members of that group.
+
+Just runs a pipe.
+
+
+=head1 Options
+
+=over
+
+=item * B<--quiet> OR B<-q>
+Suppress most messages, and all groups beginning with '_'.
+
+=item * B<--verbose> OR B<-v>
+Add more detailed messages.
+
+=item * B<--version>
+
+Display version info and exit.
+
+=back
+
+
+=head1 Ownership
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see L<here|"http://creativecommons.org/licenses/by-sa/3.0/">.
+
+For the most recent version, see L<here|"http://www.derose.net/steve/utilities/">.
+
+=cut

@@ -1,0 +1,122 @@
+#!/usr/bin/perl -w
+#
+# Returns $PATH with duplicates removed.
+#
+# 2006-??: Written by Steven J. DeRose.
+# 2010-09-12, 2012-10-05, 2015-09-19 sjd: Cleanup.
+#
+# To do:
+#
+use strict;
+use Getopt::Long;
+
+our $VERSION_DATE = "2015-09-19";
+
+my $printablyVerbose = 0;
+my $quiet            = 0;
+my $verbose          = 0;
+
+
+###############################################################################
+# Process options
+#
+my %getoptHash = (
+	"h|help|?"          => sub { system "perldoc $0"; exit; },
+	"q|quiet!"          => \$quiet,
+	"v|verbose+"        => \$verbose,
+    "pv"                => \$printablyVerbose,
+    "version"           => sub {
+		die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
+	},
+	);
+
+Getopt::Long::Configure ("ignore_case");
+GetOptions(%getoptHash) || die("Bad options.\n");
+
+
+###############################################################################
+# Main
+#
+my @p = split(":",$ENV{PATH});
+my $pcount = scalar @p;
+
+my $newpath = "";
+
+my %seen = ();
+my $kept = 0;
+for (my $i=0; $i<$pcount; $i++) {
+	if (!$seen{$p[$i]}) {
+		$seen{$p[$i]}++;
+        $newpath .= "$p[$i]:";
+		$kept++;
+	}
+}
+$newpath =~ s/:$//;
+
+if ($verbose) {
+	warn "Original items: $pcount, final: $kept.\n";
+}
+if ($printablyVerbose) {
+	warn "Original: $pcount, final: $kept.\n";
+	(my $p = $newpath) =~ s/:/\n    /g;
+	warn "    $p\n";
+}
+
+print "$newpath";
+
+exit;
+
+
+
+###############################################################################
+###############################################################################
+#
+
+=pod
+
+=head1 Usage
+
+_cleanpath [options] [file]
+
+Return $PATH, but with duplicates removed.
+
+
+=head1 Options
+
+=over
+
+=item * B<-q> OR B<--quiet>
+
+Suppress most messages.
+
+=item * B<--pc>
+
+Like I<-v>, but show final PATH legibly.
+
+=item * B<-v> OR B<--verbose>.
+
+Add more detailed messages.
+
+=item * B<--version>
+
+Display version info and exit.
+
+=back
+
+
+
+=head1 Notes
+
+Must access from an alias or shell function to actually change \$PATH.
+
+
+
+=head1 Ownership
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see L<here|"http://creativecommons.org/licenses/by-sa/3.0/">.
+
+For the most recent version, see L<here|"http://www.derose.net/steve/utilities/">.
+
+=cut

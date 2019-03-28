@@ -1,0 +1,36 @@
+#!/bin/bash
+#
+# prenv: Print env information nicely.
+#
+# 2006-12: Ported from shell function in .utilities, Steven J. DeRose.
+# 2007-11-06 sjd: Smarter alignment, and move a bit further over. [variable].
+#
+# To do:
+#
+
+if [ "$1" = "-h" ]; then
+    echo "Usage: prenv [variable]"
+    echo "   Display the 'printenv' information much more readably."
+    echo "   Like printenv, if no [variable] is given it prints them all."
+    echo "   2006-12-15 sjd."
+    exit;
+fi
+
+# "Break env to multiple lines, lengthen short variable names, insert
+# tabs so the values line up, and break lines at colons (for PATH, etc.)
+
+# (insert tab as '%' then translate, so tabs don't get lost in editing)
+IND="                                  "
+
+printenv $* | \
+sed -r -e 's/^([^=]{16,23})=/\1%=/' \
+       -e 's/^([^=]{8,15})=/\1%%=/' \
+       -e 's/^([^=]{1,7})=/\1%%%=/' \
+       -e 's/=/   %= /' | \
+tr '%' '\011' | \
+sort | \
+sed "-e s/:/:$IND/g" | \
+tr ':' '\012' | \
+more
+
+exit

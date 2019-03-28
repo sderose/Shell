@@ -1,0 +1,477 @@
+#!/usr/bin/perl -w
+#
+# identifyAllExecutables
+#
+# 2007-12-06: Written by Steven J. DeRose.
+# 2007-12-17 sjd: Handle profiles/rcs better.
+# 2010-09-12 sjd: ??
+# 2012-01-09 sjd: Refactor. Add --underscore. Test for bash use.
+# 2013-02-08 sjd: Add --system, --login.
+# 2015-08-27: --. Option aliases. Improve doc. Color.
+# 2015-09-18: Add --ignoreCase. Improve output layout.
+#
+# To do:
+#     Compare against package managers (see --managers):
+#         macports     uses /opt/local
+#         anaconda     uses
+#         easy_install uses            (doesn't work if ln /usr/bin/python)
+#         homebrew     uses /usr/local
+#         fink         uses /sw
+#         apt-get      uses (Linux)
+#     Python-specific ones:
+#         pip          uses
+#         virtualenv   uses (choose)
+#     Sort by priority or alpha
+#     Show definition too (aliases)?
+#     Show or filter by shebang lines?
+#     Separate items by space or null, or alignData them like 'ls'.
+#
+use strict;
+use Getopt::Long;
+
+use sjdUtils;
+use alogging;
+
+our $VERSION_DATE = "2015-09-18";
+
+my $color             = ($ENV{USE_COLOR} && -t STDERR) ? 1:0;
+my $count             = 0;
+my $find              = "";
+my $ignoreCase        = 0;
+my $login             = 0;
+#my $managers          = 0;
+my $quiet             = 0;
+my $showAliases       = 0;
+my $showBuiltins      = 0;
+my $showExecutables   = 0;
+my $showFunctions     = 0;
+my $showPathDirs      = 0;
+my $sort              = 0;
+my $system            = 1;
+my $underscore        = 0;
+my $verbose           = 0;
+
+# Process options
+#
+my %getoptHash = (
+	"c|count!"                        => \$count,
+	"find=s"                          => \$find,
+	"h|help|?"                        => sub { system "perldoc $0"; exit; },
+	"i|ignoreCase!"                   => \$ignoreCase,
+    "login!"                          => \$login,
+#    "managers!"                       => \$managers,
+	"q|quiet!"                        => \$quiet,
+    "sa|showAliases|aliases!"         => \$showAliases,
+    "sb|showBuiltins|builtins!"       => \$showBuiltins,
+    "sx|showExecutables|executables!" => \$showExecutables,
+    "sf|showFunctions|functions!"     => \$showFunctions,
+    "sp|showPathDirs|pathDirs!"       => \$showPathDirs,
+    "sort!"                           => \$sort,
+    "system!"                         => \$system,
+    "underscore!"                     => \$underscore,
+	"v|verbose+"                      => \$verbose,
+    "version"                         => sub {
+		die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
+	},
+	);
+Getopt::Long::Configure ("ignore_case");
+GetOptions(%getoptHash) || die "Bad options.\n";
+
+# Show everything unless they asked for specifics.
+my $showAll =
+	($showAliases+$showBuiltins+$showFunctions+$showExecutables+$showPathDirs+$count
+	 == 0);
+
+($ENV{SHELL} eq "/bin/bash") || die
+    "Only works if you're using bash, not '$ENV{SHELL}'.\n";
+
+my $findExpr = "";
+if ($find) {
+    $findExpr = qr/$find/;
+}
+
+# From 'man bash':
+#    Interactive login:
+#        /etc/profile, ~/.bash_profile, ~/.bash_login, ~/.profile.
+#        (unless --noprofile, or if invoked as 'sh' or with --posix).
+#    Interactive non-login:
+#        !/.bashrc (unless --rcfile or --norc).
+#    Non-interactive:
+#        Whatever is named by $BASH_ENV
+#
+# Find the user's startup file
+#
+my @profs = ( "/home/$ENV{USER}/.bash_profile",
+			  "/home/$ENV{USER}/.bash_login",
+			  "/home/$ENV{USER}/.profile",
+			  "/home/$ENV{USER}/.bashrc");
+my $rcf = "";
+if ($login) {
+    $rcf = "--login";
+}
+else {
+    my $nfound = 0;
+    for my $p (@profs) {
+        if (-f $p) {
+            ($verbose) && warn "Profile/rc file found: '$p'.\n";
+            $rcf = "--rcfile $p";
+            $nfound++;
+        }
+    }
+    if ($nfound > 1) {
+        warn "WARNING: Found more than one of:\n    "
+            . join("\n   ",@profs) . "\n";
+        warn "    Only '$rcf' will be used.\n";
+    }
+}
+
+
+###############################################################################
+###############################################################################
+# Main
+#
+my @pathdirs  = split(/:/, $ENV{PATH});
+if (!$system) {
+    for (my $i = scalar(@pathdirs)-1; $i>=0; $i--) {
+        if ($pathdirs[$i] =~ m@^/(usr|bin|sbin)@) {
+            delete $pathdirs[$i];
+        }
+    }
+}
+
+my @aliases   = @{getAliases()};
+my @builtins  = ($system) ? @{getBuiltins()} : ();
+my @functions = @{getFunctions()};
+my @xfiles    = ();
+my %xcounts   = ();
+# Only look for files if we need to
+if ($showExecutables || $showAll || $count) {
+    @xfiles = @{getFiles()};
+}
+
+report();
+
+exit;
+
+
+###############################################################################
+###############################################################################
+# Report
+#
+sub rline {
+    my ($type, $path) = @_;
+    my $n = rindex($path, "/");
+    my $dir = "";
+    my $file = $path;
+    if ($n>=0) {
+        $dir = substr($path, 0, $n+1);
+        $file = substr($path, $n+1);
+    }
+    if ($find) {
+        if (!$ignoreCase && $file !~ /$findExpr/)  { return; }
+        if ( $ignoreCase && $file !~ /$findExpr/i) { return; }
+    }
+    printf("%-20s%-20s%s\n", $file, $type, $dir);
+}
+
+sub report {
+    if ($showAll) {
+        my %all = ();
+        for my $c (@aliases)   {  $all{$c} = "ALIAS"; }
+        for my $c (@builtins)  {  $all{$c} = "BUILTIN"; }
+        for my $c (@functions) {  $all{$c} = "FUNCTION"; }
+        for my $c (@xfiles)    {  $all{$c} = "FILE"; }
+
+        ($quiet) || print "\nCOMPLETE LIST:\n";
+        for my $cmd (sort keys %all) {
+            rline($all{$cmd}, $cmd);
+        }
+    }
+    else {
+        if ($showAliases) {
+            print "ALIASES:\n";
+            print "    " . join("\n    ", @aliases)   . "\n";
+        }
+        if ($showBuiltins) {
+            print "BUILTINS:\n";
+            print "    " . join("\n    ", @builtins)  . "\n";
+        }
+        if ($showFunctions) {
+            print "FUNCTIONS:\n";
+            print "    " . join("\n    ", @functions) . "\n";
+        }
+        if ($showPathDirs) {
+            print "PATH DIRS:\n";
+            print "    " . join("\n    ", @pathdirs)  . "\n";
+        }
+        if ($showExecutables) {
+            print "EXECUTABLES:\n";
+            for my $cmd (sort @xfiles) {
+                print "    $cmd\n";
+            }
+        }
+    }
+
+    if ($count) {
+        print "\nCOUNTS (executable files are alphabetical by directory):\n";
+        my $lastTop = "";
+        my $xtot = 0;
+        for my $c (sort keys %xcounts) {
+            (my $nextTop = $c) =~ s|(/[^/]+/).*|$1|;
+            if ($nextTop ne $lastTop) {
+                ($quiet) || print "\n";
+                $lastTop = $nextTop;
+            }
+            printf("    %5d  %s\n", $xcounts{$c}, $c);
+            $xtot += $xcounts{$c};
+        }
+        ($quiet) || print "\n";
+        printf("    Aliases:   %5d\n", scalar(@aliases));
+        printf("    Functions: %5d\n", scalar(@functions));
+        printf("    Builtins:  %5d\n", scalar(@builtins));
+        printf("    Files:     %5d\n", $xtot);
+        printf("    Total:     %5d\n",
+        $xtot + scalar(@builtins) + scalar(@functions) + scalar(@aliases));
+    }
+
+} # report
+
+
+
+###############################################################################
+###############################################################################
+# Try to find out what all the aliases are.
+# The difficulty is that we're not in the interactive shell the user has.
+# Could instead use 'alias -p'
+#
+sub getAliases {
+    my $acmd = "bash $rcf -l -c alias " .
+        "| grep '^alias'" .
+        "| sed -e 's/alias *//' -e 's/=.*\$//'";
+    my @aliases = `$acmd`;
+    for (my $i=0; $i<scalar(@aliases); $i++) {
+        chomp $aliases[$i];
+    }
+    if (!$underscore) { dropUS(\@aliases); }
+    return(\@aliases);
+}
+
+
+###############################################################################
+#
+sub getBuiltins {
+    my @raw = `bash $rcf -i -c help`; # in 2 columns
+    my @builtins = ();
+    for (my $i=0; $i<scalar(@raw); $i++) {
+        if ($raw[$i] =~ m/^[^ ]/ ||  # Skip intro text
+            $raw[$i] =~ m/^\s*$/) {
+            next;
+        }
+        chomp $raw[$i];
+        if (length($raw[$i]) > 35 && substr($raw[$i],35,1) ne " ") {
+            warn "WARNING: Data from 'help' not formatted as expected:\n";
+            warn "[" . substr($raw[$i],0,35) . "]\n" .
+                "[" . substr($raw[$i],35,1) . "]\n" .
+                "[" . substr($raw[$i],36)   . "]\n";
+        }
+        elsif ($verbose) {
+        }
+        my $b1 = substr($raw[$i],1,35);
+        if ($b1 =~ m/^\w/) { $b1 =~ s/\s.*//; }
+        push @builtins, $b1;
+        my $b2 = substr($raw[$i],36);
+        if ($b2 =~ m/^\w/) { $b2 =~ s/\s.*//; }
+        push @builtins, $b2;
+    }
+    if (!$underscore) { dropUS(\@builtins); }
+    return(\@builtins);
+}
+
+
+###############################################################################
+# The 'typeset' command is a bash builtin that sets or prints variables,
+# including shell functions (-f), arrays (-a), associative arrays (-A).
+#
+sub getFunctions {
+    my $fcmd = "bash $rcf -i -c typeset -f" .
+        " | grep '^[^ ].*()'" .
+        " | sed 's/ ()//'";
+    my @functions = `$fcmd`;
+    for (my $i=0; $i<scalar(@functions); $i++) {
+        chomp $functions[$i];
+    }
+    if (!$underscore) { dropUS(\@functions); }
+    return(\@functions);
+}
+
+
+###############################################################################
+# Collect up all the executables in directories listed in @pathDirs.
+#
+sub getFiles {
+    my @xfiles = ();
+    %xcounts = ();
+    for my $d (@pathdirs) {
+        next unless (defined $d);
+        ($verbose) && warn "Checking \$PATH dir '$d'.\n";
+        if (! -d $d) { next; }
+        if ($xcounts{$d}) {
+            ($quiet) || print "WARNING: Duplicate dir in \$PATH: '$d'.\n";
+            next;
+        }
+        for my $f (`ls $d 2>/dev/null`) {
+            chomp $f;
+            ($verbose) && warn "    File '$d/$f'.\n";
+            next unless (-x "$d/$f");
+            push @xfiles, "$d/$f";
+            $xcounts{$d}++;
+            # Check for #! line?
+        }
+    }
+    if (!$underscore) { dropUS(\@xfiles); }
+    return(\@xfiles);
+}
+
+
+###############################################################################
+#
+sub dropUS {
+    my ($aRef) = @_;
+    my @copy = ();
+    for my $name (@{$aRef}) {
+        if ($name !~ m/^_/) { push @copy, $name; }
+    }
+    @{$aRef} = @copy;
+}
+
+
+
+###############################################################################
+###############################################################################
+###############################################################################
+#
+
+=pod
+
+=head1 Usage
+
+identifyAllExecutables [options]
+
+Finds anything (hopefully) that can be typed as a command, and display
+them along with their types:
+
+    aliases
+    shell functions
+    shell builtins
+    shell keywords
+    executable files along your \$PATH
+
+By default:
+
+    all types are shown (see I<--sa --sb --f --x>)
+    names beginning with "_" are omitted (see I<--underscore>.
+
+To list all executables of a given name or matching a regex, use:
+
+    identifyAllExecutables --find
+
+This does not just find the one that actually would get invoked, but all.
+This can be useful to track down PATH issues or other conflicts.
+
+
+
+=head1 Options
+
+=over
+
+=item * B<-c> OR B<--count>
+
+Count by type (and executable files by directory).
+
+=item * B<--find> I<regex>
+
+Go through as specified by other options but only display items whose
+names match I<regex>. See also I<--ignoreCase>.
+
+=item * B<--ignoreCase> OR B<-i>
+
+With I<--find>, ignore case when testing whether commands match the regex.
+
+=item * B<--login>
+
+Invoke bash with I<--login> when using it to get lists of things (PATH,
+aliases, shell functions,...), rather than searching for profiles manually.
+
+=item * B<-q> OR B<--quiet>
+
+Suppress most messages.
+
+=item * B<--sa> OR B<--showAliases> OR B<--aliases>
+
+Show aliases.
+
+=item * B<--sb> OR B<--showBuiltins> OR B<--builtins>
+
+Show builtins and keywords.
+
+=item * B<--sf> OR B<--showFunctions> OR B<--functions>
+
+Show shell functions.
+
+=item * B<--sp> OR B<--showPathDirs> OR B<--pathDirs>
+
+Show directories of \$PATH.
+
+=item * B<--sx> OR B<--showExecutables> OR B<--executables>
+
+Show executable files.
+
+=item * B<--system>
+
+Include system commands (default; use I<--nosystem> to turn off).
+System commands are bash builtins, and
+executables under /usr, /bin, or /sbin.
+
+=item * B<--underscore>
+
+Show items whose names begin with "_" (default: off, because there
+are a lot and they're rarely interesting).
+
+=item * B<-v> OR B<--verbose>
+
+Add more detailed messages.
+
+=item * B<--version>
+
+Display version info and exit.
+
+=back
+
+
+
+=head1 Known bugs and limitations
+
+C<bash help> output (used to get the list of builtins),
+is not parsed correctly enough.
+
+This isn't certain to get the exact environment you invoked it from, since it
+has to re-start Bash to get information. If you have more than one startup
+file, or your Bash environment has changed since startup, there may be
+inaccuracies.
+
+
+=head1 Related Commands
+
+C<which -a> -- lists all executables of a given name, along $PATH.
+
+
+
+=head1 Ownership
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see L<here|"http://creativecommons.org/licenses/by-sa/3.0/">.
+
+For the most recent version, see L<here|"http://www.derose.net/steve/utilities/">.
+
+=cut

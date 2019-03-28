@@ -1,0 +1,205 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# 2013-05-06: Updated by Steven J. DeRose, from original by:
+#     Frédéric Grosshans, 19 January 2012 and
+#     Nathan R. Yergler, 6 June 2010
+# 2015-09-19: Cleanup, sjdUtils, MarkupHelpFormatter, etc.
+# 2018-11-07: Py 3.
+#
+# To do:
+#     Add other Python-supported mail formats (MH, Babyl, MMDF)
+#     Maybe add Mac Mail format? (@10.4, changed from mbox to "emix")
+#         http://en.wikipedia.org/wiki/Comparison_of_email_clients
+#             #Database.2C_folders_and_customization
+#         http://email.about.com/od/macosxmailaddons/gr/emlx_to_mbox.htm
+#         Or just "Save As" "Raw Message Source".
+#
+from __future__ import print_function
+import sys
+import os
+import re
+import argparse
+import string
+
+import mailbox
+import email
+
+__version__ = "2018-11-07"
+
+
+###############################################################################
+#
+def warn(msg):
+    sys.stderr.write(msg + "\n")
+    return()
+
+
+###############################################################################
+#
+def maildir2mailbox(maildirname, mboxfilename):
+    """
+    slightly adapted from maildir2mbox.py,
+    Nathan R. Yergler, 6 June 2010
+    http://yergler.net/blog/2010/06/06/
+        batteries-included-or-maildir-to-mbox-again/
+    """
+
+    # open the existing maildir and the target mbox file
+    maildir = mailbox.Maildir(maildirname, email.message_from_file)
+    if (not maildir):
+        warn("Can't open maildir from '%s'." % (maildirname))
+        sys.exit()
+    nMessages = maildir.__len__()
+    warn("Opened maildir '%s', messages: %d." % (maildirname, nMessages))
+
+    mboxfile = mailbox.mbox(mboxfilename, create=True)
+    if (mboxfile is None):
+        warn("Can't open mboxfile from '%s'."% (mboxfilename))
+        sys.exit()
+    warn("Opened output mbox '%s', messages: %d." %
+        (mboxfilename, mboxfile.__len__()))
+
+    if (args.test):
+        warn("Would convert '%s' to '%s'." % (maildirname, mboxfilename))
+        return(0)
+
+    # lock the mbox
+    mboxfile.lock()
+
+    # iterate over messages in the maildir and add to the mbox
+    recnum = 0
+    for msg in maildir:
+        recnum += 1
+        if (args.tickInterval and (recnum % args.tickInterval==0)):
+            warn("Processing message %d of %d." % (recnum, nMessages))
+        mboxfile.add(msg)
+
+    # close and unlock
+    mboxfile.close()
+    maildir.close()
+    return(recnum)
+
+
+###############################################################################
+# Process options
+#
+descr="""
+maildir2mbox.py: Find and convert
+all the Evolution mailboxes to Thurderbird.
+Note: Evolution's mail data is mostly in hidden directories,
+commonly under ~/.local/share/evolution/mail/local/.Sent/{cur|new|tmp}/*.
+This script should find all that are under the starting point.
+See also https://freeshell.de//~kaosmos/mboximport-en.html
+
+=head1 Background
+
+    Frédéric Grosshans, 19 January 2012
+    Nathan R. Yergler, 6 June 2010
+
+This file does not contain sufficient creative expression to invoke
+assertion of copyright. No warranty is expressed or implied; use at
+your own risk.
+
+---
+
+Uses Python's included mailbox library to convert mail archives from
+maildir [http://en.wikipedia.org/wiki/Maildir] to
+mbox [http://en.wikipedia.org/wiki/Mbox] format, including subfolders.
+
+See http://docs.python.org/library/mailbox.html#mailbox.Mailbox for
+full documentation on this library.
+
+---
+
+To run, save as md2mb.py and run:
+
+$ python md2mb.py [maildir_path] [mbox_filename]
+
+[maildir_path] should be the the path to the actual maildir (containing new,
+cur, tmp, and the subfolders, which are hidden directories with names like
+.subfolde.subsubfolder.subsubsbfolder);
+
+[mbox_filename] will be newly created, as well as a [mbox_filename].sbd the
+directory.
+    """
+
+try:
+    from MarkupHelpFormatter import MarkupHelpFormatter
+    formatter = MarkupHelpFormatter
+except ImportError:
+    formatter = None
+parser = argparse.ArgumentParser(
+    description=descr, formatter_class=formatter,
+    epilog="""
+    (By Steven J. DeRose based on code by Frédéric Grosshans and
+Nathan R. Yergler)
+    """)
+
+parser.add_argument(
+    "--maildirpath",      type=str, metavar="path", default=".",
+    help='A maildir (containing new, cur, tmp, etc. (usually hidden)')
+parser.add_argument(
+    "--mboxpath",         type=str, metavar="path",
+    default=os.environ["HOME"] + "/mailConverted",
+    help='Where to put the resulting mbox file.')
+parser.add_argument(
+    "--quiet", "-q",      action='store_true',
+    help='Suppress most messages.')
+parser.add_argument(
+    "--test",             action='store_true',
+    help='Just find the mailboxes, don\'t convert.')
+parser.add_argument(
+    "--tickInterval",     type=int, metavar='N', default=100,
+    help='Report progress every n records.')
+parser.add_argument(
+    "--verbose",          action='count',       default=0,
+    help='Add more messages (repeatable).')
+parser.add_argument(
+    "--version",          action='version', version='Version of '+__version__,
+    help='Display version information, then exit.')
+
+args = parser.parse_args()
+
+if (not os.path.isdir(args.maildirpath)):
+    warn("maildir directory not found: '%s'." % (args.maildirpath))
+    sys.exit()
+
+
+###############################################################################
+###############################################################################
+# Main
+#
+dirname = args.maildirpath
+mboxname = args.mboxpath
+if (not os.path.isdir(mboxname)):
+    warn("Cannot find mailbox at '%s'." % (mboxname))
+    sys.exit()
+
+warn(dirname +' -> ' +mboxname)
+
+mboxdirname = mboxname+'.sbd'
+if not os.path.exists(mboxdirname):
+    os.makedirs(mboxdirname)
+maildir2mailbox(dirname, mboxname)
+
+listofdirs=[dn for dn in os.walk(dirname).next()[1]
+            if dn not in ['new', 'cur', 'tmp']]
+if (args.text):
+    for curDir in listofdirs:
+        warn("Would do " + curDir)
+    sys.exit(0)
+
+for curDir in listofdirs:
+    curlist=[mboxname]+curDir.split('.')
+    curpath=os.path.join(*[dn+'.sbd' for dn in curlist if dn])
+    if not os.path.exists(curpath):
+        os.makedirs(curpath)
+    warn('| ' +curDir +' -> '+curpath[:-4])
+    maildir2mailbox(os.path.join(dirname,curDir),curpath[:-4])
+
+if (not args.quiet):
+    warn("Done.")
+
+sys.exit(0)
+

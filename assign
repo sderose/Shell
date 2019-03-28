@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# Move files to a given subdir of bin/, and leave a link behind.
+
+tgt="/home/deroses/bin/"
+
+if [ "$1" = "-h" ]; then
+	echo "Usage: assign [category] [files...]"
+	echo "    Moves each file to a subdirectory of '$tgt', selected by [category]"
+	echo "    (from shell, text, or xml), and then makes a symbolic link"
+	echo "    to it from $tgt itself."
+	exit
+fi
+
+theCat=$1
+shift
+
+# Figure out the right subdir name
+SUB="$tgt/"`echo "$theCat" | tr '[a-z]' '[A-Z]'`"UTILS"
+
+if ! [ -d $SUB ]; then
+   echo "Can't find directory '$SUB'."
+   exit
+fi
+
+for f in $*; do echo "Moving '$f' to '$SUB/$f'..."
+	if [ -f "$SUB/$f" ]; then
+		warn "    $SUB/$f already exists, file not moved.\n";
+	else
+		mv $f $SUB/
+		ln -s $SUB/$f $f
+	fi
+done
+    
+echo "Done."
+
+exit

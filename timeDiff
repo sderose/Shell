@@ -1,0 +1,230 @@
+#!/usr/bin/env python
+#
+# timeDiff
+#
+# 2017-02-02: Written. Copyright by Steven J. DeRose.
+# Creative Commons Attribution-Share-alike 3.0 unported license.
+# See http://creativecommons.org/licenses/by-sa/3.0/.
+# 2017-12-03: Add --full.
+#
+# To do:
+#
+from __future__ import print_function
+import sys, os, argparse
+import re
+#import string
+import math
+from subprocess import check_output, CalledProcessError
+import datetime
+from datetime import tzinfo
+
+#from MarkupHelpFormatter import MarkupHelpFormatter
+
+__version__ = "2017-12-03"
+__metadata__ = {
+    'creator'      : "Steven J. DeRose",
+    'cre_date'     : "2017-02-02",
+    'language'     : "Python 2.7.6",
+}
+
+###############################################################################
+#
+def processOptions():
+    parser = argparse.ArgumentParser(
+        description="""
+=head1 Description
+
+Show the difference between any two dates/times.
+The times may be in any form supported by the *nix C<date> command (q.v.).
+If only one time is provided, the second defaults to the current time.
+
+
+=head1 Related Commands
+
+My C<addup>. *nix C<date>, C<w>, C<last>. Library C<strftime>().
+
+
+=head1 Known Bugs and Limitations
+
+Omitting the second time argument doesn't work reliably.
+
+Does not break out time difference units larger than days,
+because the Python display used (datetime.delta) doesn't either.
+This would be a nice option.
+
+Could be useful packaged as a tiny module.
+
+
+=head1 Licensing
+
+Copyright 2015 by Steven J. DeRose. This script is licensed under a
+Creative Commons Attribution-Share-alike 3.0 unported license.
+See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
+
+=head1 Options
+        """
+#        , formatter_class=MarkupHelpFormatter
+    )
+    parser.add_argument(
+        "--full", "-F",       action='store_true',
+        help='Make output include the start/end times, too.')
+    parser.add_argument(
+        "--quiet", "-q",      action='store_true',
+        help='Make output terse.')
+    parser.add_argument(
+        "--round",            type=int, default=0, metavar="M",
+        help='Round to multiple of M minutes. Default: 0 (no rounding).')
+    parser.add_argument(
+        "--seconds", "-s",    action='store_true',
+        help='Just show total number of seconds.')
+    parser.add_argument(
+        "--utc",              action='store_true',
+        help='When defaulting time2, make it UTC instead of local.')
+    parser.add_argument(
+        "--verbose", "-v",    action='count', default=0,
+        help='Add more messages (repeatable).')
+    parser.add_argument(
+        "--version", action='version', version=__version__,
+        help='Display version information, then exit.')
+
+    parser.add_argument(
+        "time1",              type=str,
+        help='Starting time.')
+    parser.add_argument(
+        "time2",              type=str, nargs='?',
+        help='Ending time (optional?).')
+
+    args0 = parser.parse_args()
+    return(args0)
+
+
+###############################################################################
+###############################################################################
+# Main
+#
+# Time formats Python knows:
+#
+# ABBR  Python doc name       Description
+# =============================================================================
+#   TS: timestamp:            seconds since epoch (float)
+#   C:  ctime:                readable string (see below)
+#   DT: datetime:             object
+#   D:  date:                 object
+#   T:  time:                 object
+#   TT: timetuple:            A time.struct_time, mostly like C commonly uses:
+#     [
+#       0   tm_year      (for example, 1993)
+#       1   tm_monrange  [1, 12]  ### Unlike C!
+#       2   tm_mdayrange [1, 31]
+#       3   tm_hourrange [0, 23]
+#       4   tm_minrange  [0, 59]
+#       5   tm_secrange  [0, 61]
+#       6   tm_wdayrange [0, 6], Monday is 0
+#       7   tm_ydayrange [1, 366]
+#       8   tm_isdst     0, 1 or -1; see below
+#       N/A tm_zone      abbreviation of timezone name
+#       N/A tm_gmt       offoffset east of UTC in seconds
+#     ]
+#   I8: ISO8601:              yyyy-mm-dd
+#   PO: Proleptic ordinal     Day since 01/01/0001:
+#
+# Conversions (assuming UTC. localtime variant in /.../]):
+#   ctime       FROM datetime    C  =  
+#   ctime       FROM timetuple   C  = time.asctime(TT)
+#   ctime       FROM timestamp   C  =              /time.ctime(TT)/ 
+#   datetime    FROM ctime       DT = datetime.strptime(C)
+#   datetime    FROM timetuple   DT = new datetime(TT[0:5])
+#   datetime    FROM timestamp   DT = datetime.fromtimestamp(TS)
+#   timetuple FROM ctime         TT = 
+#   timetuple FROM datetime      TT = utctimetuple()  /timetuple()/
+#   timetuple FROM timestamp     TT = 
+#   timestamp   FROM ctime       TS = 
+#   timestamp   FROM datetime    TS = (DT-datetime(1970,1,1)).total_seconds()
+#   timestamp   FROM timetuple   TS = time.mktime(TT)
+#
+# Additional conversions:
+#   datetime    FROM date        DT = 
+#   datetime    FROM time        DT = 
+#   datetime    FROM date, time  DT = 
+#   time        FROM datetime    T  = 
+#   date        FROM datetime    D  = 
+#   date        FROM timesstamp  D  = datetime.fromtimestamp(TS)
+#   date        FROM ordinal     D  = date.fromordinal(ordinal)
+#   ordinal     FROM date        PO = D.toordinal()
+#   ctime       FROM date        C  = D.ctime()
+#   
+args = processOptions()
+
+# *nix 'date' produces a ctime string.
+# Get everything into that form, one way or another.
+#
+# ctime:                      Thu Feb  2 10:59:18 EST 2017
+# date                        Thu Feb  2 14:28:22 EST 2017    (Linux)
+# date -u                     Thu Feb  2 19:31:38 UTC 2017    (Linux and BSD)
+# date -R                     Thu, 02 Feb 2017 14:28:49 -0500 (Linux)
+# date --rfc-3339=seconds     2017-02-02 14:30:43-05:00       (Linux)
+
+# Normal ctimeFormat = "%a %b %d %H:%M:%S %Z %Y"
+ctimeFormat = "%a %b %d %H:%M:%S %Z %Y"
+
+###############################################################################
+# JUST FETCH THE TIMES ('date' returns like 'Sun Dec  3 12:59:51 EST 2017'
+try:
+    if (args.utc):
+        ctime1     = check_output([ 'date', '-u', '--date', args.time1 ])
+        if (args.time2):
+            ctime2 = check_output([ 'date', '-u', '--date', args.time2 ])
+        else:
+            ctime2 = check_output([ 'date', '-u' ])
+    else:
+        ctime1     = check_output([ 'date',       '--date', args.time1 ])
+        if (args.time2):
+            ctime2 = check_output([ 'date',       '--date', args.time2 ])
+        else:
+            ctime2 = check_output([ 'date' ])
+except CalledProcessError as e:
+    print("Unable to feth ctime via *nix 'date' command." % (args.time1))
+    sys.exit()
+
+ctime1 = ctime1.strip()
+ctime2 = ctime2.strip()
+if (args.verbose):
+    print("start %s, end %s" % (ctime1, ctime2))
+
+###############################################################################
+# CONVERT THE TIMES
+#
+try:
+    ctime1 = ctime1.strip()
+    ctime1 = re.sub(r'  ', ' 0', ctime1)
+    dt1 = datetime.datetime.strptime(ctime1, ctimeFormat)
+    ctime2 = ctime2.strip()
+    ctime2 = re.sub(r'  ', ' 0', ctime2)
+    dt2 = datetime.datetime.strptime(ctime2, ctimeFormat)
+except ValueError as e:
+    print("Unable to convert ending ctime:\n    %s" % (e))
+    sys.exit()
+
+if (args.verbose):
+    print("Normalized start: %28s -> '%s' (%s)." % (ctime1, dt1, type(dt1)))
+    print("Normalized end:   %28s -> '%s'." % (ctime2, dt2))
+
+delta = dt2-dt1;
+
+if (args.verbose): print("Delta: %s" % (delta))
+
+if (args.round):
+    s = delta.total_seconds()
+    roundSec = 60 * args.round
+    rounded = roundSec * math.floor((s + roundSec/2.0) / roundSec)
+    if (args.verbose): print("Exact: %d; rounded: %d." % (s, rounded))
+    delta = datetime.timedelta(0, rounded)
+
+msg = ""
+if (args.full): msg = "%s - %s => " % (ctime1, ctime2)
+if (args.seconds):
+    print(msg + delta.total_seconds())
+else:
+    pdelta = "%s" % (delta)
+    pdelta = re.sub(r'\b(\d:)', '0\\1', pdelta)  # Leading zero....
+    print(msg + pdelta)
