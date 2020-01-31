@@ -1,17 +1,17 @@
 #!/bin/bash
 #
 # Written 2015-09-18 by Steven J. DeRose.
-# Released under Creative Commons Attribution-Sharealike license.
+# Licensed under Creative Commons Attribution-Sharealike 3.0 unported license.
 #
 if [[ "$1" == "-h" ]]; then
     echo "$0 [dirToCheck]"
     echo "    Run all the executables in a directory, with just '-h'."
     echo "    This is a handy way to smoke out badly broken scripts."
-    echo "    By default, checks $HOME/bingit/[...] (sjd utilities)."
+    echo "    By default, checks the current dir."
     echo ""
     exit
 elif [[ "$1" == "" ]]; then
-    B="$HOME/bingit/"
+    B="$PWD"
     D="CSV NET PERLLIBS PYTHONLIBS SHELL TEXT XML"
 else
     B=""
@@ -23,23 +23,27 @@ echo "Running everything under '$B'..."
 echo
 
 
-for d in `echo $D | tr ' ' '\012'`; do
-    colorstring -c 'blue/white' -m "******* STARTING DIR ~/bingit/$d *******"
-    for x in `ls $B$d`; do
-        CMD="$B$d/$x"
-        if [[ "$CMD" == "$0" ]]; then
-            C=1
-        elif [[ "$CMD" =~ ".pyc" ]]; then
-            C=1
-        elif [[ -d "$CMD" ]]; then
-            C=1
-        elif ! [[ -x "$CMD" ]]; then
-            colorstring -c 'yellow' -m "'$CMD' IS NOT EXECUTABLE";
-        else
-            colorstring -c 'green' -m "$CMD";
-            $CMD -h 2>&1 >/dev/null | grep -v 'No documentation found'
-        fi
-    done
+if ! [ -x colorstring ]; then
+    colorstring() {
+        shift; shift
+        echo "$*"
+    }
+fi
+colorstring -c 'blue/white' -m "******* STARTING DIR ~/bingit/ *******"
+for x in `ls $B`; do
+    CMD="$B/$x"
+    if [[ "$CMD" == "$0" ]]; then
+        C=1
+    elif [[ "$CMD" =~ ".pyc" ]]; then
+        C=1
+    elif [[ -d "$CMD" ]]; then
+        C=1
+    elif ! [[ -x "$CMD" ]]; then
+        colorstring -c 'yellow' -m "'$CMD' IS NOT EXECUTABLE";
+    else
+        colorstring -c 'green' -m "$CMD";
+        $CMD -h 2>&1 >/dev/null | grep -v 'No documentation found'
+    fi
 done
 
 echo
