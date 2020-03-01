@@ -2,80 +2,76 @@
 #
 # countShells.py
 #
-# 2017-02-03: Written. Copyright by Steven J. DeRose.
-# Creative Commons Attribution-Share-alike 3.0 unported license.
-# See http://creativecommons.org/licenses/by-sa/3.0/.
-#
-# To do:
-#
 from __future__ import print_function
 import sys, os, argparse
 import pwd
 import re
-#import string
-#import math
+import math
 from subprocess import check_output
 from collections import namedtuple
 
-from sjdUtils import sjdUtils
 from MarkupHelpFormatter import MarkupHelpFormatter
 
-global args, su, lg
-
-__version__ = "2017-02-03"
 __metadata__ = {
-    'creator'      : "Steven J. DeRose",
-    'cre_date'     : "2017-02-03",
-    'language'     : "Python 2.7.6",
-    'version_date' : "2017-02-03",
+    'title'        : "ColorManager.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2017-02-03",
+    'modified'     : "2020-03-01",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
+__version__ = __metadata__['modified']
+
+descr = """
+=Description=
+
+Show how many bash shells are running for the current user.
+
+''Unfinished''
+
+The count depends on definitions:
+
+* Just bash, or any shell?
+
+* Just login shells?
+
+* Foreground and/or background?
+
+* Attached to a terminal?
+
+=Related Commands=
+
+`w`, `last`, `ps`,....
+
+=Known bugs and Limitations=
+
+BSD support is experimental.
+
+=History=
+
+* 2017-02-03: Written. Copyright by Steven J. DeRose.
+
+=Rights=
+
+Copyright 2017 by Steven J. DeRose. This work is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see [http://creativecommons.org/licenses/by-sa/3.0].
+
+For the most recent version, see [http://www.derose.net/steve/utilities] or
+[http://github.com/sderose].
+
+=Options=
+"""
 
 ###############################################################################
 #
 def processOptions():
-    global args, su, lg
     parser = argparse.ArgumentParser(
-        description="""
-
-=head1 Description
-
-Show how many bash shells are running for the current user."
-
-The count depends on definitions:
-
-=over
-
-=item * Just bash, or any shell?
-
-=item * Just login shells?
-
-=item * Foreground and/or background?
-
-=item * Attached to a terminal?
-
-=back
-
-=head1 Related Commands
-
-w, last, ps,...
-
-=head1 Known bugs and Limitations
-
-BSD support is experimental.
-
-=head1 Licensing
-
-Copyright 2015 by Steven J. DeRose. This script is licensed under a
-Creative Commons Attribution-Share-alike 3.0 unported license.
-See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
-
-=head1 Options
-        """,
-        formatter_class=MarkupHelpFormatter
+        description=descr, formatter_class=MarkupHelpFormatter
     )
-    parser.add_argument(
-        "--color",  # Don't default. See below.
-        help='Colorize the output.')
     parser.add_argument(
         "--quiet", "-q",      action='store_true',
         help='Suppress most messages.')
@@ -83,28 +79,23 @@ See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
         "--shellName",        type=str, default='bash',
         help='What shell program to check for. Default: bash.')
     parser.add_argument(
-        "--verbose", "-v",    action='count',       default=0,
+        "--verbose", "-v",    action='count', default=0,
         help='Add more messages (repeatable).')
     parser.add_argument(
-        "--version", action='version', version=__version__,
+        "--version",          action='version', version=__version__,
         help='Display version information, then exit.')
 
     parser.add_argument(
-        'files',             type=str,
+        'files',              type=str,
         nargs=argparse.REMAINDER,
         help='Path(s) to input file(s)')
 
     args0 = parser.parse_args()
-    su = sjdUtils()
-    lg = su.getLogger()
-    lg.setVerbose(args0.verbose)
-    if (args0.color == None):
-        args0.color = ("USE_COLOR" in os.environ and sys.stderr.isatty())
-    su.setColors(args0.color)
     return(args0)
 
 
 ###############################################################################
+#
 linuxStateCodes = {
     'D': 'uninterruptible sleep (usually IO)',
     'R': 'running or runnable (on run queue)',
@@ -125,12 +116,12 @@ linuxStateCodes = {
     '+': 'is in the foreground process group',
 }
 
-
 def formatSecond(s):
-    sec = s % 60
-    min = floor(s/60) % 60
-    hour = floor(s/3600)
-    return("%02s:%02s:%02s" % (sec, min, hour))
+    second = s % 60
+    minute = math.floor(s/60) % 60
+    hour = math.floor(s/3600)
+    return("%02s:%02s:%02s" % (second, minute, hour))
+
 
 ###############################################################################
 ###############################################################################
@@ -161,7 +152,7 @@ for x in info.splitlines():
     recnum += 1
     if (recnum==1):
         if (not re.match(r'^[ A-Z%]+$', x)):
-            print("Missing header?");
+            print("Missing header?")
             sys.exit()
         headerTokens = re.split(r'\s+', x)
         if (len(headerTokens) != len(fieldList)):
@@ -192,7 +183,7 @@ for x in info.splitlines():
         ignored += 1
         continue
 
-    if (args.verbose): 
+    if (args.verbose):
         print("*** Process ***\n    '%s'" % (x))
         for k, v in tup._asdict().items():
             print("    %-8s  %s" % (k,v))

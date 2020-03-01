@@ -8,35 +8,22 @@
 #
 from __future__ import print_function
 import sys
-import os
-import re
-import argparse
-import string
 
-__version__ = "2018-04-02"
+__metadata__ = {
+    'title'        : "ColorManager.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2018-04-02",
+    'modified'     : "2020-03-03",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+}
+__version__ = __metadata__['modified']
 
-
-###############################################################################
-# Process options
-#
-parser = argparse.ArgumentParser(
-    description="A utility by Steven J. DeRose.",
-    epilog="(see also 'perldoc "+sys.argv[0]+"')"
-)
-parser.add_argument(
-    "--verbose",          action='count', default=0,
-    help='Add more messages (repeatable).')
-parser.add_argument(
-    "--version",          action='version', version='Version of '+__version__,
-    help='Display version information, then exit.')
-
-args = parser.parse_args()
-
-
-###############################################################################
-
-msg = """
-==A brief summary of essential Linux commands
+descr = """
+==A brief summary of essential Linux commands=
 
 When you log in to a Unix, Linux, or Mac OS X terminal session, you're
 talking to a program called "the shell", which interprets your typed
@@ -64,7 +51,7 @@ After the options, many commands take a list of one or more files.
 
 You can usually stop a running command with control-C.
 
-===List of the most crucial commands
+===List of the most crucial commands===
 
     man          see the manual
     more         see a file ('man' typically uses 'more' as its viewer)
@@ -84,7 +71,7 @@ You can usually stop a running command with control-C.
     find         Search under a directory for files (see 'man')
     locate       Search for a file by name
 
-===Editing
+===Editing===
 
 You'll often want to edit text files for one reason or another. Many
 editors are available, such as:
@@ -103,14 +90,14 @@ or .bash_profile file, and add a line like:
     export EDITOR="nedit"
 
 
-===Getting help
+===Getting help===
 
 "man" or sometimes "info" plus the command name, will get you the
 manual information on a command (if any). In the "man" viewer, you
 can move around with many single-character commands.
 As it says at the bottom of the screen, use "q" to quit, "h" for help.
 
-===Moving around
+===Moving around===
 
 You're always in some directory (=folder). You can see which one with:
 
@@ -148,7 +135,7 @@ which are paths with regex-like characters:
     ls /var/log/a*
 
 
-===Working the Command Line
+===Working the Command Line===
 
 You can do a fair amount of editing while typing commands.
 Backspace works, but so do left and right arrow keys.
@@ -183,7 +170,7 @@ A couple other control keys are also important:
     ^z     Suspect a running program; you can resume it with "bg"
     ~      In filenames, replaced by the path to your home directory
 
-===Characters and Punctuation
+===Characters and Punctuation===
 
 Built-in Linux commands are almost all ignorant of Unicode, so don't count
 on them for non-uniformly-English data unless you check.
@@ -202,13 +189,13 @@ where the latter identifies the kind of file: txt, csv, jpeg, html,....
 It does *not* have the usual regex "match any one character" meaning
 (except, of course, within actual regexes).
 
-===Managing files
+===Managing files===
 
     rm <files>    remove (there is no trash can!)
     rm -r
     rmdir <dirs>  remove an empty directory
 
-===Customizing
+===Customizing===
 
 If you find yourself doing a certain command very often, particularly
 with a certain bunch of options, you'll want to make an abbreviation for it.
@@ -219,7 +206,7 @@ command name to something:
     alias more="less"
 
 This works pretty much as you'd expect. If you later want to use the command
-as it was (rather than the alias), use "command" in front:
+as it was (rather than the alias), use "command" in front:<
     command ls ...
 
 The other way is called "shell functions", which can do a lot more, but
@@ -237,9 +224,25 @@ You can instead put your aliases and shell function in some other file,
 and pull that in from a single line in your .bashrc or .bash_profile, like:
 
     source ~/Documents/myAliases
-
 """
 
-print(msg)
+###############################################################################
+# Process options
+#
+import argparse
+parser = argparse.ArgumentParser(
+    description="A utility by Steven J. DeRose.",
+    epilog="(see also 'perldoc "+sys.argv[0]+"')"
+)
+parser.add_argument(
+    "--verbose",          action='count', default=0,
+    help='Add more messages (repeatable).')
+parser.add_argument(
+    "--version",          action='version', version='Version of '+__version__,
+    help='Display version information, then exit.')
+
+args = parser.parse_args()
+
+print(descr)
 
 sys.exit(0)

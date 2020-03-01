@@ -1,58 +1,207 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env python
 #
-# addPath: add a path item to a given variable, delimited by colons, if
-#    not already there. Warn if it doesn't exist as a directory.
+# addToPath
 #
-# By Steven J. DeRose.
+# 2020-02-11: Ported from my earlier Perl. Copyright by Steven J. DeRose.
 #
-# To do:
-#     Option to add at start instead of end
-#     Option to absolutize the path
+from __future__ import print_function
+import sys, os
+import argparse
+import re
+#import string
+#import math
+#import subprocess
+
+__metadata__ = {
+    'title'        : "addToPath",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2020-02-11",
+    'modified'     : "2020-02-11",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+}
+__version__ = __metadata__['modified']
+
+
+descr = """
+=Description=
+
+Add the given path(s) to the end (or start) of the PATH environment variable
+(or any other string), and return the resulting string.
+
+Recursive adds are also available.
+
+Will not add a directory if it's already there, or does not exist.
+
+With ''-v'' or ''-p'', prints the full resulting path, one directory per line.
+With ''-q'' or ''-p'', does ''not'' print the resulting path as ready to
+assign to an environment variable such as $PATH.
+
+Thus, you can use ''-p'' (and give no new directories to add)
+just to see the current path, one directory per line.
+Or you can use ''-v -q'' to get the same display while also checking for errors.
+
+=Usage=
+
+    PATH=`addPath PATH [dir1, dir2, ...]`
+
+==Warning==
+
+To actually get PATH changed you need to do the assignment -- the script can't
+do it itself. The easiest way is probably with `` as shown.
+This is because a script can't change environment variables for the shell from
+which it was invoked -- that's no longer the current environment once it's running.
+
+=Known bugs and Limitations=
+
+''-v'' reports errors in the prior/original path, but does not fix them.
+
+Duplicate-entry reporting only does simplistic comparison of path strings.
+
+A recursive add that only adds directories if they contain at least one executable
+file might be a nice addition.
+
+=History=
+
+Ported from earlier Perl version by Steven J. DeRose, 2020-02-11.
+The prior version did not have ''--recursive'', ''--normalize'',
+''--absolutize'', ''--delim'', ''--prefix'', etc.
+
+=Rights=
+
+Copyright 2020-02-11 by Steven J. DeRose. This work is licensed under a
+Creative Commons Attribution-Share-alike 3.0 unported license.
+See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities/>
+or L<http://github.com/sderose>.
+
+=Options=
+"""
+
+def warn(msg):
+    if (args.verbose): sys.stderr.write(msg+"\n")
+
+def checkPath(p):
+    """Test a directory for bad conditions.
+    """
+    ok = True
+    if (not os.path.isdir(p)):
+        warn("dir does not exist: %s" % (p))
+        ok = False
+    if (p in pathIndex):
+        warn("Duplicate dir: %s" % (p))
+        ok = False
+
+    # Following can be absolutized away
+    if (re.search(r'\.\./', p)):
+        warn("dir contains '../': %s" % (p))
+        ok = False
+    if (re.search(r'\b\./', p)):
+        warn("dir contains './': %s" % (p))
+        ok = False
+    return ok
+
+
+###############################################################################
+###############################################################################
+# Main
 #
-use strict;
+def processOptions():
+    try:
+        from MarkupHelpFormatter import MarkupHelpFormatter
+        formatter = MarkupHelpFormatter
+    except ImportError:
+        formatter = None
+    parser = argparse.ArgumentParser(
+        description=descr, formatter_class=formatter)
 
-if (!$ARGV[1] || $ARGV[0] =~ m/^-+h/) {
-    system "perldoc $0";
-    exit;
-}
+    parser.add_argument(
+        "--absolutize",       action='store_true',
+        help="""Expand old and new entries to absolute paths. This is more
+            aggressive than --normalize.""")
+    parser.add_argument(
+        "--delim",            type=str, default=':',
+        help='Character to split on. Default: colon (:).')
+    parser.add_argument(
+        "--normalize",        action='store_true',
+        help="""Normalize paths to remove redundant or up-level parts (like ../).
+        On Windows, this also changes slash to backslash.""")
+    parser.add_argument(
+        "--pathString",       type=str, default=os.environ['PATH'],
+        help='Use this string instead of the value of $PATH/.')
+    parser.add_argument(
+        "--printList", "-p",  action='store_true',
+        help='Print the dirs one per line, but not the packed list.')
+    parser.add_argument(
+        "--prefix",           action='store_true',
+        help='Add new entries to the beginning instead of the end.')
+    parser.add_argument(
+        "--quiet", "-q",      action='store_true',
+        help='Do not print the final result.')
+    parser.add_argument(
+        "--recursive",        action='store_true',
+        help='Also add subdirectories or the given dir.')
+    parser.add_argument(
+        "--verbose", "-v",    action='count',       default=0,
+        help='Add more messages (repeatable).')
+    parser.add_argument(
+        "--version",          action='version', version=__version__,
+        help='Display version information, then exit.')
 
-my $var = $ARGV[0];
-my $dir = $ARGV[1];
+    parser.add_argument(
+        'dirs',               type=str,
+        nargs=argparse.REMAINDER,
+        help='Path(s) to input file(s)')
 
-if ($ARGV[1] eq "") {
-	die "Must specify env variable to extend, and path to add.\n";
-}
+    args0 = parser.parse_args()
+    return(args0)
 
-my $oldvar = $ENV{$var};
+###############################################################################
+#
+args = processOptions()
 
-if (-d $dir == 0) {
-	warn "\n'$dir' is not a directory, not added to \$$var.\n";
-	exit;
-}
+pathEntries = args.pathString.split(args.delim)
+original_count = len(pathEntries)
 
-if (":$var:" =~ /:$dir:/) {
-	exit; # already there
-}
+# Check and index current entries
+pathIndex = {}
+for p1 in pathEntries:
+    if (args.absolutize): p2 = os.path.abspath(p1)
+    if (args.normalize): p2 = os.path.normpath(p1)
+    else: p2 = p1
+    checkPath(p2)
+    pathIndex[p2] = True
 
-$var = "$oldvar:$dir";
-print "$var";
+if (args.recursive):
+    subs = []
+    dirpath, dirnames, filenames = os.walk(p2)
+    for dirname in dirnames:
+        subs.append(os.path.join(dirpath, dirname))
+    args.dirs.extend(subs)
 
-exit;
+# Add new entry(s)
+for p1 in args.dirs:
+    p2 = p1
+    if (args.absolutize): p2 = os.path.abspath(p2)
+    if (args.normalize): p2 = os.path.normpath(p2)
+    rc = checkPath(p2)
+    if (not rc): continue
+    if (args.prefix): pathEntries.insert(0, p2)
+    else: pathEntries.append(p2)
+    pathIndex[p2] = True
 
+final_count = len(pathEntries)
+result = ":".join(pathEntries)
 
-=pod
+if (args.verbose or args.printList):
+    sys.stderr.write(re.sub(r':', "\n    ", result) + "\n")
+if (args.verbose):
+    print("Original had %d entries, final had %d." %
+        (original_count, final_count))
 
-=head1 Usage
-
-    PATH=`addPath PATH [path-to-add]`
-
-Adds the given path to the end of any path variable (shown as PATH, but
-CDPATH, CLASSPATH, MANPATH, etc. can be substituted).
-Will not add if it's already there.
-
-=head1 Warning
-
-    You need to do it with `` as shown, because the script can't change the
-    actual variable directly for the shell it's called from.
-
-=cut
+if (not args.quiet and not args.printList):
+    print(result)

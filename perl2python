@@ -932,7 +932,7 @@ while(rec):
         print varsInString(rec)
 
     elif (re.match('\s*#!',rec)):                     # shebang
-        print '#!/usr/bin/python'
+        print '#!/usr/bin/env python'
         #print ('# ' + str(time.localtime()) +
         print ('# ' + str(datetime.date.fromtimestamp(time.time())) +
                ': Converted by perl2python, by Steven J. DeRose.')
