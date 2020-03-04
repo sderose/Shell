@@ -4,28 +4,28 @@
 #
 # 2014-06-19: Written by Steven J. DeRose.
 #
-# To do:
-#
 from __future__ import print_function
 import sys
 import os
 import re
 import argparse
-import string
-import subprocess
-#import codecs, locale
 
-from sjdUtils import sjdUtils
-from alogging import ALogger
+__metadata__ = {
+    'title'        : "ColorManager.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2014-06-19",
+    'modified'     : "2020-03-01",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+}
+__version__ = __metadata__['modified']
 
-__version__ = "2014-06-23"
+descr = """
+=Usage=
 
-
-###############################################################################
-# Process options
-#
-parser = argparse.ArgumentParser(
-    description="""
 Extract and execute the last N bash commands. This should be invoked via
 a shell function that saves the history somewhere, and then passes the
 path to it. Otherwise it's hard to get the truly up-to-date history.
@@ -36,9 +36,23 @@ this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
 
 For the most recent version, see L<http://www.derose.net/steve/utilities/>.
 
-=cut
+=Rights=
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see http://creativecommons.org/licenses/by-sa/3.0/.
+
+For the most recent version, see [http://www.derose.net/steve/utilities] or
+[http://github.com/sderose].
+
+=Options=
 """
-)
+
+###############################################################################
+# Process options
+#
+parser = argparse.ArgumentParser(
+    description=descr)
 parser.add_argument(
     "n",                 type=int,
     help='How many commands to re-do.')
@@ -59,7 +73,7 @@ args = parser.parse_args()
 
 ignoreList = [
     "lastCommands", "lastCommands.py"
-    ]
+]
 
 
 ###############################################################################
@@ -89,7 +103,7 @@ for c in (todo):
     os.system(c)
 
 if (args.verbose):
-    sys.stderr.write("\nlastCommand.py: %d one.\n" % (args.n));
+    sys.stderr.write("\nlastCommand.py: %d one.\n" % (args.n))
 
 sys.exit(0)
 

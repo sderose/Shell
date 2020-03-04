@@ -2,19 +2,6 @@
 #
 # pythonpath -- display and check where Python is going to look.
 #
-# 2014-06-12: Written by Steven J. DeRose.
-# 2014-07-10: Report missing __init__.py.
-# 2014-09-09: Add --extras, --where, notify() indirection.
-# 2015-08-06: Clean up options. Quieter by default. Finish --find x.
-#
-# To do:
-#    CATCH existing .pyc when there's no .py in same dir!
-#    Identify pip, port, brew, easy_install
-#    Hook up getClassDefs2()!!! FIX
-#    Check for file, or even classes, defined at more than one place on path
-#    Check for more module conventions?
-#    CF: findExternals.py.
-#
 from __future__ import print_function
 import sys
 import os
@@ -25,18 +12,66 @@ import subprocess
 import glob
 
 from sjdUtils import sjdUtils
-#from alogging import ALogger
 from MarkupHelpFormatter import MarkupHelpFormatter
 
 __metadata__ = {
-    'creator'      : "Steven J. DeRose",
-    'cre_date'     : "2014-06-12",
-    'language'     : "Python 2.7.6",
-    '__version__' : "2015-08-06",
+    'title'        : "pythonpath.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2014-06-12",
+    'modified'     : "2020-03-01",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
+__version__ = __metadata__['modified']
 
-global args, su, lg
-#lg = ALogger(1)
+descr = """
+=Usage=
+
+Display $PYTHONPATH, and check that all the mentioned directories exist.
+Also can check correspondence to sys.path, and warn for duplicate mentions
+of the same directory or class name.
+
+It is also useful to try 'find . -name '*.py'.
+
+=Notes=
+
+* 2014-06-12: Written by Steven J. DeRose.
+
+* 2014-07-10: Report missing __init__.py.
+
+* 2014-09-09: Add --extras, --where, notify() indirection.
+
+* 2015-08-06: Clean up options. Quieter by default. Finish --find x.
+
+=To do=
+
+* CATCH existing .pyc when there's no .py in same dir!
+
+* Identify pip, port, brew, easy_install
+
+* Hook up getClassDefs2()!!! FIX
+
+* Check for file, or even classes, defined at more than one place on path
+
+* Check for more module conventions?
+
+* CF: findExternals.py.
+
+=Rights=
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see http://creativecommons.org/licenses/by-sa/3.0/.
+
+For the most recent version, see [http://www.derose.net/steve/utilities] or
+[http://github.com/sderose].
+
+=Options
+""",
+
 args = None
 su = sjdUtils()
 lg = su.getLogger()
@@ -80,7 +115,7 @@ def getClassDefs(path, recursive=False):
     parse the file, and then examine what externals have been defined.
     """
     cmdTokens = [ "grep", "-H", "'^class '" ]
-    if (recursive): cmdTokens.splice[0,0,] = "-r"
+    if (recursive): cmdTokens.insert(1, "-r")
     flist = glob.glob(path+'/*.py')
     if (len(flist)<1): return("")
     cmdTokens.extend(flist)
@@ -89,7 +124,8 @@ def getClassDefs(path, recursive=False):
         buf = subprocess.check_output(cmdTokens, shell=False, stderr=None)
         if (type(buf) == type('x')):
             bufRecs = "\n".split(buf)
-    except:
+    except Exception as e:
+        sys.stderr.write("Exception: %s" % (e))
         bufRecs = []
     return(bufRecs)
 
@@ -101,6 +137,7 @@ def getClassDefs2(path):
     the value of sys.path". In fact it is checked I<before> sys.path,
     so can be used to check a specific file.
     """
+    import pyclbr
     curDir, name = os.path.split(path)
     if (not name.endswith(".py")):
         raise ValueError
@@ -149,6 +186,7 @@ def showClasses(curDir):
     """
     cds = getClassDefs(curDir)
     lg.MsgPush()
+    classesSeen = {}
     for cd in (cds):
         if (cd==''): continue
         if (args.where):
@@ -170,29 +208,12 @@ def showClasses(curDir):
     return()
 
 
-
 ###############################################################################
 # Process options
 #
 def processArgs():
     parser = argparse.ArgumentParser(
-        description="""
-=head1 Usage
-
-Display $PYTHONPATH, and check that all the mentioned directories exist.
-Also can check correspondence to sys.path, and warn for duplicate mentions
-of the same directory or class name.
-
-It is also useful to try 'find . -name '*.py'.
-
-=head1 Notes
-
-
-
-A utility by Steven J. DeRose.
-
-=Options
-""",
+        description=descr,
         formatter_class=MarkupHelpFormatter
     )
     parser.add_argument(
@@ -288,7 +309,7 @@ def searchForFile(sysdirs, tgt):
     tgt += ".*"
     print("\nRunning finds for '%s'..." % (tgt))
     whereFound = []
-    for curDir in dirs:
+    for curDir in sysdirs:
         fcmd = [ 'find', curDir, '-name', tgt, '-print', '-maxdepth', '1' ]
         lg.vMsg(2, "Running: %s" % (" ".join(fcmd)))
         try:
@@ -297,6 +318,7 @@ def searchForFile(sysdirs, tgt):
         except subprocess.CalledProcessError:
             pass  # Nothing found here
     return(whereFound)
+
 
 ###############################################################################
 ###############################################################################
@@ -312,34 +334,34 @@ if (args.where): args.classes = True
 if ("PYTHONHOME" in os.environ):
     lg.warn(0, "Warning: $PYTHONHOME is set, to " + os.environ["PYTHONHOME"])
 
-dirs, dirsSeen, classesSeen = checkPYTHONPATH()
+dirs0, dirsSeen0, classesSeen0 = checkPYTHONPATH()
 syspath = sys.path
 
 if (args.sys or args.verbose):
     lg.hMsg(0, "%d in sys.path (indented ones are also in $PYTHONPATH):" %
         (len(syspath)))
     for sysDir in (syspath):
-        if (sysDir in dirsSeen): print("    "+sysDir)
+        if (sysDir in dirsSeen0): print("    "+sysDir)
         else: print(su.colorize("red", sysDir))
 
-if (not (set(dirs) < set(syspath))):
+if (not (set(dirs0) < set(syspath))):
     prob(0, "\n$PYTHONPATH not a subset of sys.path. Extras:")
-    xtra = set(dirs)-set(syspath)
+    xtra = set(dirs0)-set(syspath)
     lg.vMsg(0, "\n    ".join(xtra))
 
 if (args.find):
-    whereFound = searchForFile(syspath, args.find)
-    for wh in whereFound:
+    whereFound0 = searchForFile(syspath, args.find)
+    for wh in whereFound0:
         print("    " + re.sub(r'\n', '\n    ', wh))
 
 if (args.pathmods):
     print("\nSearching for code referring to sys.path.")
-    for sysDir in (dirs):
+    for sysDir in (dirs0):
         x = subprocess.check_output([ 'grep', '-r "sys\\.path"', sysDir],
             stderr=None)
         if (x):
             print("\nUnder %s\n%x" % (sysDir,x))
 
-su.lg.vMsg(0, "Done.")
+lg.vMsg(0, "Done.")
 
 sys.exit(0)

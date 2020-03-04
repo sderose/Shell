@@ -112,7 +112,8 @@ any more.
 
 ============================
 
-* allDates (bash) --
+* allDates (bash) -- Try to retrieve and display all the dates associated
+with a file.
 
 * assign (bash) --
 
@@ -131,7 +132,7 @@ similar, or whatever. Then, if it's not a binary, open your EDITOR on it.
 * genKey.py --
 
 * getDocumentTitle.py -- Extract the main title string from any of several file
-types, including HTML, TXT,POD, and PDF.
+types, including HTML, TXT, POD, and PDF.
 
 * getPassPhrase.sh (sh) -- Use my 'randomRecords' to pick several random words
 from /usr/share/dict/words, for example to make a password.

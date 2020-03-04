@@ -2,58 +2,58 @@
 #
 # spinner.py: Show a spinning clock or something.
 #
-# 2018-03-24: Written. Copyright by Steven J. DeRose.
-# Creative Commons Attribution-Share-alike 3.0 unported license.
-# See http://creativecommons.org/licenses/by-sa/3.0/.
-# 2018-11-07: Py 3.
-#
-# To do:
-#
 from __future__ import print_function
-import sys, os
+import sys
 import argparse
 
-PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
-if PY2:
-    #import HTMLParser
-    string_types = basestring
-else:
-    #from html.parser import HTMLParser
-    string_types = str
+if PY3:
     def unichr(n): return chr(n)
 
 __metadata__ = {
-    'creator'      : "Steven J. DeRose",
-    'cre_date'     : "2018-03-24",
-    'language'     : "Python 2.7.6",
-    'version_date' : "2018-11-07",
+    'title'        : "spinner.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2018-03-24",
+    'modified'     : "2020-03-01",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
-__version__ = __metadata__['version_date']
+__version__ = __metadata__['modified']
 
+descr = """
+
+=Description=
+
+Display a spinning clock-face in a shell window using Unicode clock-faces.
+
+=Related Commands=
+
+=Known bugs and Limitations=
+
+=History=
+
+* 2018-03-24: Written. Copyright by Steven J. DeRose.
+
+* 2018-11-07: Py 3.
+
+=Rights=
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see http://creativecommons.org/licenses/by-sa/3.0/.
+
+For the most recent version, see [http://www.derose.net/steve/utilities] or
+[http://github.com/sderose].
+
+=Options=
+"""
 
 ###############################################################################
 #
 def processOptions():
-    descr = """
-
-=head1 Description
-
-Display a spinning clock-face in a shell window using Unicode clock-faces.
-
-=head1 Related Commands
-
-=head1 Known bugs and Limitations
-
-=head1 Licensing
-
-Copyright 2015 by Steven J. DeRose. This script is licensed under a
-Creative Commons Attribution-Share-alike 3.0 unported license.
-See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
-
-=head1 Options
-        """
-
     try:
         from MarkupHelpFormatter import MarkupHelpFormatter
         formatter = MarkupHelpFormatter

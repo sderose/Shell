@@ -2,82 +2,73 @@
 #
 # getDocumentTitle.py
 #
-# 2016-07-21: Written. Copyright by Steven J. DeRose.
-# 2018-047-18: lint.
-#
-# Creative Commons Attribution-Share-alike 3.0 unported license.
-# See http://creativecommons.org/licenses/by-sa/3.0/.
-#
-# To do:
-#
 from __future__ import print_function
 import sys, os, argparse
-#import re
-#import string
-#import math
 import subprocess
-#import codecs
 
-#import pudb
-#pudb.set_trace()
-
-#from sjdUtils import sjdUtils
 from alogging import ALogger
 from MarkupHelpFormatter import MarkupHelpFormatter
 
-#global args, su, lg
 lg = ALogger(1)
 
-__version__ = "2018-04-18"
 __metadata__ = {
-    'creator'      : "Steven J. DeRose",
-    'cre_date'     : "2016-07-21",
-    'language'     : "Python 2.7.6",
-    'version_date' : "2016-07-21",
-    'src_date'     : "$LastChangedDate$",
-    'src_version'  : "$Revision$",
+    'title'        : "spinner.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2016-07-21",
+    'modified'     : "2020-03-04",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
+__version__ = __metadata__['modified']
 
-###############################################################################
-#
-def processOptions():
-    parser = argparse.ArgumentParser(
-        description="""
-=head1 Description
+descr = """
+=Description=
 
 Try to extract the main title from a document(s). This depends on the file type.
 
 For example:
 
-=over
+* HTML:  Look to "title" or the first "h1" element.
 
-=item * HTML:  Look to "title" or the first "h1" element.
+* TXT:    Grab the first line?
 
-=item * TXT:    Grab the first line?
+* POD:    The first =h1
 
-=item * POD:    The first =h1
+* MarkDown: The first =.*=
 
-=item * PDF:
+* PDF:
 
-=item *
+=Related Commands=
 
-=back
+=Known bugs and Limitations=
 
+=History=
 
-=head1 Related Commands
+* 2016-07-21: Written by Steven J. DeRose.
+* 2018-047-18: lint.
+* 2020-03-04: lint, new layout, POD to MarkDown.
 
-=head1 Known bugs and Limitations
+=Rights=
 
-=head1 Licensing
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see http://creativecommons.org/licenses/by-sa/3.0/.
 
-Copyright 2015 by Steven J. DeRose. This script is licensed under a
-Creative Commons Attribution-Share-alike 3.0 unported license.
-See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
+For the most recent version, see [http://www.derose.net/steve/utilities] or
+[http://github.com/sderose].
 
-=head1 Options
-        """,
-        formatter_class=MarkupHelpFormatter
-    )
+=Options=
+"""
+###############################################################################
+#
+def processOptions():
+    parser = argparse.ArgumentParser(
+        description=descr,
+        formatter_class=MarkupHelpFormatter)
+
     parser.add_argument(
         "--iencoding",        type=str, metavar='E', default="utf-8",
         help='Assume this character set for input files. Default: utf-8.')

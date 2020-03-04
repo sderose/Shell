@@ -1,32 +1,57 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# 2013-05-06: Updated by Steven J. DeRose, from original by:
-#     Frédéric Grosshans, 19 January 2012 and
-#     Nathan R. Yergler, 6 June 2010
-# 2015-09-19: Cleanup, sjdUtils, MarkupHelpFormatter, etc.
-# 2018-11-07: Py 3.
-#
-# To do:
-#     Add other Python-supported mail formats (MH, Babyl, MMDF)
-#     Maybe add Mac Mail format? (@10.4, changed from mbox to "emix")
-#         http://en.wikipedia.org/wiki/Comparison_of_email_clients
-#             #Database.2C_folders_and_customization
-#         http://email.about.com/od/macosxmailaddons/gr/emlx_to_mbox.htm
-#         Or just "Save As" "Raw Message Source".
+# maildir2mbox.py
 #
 from __future__ import print_function
 import sys
 import os
-import re
 import argparse
-import string
 
 import mailbox
 import email
 
-__version__ = "2018-11-07"
+__metadata__ = {
+    'title'        : "ColorManager.py",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2013-05-06",
+    'modified'     : "2020-03-01",
+    'publisher'    : "http://github.com/sderose",
+}
+__version__ = __metadata__['modified']
 
+descr = """
+=Description=
+
+Convert a MacOSX email directory, to `mbox` files.
+
+=History=
+
+* 2013-05-06: Adapted by Steven J. DeRose, from maildir2mbox.py by
+Frédéric Grosshans, 19 January 2012 and
+Nathan R. Yergler, 6 June 2010. See
+[http://yergler.net/blog/2010/06/06/batteries-included-or-maildir-to-mbox-again].
+
+* 2015-09-19: Cleanup, sjdUtils, MarkupHelpFormatter, etc.
+
+* 2018-11-07: Update to Python 3.
+
+* 2020-03-01: Layout and lint.
+
+=To do=
+
+* Add other Python-supported mail formats (MH, Babyl, MMDF)
+
+* Maybe add Mac Mail format? (@10.4, changed from mbox to "emix").
+http://en.wikipedia.org/wiki/Comparison_of_email_clients#Database.2C_folders_and_customization
+http://email.about.com/od/macosxmailaddons/gr/emlx_to_mbox.htm
+
+*     Or just "Save As" "Raw Message Source".
+
+=Options=
+"""
 
 ###############################################################################
 #
@@ -38,11 +63,7 @@ def warn(msg):
 ###############################################################################
 #
 def maildir2mailbox(maildirname, mboxfilename):
-    """
-    slightly adapted from maildir2mbox.py,
-    Nathan R. Yergler, 6 June 2010
-    http://yergler.net/blog/2010/06/06/
-        batteries-included-or-maildir-to-mbox-again/
+    """Convert a MacOSX email directory, to `mbox` files.
     """
 
     # open the existing maildir and the target mbox file

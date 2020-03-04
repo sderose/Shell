@@ -20,26 +20,101 @@ from __future__ import print_function
 import sys, os, argparse
 import re
 import time
-#import codecs
 
 PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3
-if PY2:
-    string_types = basestring
-else:
-    string_types = str
+if PY3:
     def unichr(n): return chr(n)
 
 from alogging import ALogger
 lg = ALogger(1)
 
+
 __metadata__ = {
-    'creator'      : "Steven J. DeRose",
-    'cre_date'     : "2016-02-08",
-    'language'     : "Python 2.7.6",
-    'version_date' : "2018-11-07",
+    'title'        : "makeVue.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2016-02-08",
+    'modified'     : "2020-03-04",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
-__version__ = __metadata__['version_date']
+__version__ = __metadata__['modified']
+
+
+descr="""
+
+=Description=
+
+Turn a text file (one item per line),
+into a Vue document with a box for each line of the input text, or make
+nodes and arcs.
+
+The input format is somewhat like graphviz, but more trivial:
+
+=over
+
+* each line can contain one or more node names/labels (optionally quoted)
+
+* if there's more than one label, separate them with '>' (change with --arrow).
+Each arrow will generate an arc.
+
+* within a label, '\n' causes a line-break in the node text.
+
+* lines may optionally be terminated with a semicolon.
+
+* before all that, a line can have []-enclosed modifiers (which so far are
+discarded).
+
+=back
+
+
+=Related Commands=
+
+C<dot>, C<Vue>.
+
+
+=Known bugs and Limitations=
+
+For the moment, the boxes are just placed in a long horizontal row, on the
+assumption you will arrange them how you want in Vue.
+
+Would be nicer to read something like GraphViz format, will names
+to create nodes, and relationships to create arcs.
+
+Box size and text length get no special treatment; size should at least be
+an option, and text should be wrappable.
+
+Reverse-engineered from sample output from Vue. So any number of features
+are not supported.
+
+Vue's output puts a long comment I<before> the XML declaration, which is
+not valid. The comment warns not to remove it.
+
+
+=Vue syntax notes=
+
+Each object gets assigned a URI (at tufts.edu), with a GUID or similar on the
+end. This programs uses the same domain and path, but int(time.time()) in hex
+for the GUID-like part.
+
+Colors always seem to be in #RRGGBB form.
+
+arrowState is 3 for both ends,....
+
+Arrows have point1, point2, ID1, and ID2 sub-elements; not sure why.
+
+
+=Licensing=
+
+Copyright 2015 by Steven J. DeRose. This script is licensed under a
+Creative Commons Attribution-Share-alike 3.0 unported license.
+See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
+
+=Options=
+"""
 
 # Don't know what names Vue uses, list made from just looking at menu.
 shapes = [
@@ -65,78 +140,6 @@ arrowStates = {
 ###############################################################################
 #
 def processOptions():
-    descr="""
-
-=head1 Description
-
-Turn a text file (one item per line),
-into a Vue document with a box for each line of the input text, or make
-nodes and arcs.
-
-The input format is somewhat like graphviz, but more trivial:
-
-=over
-
-=item * each line can contain one or more node names/labels (optionally quoted)
-
-=item * if there's more than one label, separate them with '>' (change with --arrow).
-Each arrow will generate an arc.
-
-=item * within a label, '\n' causes a line-break in the node text.
-
-=item * lines may optionally be terminated with a semicolon.
-
-=item * before all that, a line can have []-enclosed modifiers (which so far are
-discarded).
-
-=back
-
-
-=head1 Related Commands
-
-C<dot>, C<Vue>.
-
-
-=head1 Known bugs and Limitations
-
-For the moment, the boxes are just placed in a long horizontal row, on the
-assumption you will arrange them how you want in Vue.
-
-Would be nicer to read something like GraphViz format, will names
-to create nodes, and relationships to create arcs.
-
-Box size and text length get no special treatment; size should at least be
-an option, and text should be wrappable.
-
-Reverse-engineered from sample output from Vue. So any number of features
-are not supported.
-
-Vue's output puts a long comment I<before> the XML declaration, which is
-not valid. The comment warns not to remove it.
-
-
-=head1 Vue syntax notes
-
-Each object gets assigned a URI (at tufts.edu), with a GUID or similar on the
-end. This programs uses the same domain and path, but int(time.time()) in hex
-for the GUID-like part.
-
-Colors always seem to be in #RRGGBB form.
-
-arrowState is 3 for both ends,....
-
-Arrows have point1, point2, ID1, and ID2 sub-elements; not sure why.
-
-
-=head1 Licensing
-
-Copyright 2015 by Steven J. DeRose. This script is licensed under a
-Creative Commons Attribution-Share-alike 3.0 unported license.
-See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
-
-=head1 Options
-        """
-
     try:
         from MarkupHelpFormatter import MarkupHelpFormatter
         formatter = MarkupHelpFormatter

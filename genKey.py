@@ -9,85 +9,84 @@
 # To do:
 #
 from __future__ import print_function
-import sys, os, argparse
+import sys, argparse
 #import re
 import string
 #import math
 #import subprocess
-import codecs
+#import codecs
 import random
 
-#import pudb
-#pudb.set_trace()
-
-from sjdUtils import sjdUtils
-from MarkupHelpFormatter import MarkupHelpFormatter
-
-global args, su, lg
-args = None
-
-__version__ = "2016-01-04"
 __metadata__ = {
-    'creator'      : "Steven J. DeRose",
-    'cre_date'     : "2016-01-04",
-    'language'     : "Python 2.7.6",
-    'version_date' : "2016-01-04",
-    'src_date'     : "$LastChangedDate$",
-    'src_version'  : "$Revision$",
+    'title'        : "genKey.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2016-01-04",
+    'modified'     : "2020-03-01",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
+__version__ = __metadata__['modified']
 
-###############################################################################
-#
-def processOptions():
-    global args, su, lg
-    parser = argparse.ArgumentParser(
-        description="""
+PY3 = sys.version_info[0] == 3
+if PY3:
+    def unichr(n): return chr(n)
 
-=head1 Description
+descr = """
+=Description=
 
 Generate a random key, from a given set of symbols and of a given length.
 
-=head2 Notes
+==Notes==
 
 Use I<--symbols S> to choose what symbols to draw from:
 
-=over
+* 'ascii' only includes printable characters.
 
-=item 'ascii' only includes printable characters.
+* 'alpha', 'upper', 'lower', 'alphanum', and 'digits' only draw from ASCII.
 
-=item 'alpha', 'upper', 'lower', 'alphanum', and 'digits' only draw from ASCII.
+* 'latin1' uses 'ascii' plus I<letters> from the upper half.
 
-=item 'latin1' uses 'ascii' plus I<letters> from the upper half.
+* 'utf8' uses string.printable, and so may depend on locale.
 
-=item 'utf8' uses string.printable, and so may depend on locale.
+* 'hex' only includes uppercase versions of A-F.
 
-=item 'hex' only includes uppercase versions of A-F.
-
-=item Characters are drawn with uniform probability (thus, letters are no more
+* Characters are drawn with uniform probability (thus, letters are no more
 likely than digits or punctuation with 'alphanum', etc.).
 
-=item Words are drawn from a file that should contain one word per line.
+* Words are drawn from a file that should contain one word per line.
 The default file is F</usr/share/dict/words> (but see I<--dict>).
 
-=back
+=Related Commands=
 
-=head1 Related Commands
+`randomRecords`, `gendsa`, `genpkey`, `genrsa`, `openssl rand`.
 
-C<randomRecords>, C<gendsa>, C<genpkey>, C<genrsa>, C<openssl rand>.
-
-=head1 Known bugs and Limitations
+=Known bugs and Limitations=
 
 Randomness of the key is whatever Python supplies. This may or may not
 be good enough for your needs.
 
-=head1 Licensing
+=Rights=
 
-Copyright 2015 by Steven J. DeRose. This script is licensed under a
-Creative Commons Attribution-Share-alike 3.0 unported license.
-See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
+Copyright 2016-01-04 by Steven J. DeRose.
+This work is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see http://creativecommons.org/licenses/by-sa/3.0/.
 
-=head1 Options
-        """,
+For the most recent version, see [http://www.derose.net/steve/utilities] or
+[http://github.com/sderose].
+
+=Options=
+"""
+
+###############################################################################
+#
+def processOptions():
+    from MarkupHelpFormatter import MarkupHelpFormatter
+    parser = argparse.ArgumentParser(
+        description=descr,
         formatter_class=MarkupHelpFormatter
     )
     parser.add_argument(
@@ -118,11 +117,7 @@ See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
         help='Display version information, then exit.')
 
     args0 = parser.parse_args()
-    su = sjdUtils()
-    lg = su.lg
-    su.setVerbose(args0.verbose)
     return(args0)
-
 
 ###############################################################################
 # Main
