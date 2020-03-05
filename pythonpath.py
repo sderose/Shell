@@ -133,8 +133,8 @@ def getClassDefs2(path):
     """A better way?
     Given a single file, find out what classes it defines.
     *** Should make a "list modules used, with paths" thing.
-    Doc says that pyclbr.readmodule F<pathList> arg "is used to augment
-    the value of sys.path". In fact it is checked I<before> sys.path,
+    Doc says that pyclbr.readmodule `pathList` arg "is used to augment
+    the value of sys.path". In fact it is checked ''before'' sys.path,
     so can be used to check a specific file.
     """
     import pyclbr
@@ -162,8 +162,8 @@ def getClassDefsOfWholeDir(curDir):
     Given a directory, find out what classes it defines.
     *** Should make a "list modules use with paths" thing.
     pyclbr.readmodule(moduleName, pathList) does what I want.
-    Doc says that F<pathList> "is used to augment the value of sys.path". In fact
-    it is checked I<before> sys.path, so can be used to check a specific file.
+    Doc says that `pathList` "is used to augment the value of sys.path". In fact
+    it is checked ''before'' sys.path, so can be used to check a specific file.
     """
     bigDict = {}
     for f in os.listdir(curDir):

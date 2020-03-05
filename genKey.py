@@ -41,13 +41,13 @@ Generate a random key, from a given set of symbols and of a given length.
 
 ==Notes==
 
-Use I<--symbols S> to choose what symbols to draw from:
+Use '--symbols S' to choose what symbols to draw from:
 
 * 'ascii' only includes printable characters.
 
 * 'alpha', 'upper', 'lower', 'alphanum', and 'digits' only draw from ASCII.
 
-* 'latin1' uses 'ascii' plus I<letters> from the upper half.
+* 'latin1' uses 'ascii' plus 'letters' from the upper half.
 
 * 'utf8' uses string.printable, and so may depend on locale.
 
@@ -57,7 +57,7 @@ Use I<--symbols S> to choose what symbols to draw from:
 likely than digits or punctuation with 'alphanum', etc.).
 
 * Words are drawn from a file that should contain one word per line.
-The default file is F</usr/share/dict/words> (but see I<--dict>).
+The default file is F</usr/share/dict/words> (but see '--dict').
 
 =Related Commands=
 

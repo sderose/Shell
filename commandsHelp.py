@@ -10,7 +10,7 @@ from __future__ import print_function
 import sys
 
 __metadata__ = {
-    'title'        : "ColorManager.py",
+    'title'        : "commandsHelp.py",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",

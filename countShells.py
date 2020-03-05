@@ -13,7 +13,7 @@ from collections import namedtuple
 from MarkupHelpFormatter import MarkupHelpFormatter
 
 __metadata__ = {
-    'title'        : "ColorManager.py",
+    'title'        : "countShells.py",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",

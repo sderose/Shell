@@ -12,7 +12,7 @@ from MarkupHelpFormatter import MarkupHelpFormatter
 lg = ALogger(1)
 
 __metadata__ = {
-    'title'        : "spinner.py",
+    'title'        : "getDocumentTitle.py",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",

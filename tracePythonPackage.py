@@ -15,7 +15,7 @@ from subprocess import check_output
 from MarkupHelpFormatter import MarkupHelpFormatter
 
 __metadata__ = {
-    'title'        : "ColorManager.py",
+    'title'        : "tracePythonPackage.py",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
@@ -31,7 +31,7 @@ descr = """
 =Description=
 
 Look all over the place to see where Python is getting a given package
-(packages whose name I<contains> the requested string are also reported).
+(packages whose name ''contains'' the requested string are also reported).
 
 Python package managers included:
 
@@ -41,7 +41,7 @@ Python package managers included:
     conda
     brew
 
-B<Note>: A package manager's name for something, is often not the same as the
+'''Note''': A package manager's name for something, is often not the same as the
 name you import. For example, you would import "sklearn", but it lives in
 a package called "scikit-learn" (which you cannot import, but only install).
 

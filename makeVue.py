@@ -2,20 +2,6 @@
 #
 # makeVue.py
 #
-# 2016-02-08: Written. Copyright by Steven J. DeRose.
-#   Creative Commons Attribution-Share-alike 3.0 unported license.
-#   See http://creativecommons.org/licenses/by-sa/3.0/.
-# 2017-01-25: Add canvas, box, and gutter geometry options. Wraps
-#   into rows if there are many boxes.
-# 2-18-10-25: Recover from spare, fix. Rows.
-#
-# To do:
-#     Do something with the [] prefixes. At least:
-#        strokeColor, strokeWidth, strokeStyle
-#        textColor, textSize, font
-#        fillColor
-#        shape
-#
 from __future__ import print_function
 import sys, os, argparse
 import re
@@ -43,9 +29,7 @@ __metadata__ = {
 }
 __version__ = __metadata__['modified']
 
-
 descr="""
-
 =Description=
 
 Turn a text file (one item per line),
@@ -53,8 +37,6 @@ into a Vue document with a box for each line of the input text, or make
 nodes and arcs.
 
 The input format is somewhat like graphviz, but more trivial:
-
-=over
 
 * each line can contain one or more node names/labels (optionally quoted)
 
@@ -68,13 +50,9 @@ Each arrow will generate an arc.
 * before all that, a line can have []-enclosed modifiers (which so far are
 discarded).
 
-=back
-
-
 =Related Commands=
 
 C<dot>, C<Vue>.
-
 
 =Known bugs and Limitations=
 
@@ -90,9 +68,8 @@ an option, and text should be wrappable.
 Reverse-engineered from sample output from Vue. So any number of features
 are not supported.
 
-Vue's output puts a long comment I<before> the XML declaration, which is
+Vue's output puts a long comment ''before'' the XML declaration, which is
 not valid. The comment warns not to remove it.
-
 
 =Vue syntax notes=
 
@@ -106,12 +83,30 @@ arrowState is 3 for both ends,....
 
 Arrows have point1, point2, ID1, and ID2 sub-elements; not sure why.
 
+=History=
 
-=Licensing=
+* 2016-02-08: Written. Copyright by Steven J. DeRose.
+* 2017-01-25: Add canvas, box, and gutter geometry options. Wraps
+into rows if there are many boxes.
+* 2-18-10-25: Recover from spare, fix. Rows.
 
-Copyright 2015 by Steven J. DeRose. This script is licensed under a
-Creative Commons Attribution-Share-alike 3.0 unported license.
-See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
+=To do=
+
+* Do something with the [] prefixes. At least:
+    strokeColor, strokeWidth, strokeStyle
+    textColor, textSize, font
+    fillColor
+    shape
+
+=Rights=
+
+Copyright 2016 by Steven J. DeRose.
+This work is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see http://creativecommons.org/licenses/by-sa/3.0/.
+
+For the most recent version, see [http://www.derose.net/steve/utilities] or
+[http://github.com/sderose].
 
 =Options=
 """

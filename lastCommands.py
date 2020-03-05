@@ -11,7 +11,7 @@ import re
 import argparse
 
 __metadata__ = {
-    'title'        : "ColorManager.py",
+    'title'        : "lastCommands.py",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
@@ -30,17 +30,11 @@ Extract and execute the last N bash commands. This should be invoked via
 a shell function that saves the history somewhere, and then passes the
 path to it. Otherwise it's hard to get the truly up-to-date history.
 
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
-
-For the most recent version, see L<http://www.derose.net/steve/utilities/>.
-
 =Rights=
 
 This work by Steven J. DeRose is licensed under a Creative Commons
 Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see http://creativecommons.org/licenses/by-sa/3.0/.
+this license, see [http://creativecommons.org/licenses/by-sa/3.0].
 
 For the most recent version, see [http://www.derose.net/steve/utilities] or
 [http://github.com/sderose].
