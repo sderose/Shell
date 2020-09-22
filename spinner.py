@@ -35,7 +35,7 @@ Display a spinning clock-face in a shell window using Unicode clock-faces.
 
 =History=
 
-* 2018-03-24: Written. Copyright by Steven J. DeRose.
+* 2018-03-24: Written by Steven J. DeRose.
 
 * 2018-11-07: Py 3.
 
@@ -55,12 +55,11 @@ For the most recent version, see [http://www.derose.net/steve/utilities] or
 #
 def processOptions():
     try:
-        from MarkupHelpFormatter import MarkupHelpFormatter
-        formatter = MarkupHelpFormatter
+        from BlockFormatter import BlockFormatter
+        parser = argparse.ArgumentParser(
+            description=descr, formatter_class=BlockFormatter)
     except ImportError:
-        formatter = None
-    parser = argparse.ArgumentParser(
-        description=descr, formatter_class=formatter)
+        parser = argparse.ArgumentParser(description=descr)
 
     parser.add_argument(
         "--quiet", "-q",      action='store_true',

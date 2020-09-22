@@ -143,19 +143,17 @@ cur, tmp, and the subfolders, which are hidden directories with names like
 
 [mbox_filename] will be newly created, as well as a [mbox_filename].sbd the
 directory.
-    """
 
-try:
-    from MarkupHelpFormatter import MarkupHelpFormatter
-    formatter = MarkupHelpFormatter
-except ImportError:
-    formatter = None
-parser = argparse.ArgumentParser(
-    description=descr, formatter_class=formatter,
-    epilog="""
     (By Steven J. DeRose based on code by Frédéric Grosshans and
 Nathan R. Yergler)
-    """)
+"""
+
+try:
+    from BlockFormatter import BlockFormatter
+    parser = argparse.ArgumentParser(
+        description=descr, formatter_class=BlockFormatter)
+except ImportError:
+    parser = argparse.ArgumentParser(description=descr)
 
 parser.add_argument(
     "--maildirpath",      type=str, metavar="path", default=".",

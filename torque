@@ -1,0 +1,163 @@
+#!/usr/bin/env python
+#
+# torque
+# 2020-04-08: Written by Steven J. DeRose.
+#
+from __future__ import print_function
+import sys, argparse
+import re
+from pint import UnitRegistry  # In PyPI
+
+__metadata__ = {
+    'title'        : "torque",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2020-04-08",
+    'modified'     : "2020-04-08",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+}
+__version__ = __metadata__['modified']
+
+descr = """
+=head1 Description
+
+Given a torque as a number and a unit name, display the equivalent torque
+in lots of other units. Give a number, then the units as either length-force or
+force-length. For example:
+
+    torque 1.2 newton-meter
+
+
+=head1 Related Commands
+
+*nix ''units''. However, it doesn't seem to handle torque units at all.
+
+PyPi 'pint' for basic unit support [https://pypi.org/project/Pint/].
+[https://pint.readthedocs.io/en/0.10.1/wrapping.html#checking-dimensionality]
+
+My ''pressure'' does much the same thing for pressure units.
+
+
+=head1 Known bugs and Limitations
+
+Should probably just learn all the other units; maybe just harvest C<units>'s
+F</usr/share/misc/units.lib> list.
+
+
+=History=
+
+* Written 2020-04-08 by Steven J. DeRose.
+
+
+=To do=
+
+* Add option to request a particular output unit(s).
+* The ''pint'' library supports localized unit names if ''Babel'' is also used,
+but it isn't hooked up here.
+
+
+=Rights=
+
+Copyright 2015, Steven J. DeRose. This work is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see [http://creativecommons.org/licenses/by-sa/3.0/].
+
+For the most recent version, see [http://www.derose.net/steve/utilities] or
+[http://github/com/sderose].
+
+
+=head1 Options
+"""
+
+###############################################################################
+#
+def processOptions():
+    try:
+        from BlockFormatter import BlockFormatter
+        parser = argparse.ArgumentParser(
+            description=descr, formatter_class=BlockFormatter)
+    except ImportError:
+        parser = argparse.ArgumentParser(description=descr)
+
+    parser.add_argument(
+        "--quiet", "-q",      action='store_true',
+        help='Suppress most messages.')
+    parser.add_argument(
+        "--verbose", "-v",    action='count',       default=0,
+        help='Add more messages (repeatable).')
+    parser.add_argument(
+        "--version",          action='version', version=__version__,
+        help='Display version information, then exit.')
+
+    parser.add_argument(
+        'torqueValue',        type=float,
+        help='torque value')
+    parser.add_argument(
+        'unit',               type=str,
+        help='Torque unit')
+
+    args0 = parser.parse_args()
+    return(args0)
+
+
+###############################################################################
+# Main
+#
+args = processOptions()
+ureg = UnitRegistry()
+
+print("You have: %16.6f %s" % (args.torqueValue, args.unit))
+
+mat = re.match(r'^(\w+)[-.](\w+)$', args.unit.strip())
+if (mat is None):
+    print("Could not parse unit '%s'." % (args.unit))
+    sys.exit()
+
+u1 = mat.group(1)
+u2 = mat.group(2)
+
+sample = 1.0 * ureg.newton
+sample2 = 1.0 * ureg.newton_meter
+from alogging import ALogger
+lg = ALogger()
+#print("ureg \n%s" % (lg.formatRec(ureg.__dict__)))
+
+if (not hasattr(ureg, u1)):
+    print("Could not find unit part 1 '%s'." % (u1))
+    sys.exit()
+if (not hasattr(ureg, u2)):
+    print("Could not find unit part 2 '%s'." % (u2))
+    sys.exit()
+
+try:
+    u1q = ureg.__attr__(u1)
+    u2q = ureg.__attr__(u2)
+    if (u1q.check('[length]') and u2q.check('[force]')):
+        print("length, force")
+        ar = u1q; fo = u2q
+    elif (u1q.check('[force]') and u2q.check('[length]')):
+        print("force, length")
+        ar = u2q; fo = u1q
+    else:
+        print("Units '%s' and '%s' do not seem to be length and force." % (u1, u2))
+        sys.exit()
+except Exception as e:
+    print("%s" % (e))
+
+#args.p / units[args.unit]
+
+toTry = [
+    ('newton',   'meter'),
+    ('kg',       'meter'),
+    ('foot',     'pound'),
+    ('inch',     'pound'),
+    # Joule per radian
+]
+
+#for u in unitNames:
+#    print("        = %16.6f %s" % (kPa*units[u], u))
+
+sys.exit()

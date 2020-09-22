@@ -1,12 +1,47 @@
-=Shell REPO=
+#Shell REPO#
 
 A bunch of utilities to help with your shell environment.
 
-On the whole, these are less polished than others, but may still prove
-handy. These are mainly used on MacOSX and/or Linux. I've tried to avoid
+On the whole, these are less polished than in my other repos,
+but I find them handy.
+These are mainly used on MacOSX and/or Linux. I've tried to avoid
 *nix flavor differences, but some remain.
 
-==Path stuff==
+
+##Highlights##
+
+* ecmd -- For "edit command". Give it a command name, and it will
+try to find the implementation, and if it's reasonably editable, take
+you there. For example:
+** scripts along $PATH
+** shell functions or aliases defined in .bash\_profile and similar files
+** shell functions or aliases defined in any files (not directories)
+listed in environment variable $ECMDPATH
+(in my case, that includes the next highlight, 'bash_functions')
+
+* genKey.py -- generate a random string of symbols or words.
+
+* hilite -- Find matches to one or more regexes (including some
+prepackaged sets), and hilite them in one or more colors.
+
+* unescapeURI -- Replace URI %xx codes.
+
+* macFilenameSort -- Try to sort files by name, the way MacOSX does
+(separating out numbers to compare numerically, vs. letters alphabetically).
+You can set things up to pipe "ls" through this if you really like
+that order.
+
+* perl2python -- A boatload of regexes to convert Perl code to Python. It's far
+from perfect, but even getting most of the punctuation, keywords, and function
+names mapped saves a lot of time.
+
+* prettyPrintExpr -- Takes an expression with () [] {}, and displays it in ways
+that should make it easy to see what's going on. It prints three forms:
+
+* showNumberInBases -- Show a number in multiple bases.
+
+
+##Path stuff##
 
 * _cleanpath -- Process $PATH to remove duplicates.
 
@@ -21,7 +56,7 @@ along the PATH, not to mention aliases and shell functions. This can be
 especially helpful for finding commands that show up in several places.
 
 
-==Output formatting==
+##Output formatting##
 
 * echoToStderr (bash) -- Syntactic sugar / shorthand.
 
@@ -35,12 +70,12 @@ and make a node for each one, placing them in a row (I think), to save time
 vs. hand-creating a lot.
 
 * spinner.py -- Spins a character by changing between slash, backslash, vertical bar,
-and hyphen,
+and hyphen.
 
 * unescapeURI -- Replace URI %xx codes.
 
 
-==Processes==
+##Processes##
 
 * countShells.py -- Meh. Attempts to figure out how many shells are running.
 
@@ -49,7 +84,7 @@ and hyphen,
 * runIfNotRunning (bash) --
 
 
-==MacOSX specific==
+##MacOSX specific##
 
 * macFilenameSort -- Try to sort files by name, the way MacOSX does (automatically
 separating out numbers to compare numerically, vs. letters alphabetically).
@@ -61,7 +96,7 @@ separating out numbers to compare numerically, vs. letters alphabetically).
 * maildir2mbox.py --
 
 
-==Code-related==
+##Code-related##
 
 * bash2perl -- Really old. Does a rough-cut conversion of bash syntax to Perl.
 It knows about bracket conventions, if/else keywords and braces, common function
@@ -72,7 +107,7 @@ mechanical editing, which saves a lot of time but is not nearly complete.
 from perfect, but even getting most of the punctuation, keywords, and function
 names mapped saves a lot of time.
 
-* prettyPrintExpr -- Takes an expression with () [] {}, and display it in ways
+* prettyPrintExpr -- Takes an expression with () [] {}, and displays it in ways
 that should make it easy to see what's going on. It prints three forms:
 
 * the same string but with sub-parts colorized progressively by depth
@@ -82,14 +117,14 @@ bracked subexpression
 
 * pyconflict --
 
-* pythonpath.py --
+* pythonpath.py -- Pretty-print it.
 
 * tracePythonPackage.py -- An attempt to automatically figure out where a Python
 library is getting imported from. Not just the directory, but which package
 manager (port, brew, pip, conda) installed it.
 
 
-==Informational==
+##Informational##
 
 * duByUser -- Sum up disk usage under a directory, by specific users.
 
@@ -107,10 +142,7 @@ a line up there.
 
 * showShellVars --
 
-* showTip -- Issue a random tip re. one of my utilities. I don't maintain this
-any more.
-
-============================
+===========================
 
 * allDates (bash) -- Try to retrieve and display all the dates associated
 with a file.
@@ -123,13 +155,15 @@ with a file.
 
 * commandsHelp.py --
 
-* diaStart.sh --
-
-* ecmd -- Broken. The idea is to find where a command is implemented, such as
+* ecmd -- The idea is to find where a command is implemented, such as
 by a script along PATH, or as an alias or shell function in .bash_profile or
 similar, or whatever. Then, if it's not a binary, open your EDITOR on it.
 
-* genKey.py --
+* genKey.py -- generate a random string of symbols or words. For example:
+
+    genKey.py --length 3 --symbols words
+
+might produce "cutpurse Archer parquet".
 
 * getDocumentTitle.py -- Extract the main title string from any of several file
 types, including HTML, TXT, POD, and PDF.
@@ -140,7 +174,8 @@ See [https://xkcd.com/936/] and [https://www.correcthorsebatterystaple.net/].
 
 * gitdiffhook (bash) -- Used by git diff to invoke regular 'diff' with options.
 
-* greprange --
+* greprange -- (unpolished). Extract the lines of a file between a "from"
+regex and a "to" regex. See also [https://github/com/sderose/Text/body].
 
 * indente (Perl) -- Indent (pretty-print) a file, and open that copy in your EDITOR.
 Especially useful for *ML if your editor won't indent it for you. I should add
@@ -150,17 +185,15 @@ a few more file types, like JSON.
 re-run them in the same order. But that's surprisingly hard to get exactly
 right.
 
-* openall --
-
-* pressure -- Convert a pressure value in any of 25 units, to the equivalent in all
-of those units.
+* pressure -- Convert a pressure value in any of 25 units, to the
+equivalent in all of those units.
 
 * smoke (bash) -- Tries to run all the executable in a given directory -- easy
 way to flush out badly broken/obsolete code.
 
-* stdinToEditor --
+* stdinToEditor -- Pipe stdin in to this, which will make a temp file and then edit it.
 
-* stdinToFirefox --
+* stdinToFirefox -- Pipe stdin to firefox.
 
 * timeDiff --
 

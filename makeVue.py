@@ -85,7 +85,7 @@ Arrows have point1, point2, ID1, and ID2 sub-elements; not sure why.
 
 =History=
 
-* 2016-02-08: Written. Copyright by Steven J. DeRose.
+* 2016-02-08: Written by Steven J. DeRose.
 * 2017-01-25: Add canvas, box, and gutter geometry options. Wraps
 into rows if there are many boxes.
 * 2-18-10-25: Recover from spare, fix. Rows.
@@ -136,12 +136,11 @@ arrowStates = {
 #
 def processOptions():
     try:
-        from MarkupHelpFormatter import MarkupHelpFormatter
-        formatter = MarkupHelpFormatter
+        from BlockFormatter import BlockFormatter
+        parser = argparse.ArgumentParser(
+            description=descr, formatter_class=BlockFormatter)
     except ImportError:
-        formatter = None
-    parser = argparse.ArgumentParser(
-        description=descr, formatter_class=formatter)
+        parser = argparse.ArgumentParser(description=descr)
 
     parser.add_argument(
         "--arrow",            type=str, default=">",

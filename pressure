@@ -1,89 +1,196 @@
 #!/usr/bin/env python
 #
 # pressure
-#
-# 2015-10-28: Written. Copyright by Steven J. DeRose.
-# Creative Commons Attribution-Share-alike 3.0 unported license.
-# See http://creativecommons.org/licenses/by-sa/3.0/.
-#
-# To do:
+# 2015-10-28: Written by Steven J. DeRose.
 #
 from __future__ import print_function
-import sys, os, argparse
+import sys, argparse
 
-#from sjdUtils import sjdUtils
-from MarkupHelpFormatter import MarkupHelpFormatter
-
-global args, su, lg
-
-__version__ = "2015-10-28"
 __metadata__ = {
-    'creator'      : "Steven J. DeRose",
-    'cre_date'     : "2015-10-28",
-    'language'     : "Python 2.7.6",
-    'version_date' : "2015-10-28",
-    'src_date'     : "$LastChangedDate$",
-    'src_version'  : "$Revision$",
+    'title'        : "torque",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2015-10-28",
+    'modified'     : "2020-08-31",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
+__version__ = __metadata__['modified']
 
-units = {  # http://www.sensorsone.com/kpa-kilopascal-pressure-unit/
-    "kPa":		     1.000,      # 1.0 kPa is equal to:
-    "hPa":          10.000,
-    "Pa":		  1000.000,
-    "atmTech":	     0.0101972,
-    "atmStd":        0.00986923,
-    "bar":		     0.010,
-    "mbar":		    10.000,
-    "inHg":		     0.2952998,
-    "inw":		     4.01474213,
-    "ftw":           0.334553,
-    "g/cc":         10.1972,
-    "mmHg":		     7.50061505,
-    "mmw":		   101.97442889,
-    "psi":		     0.14503774,
-    "psf":          20.8854,
-    "torr":          7.50061505,
-    "mtorr":      7500.61505,
-    }
-unitNames = sorted(units.keys())
-
-
-###############################################################################
-#
-def processOptions():
-    global args, su, lg
-    parser = argparse.ArgumentParser(
-        description="""
-
-pressure
-
-=head1 Description
+descr = """
+=Description=
 
 Given a pressure as a number and a unit name, display the equivalent pressure
-in lots of other units.
+in lots of other unitsOfPressure.
 
-=head1 Related Commands
+==Usage==
 
-C<units>
+    pressure 2.0 atmStd
 
-=head1 Known bugs and Limitations
+will produce:
 
-Should probably just learn all the other units; maybe just harvest C<units>'s
-F</usr/share/misc/units.lib> list.
+You have: 2.000000 atmStd, which equals:
+                0.202650 MPa
+           202650.054766 Pa
+                2.000000 atmStd
+                2.066463 atmTech
+                2.026501 bar
+             2066.512360 cmH2O
+              152.000005 cmHg
+               67.797184 ftH2O
+                4.986873 ftHg
+             2066.463138 g/cm2
+             2026.500548 hPa
+              813.587713 inH2O
+               59.842521 inHg
+              202.650055 kPa
+                2.066463 kg/cm2
+             2026.500548 mbar
+            20665.123599 mmH2O
+             1520.000051 mmHg
+          1520000.050663 mtorr
+             4232.427454 psf
+               29.391906 psi
+             1520.000051 torr
 
-=head1 Licensing
+
+=Related Commands=
+
+The *nix ''unitsOfPressure'' command can do compound unitsOfPressure like:
+    unitsOfPressure 9.8 m/s^2 feet/s^2
+    unitsOfPressure 14 psi cm water
+
+
+=References=
+
+[http://www.sensorsone.com/kpa-kilopascal-pressure-unit]
+
+
+=Known bugs and Limitations=
+
+Should probably just learn more other unitsOfPressure; maybe just harvest C<unitsOfPressure>'s
+F</usr/share/misc/unitsOfPressure.lib> list.
+
+Contains table of flow rate units, should expose that.
+
+
+=Licensing=
 
 Copyright 2015 by Steven J. DeRose. This script is licensed under a
 Creative Commons Attribution-Share-alike 3.0 unported license.
 See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
 
-=head1 Options
-        """,
-        formatter_class=MarkupHelpFormatter
-    )
+
+=History=
+
+* Written 2010-04-01~23 by Steven J. DeRose (originally in Perl).
+* 2020-04-08: New laout.
+* 2020-05-01: Add --tableFrom.
+* 2020-08-31: New layout.
+
+
+=To do=
+
+* Option to request a particular output unit(s).
+
+
+=Rights=
+
+Copyright 2015, Steven J. DeRose. This work is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see [http://creativecommons.org/licenses/by-sa/3.0/].
+
+For the most recent version, see [http://www.derose.net/steve/utilities] or
+[http://github/com/sderose].
+
+
+=Options=
+"""
+
+
+unitsOfPressure = {
+    # 1.0 kPa is equal to:
+    "kPa":		     1.000,
+    "MPa":           0.001,
+    "hPa":          10.000,
+    "Pa":		  1000.000,
+
+    "atmTech":	     0.0101972,
+    "atmStd":        0.00986923,
+    "bar":		     0.010,
+    "mbar":		    10.000,
+
+    "inHg":		     0.2952998,
+    "ftHg":          0.0246083,
+    "mmHg":		     7.50061505,
+    "cmHg":		     0.750061505,
+
+    "inH2O":		 4.01474213,
+    "ftH2O":         0.334553,
+    "mmH2O":	   101.97442889,
+    "cmH2O":		10.197442889,
+
+    "torr":          7.50061505,
+    "mtorr":      7500.61505,
+
+    "psi":		     0.14503774,
+    "psf":          20.8854,
+
+    "g/cm2":         10.1972,
+    "kg/cm2":         0.0101972,
+    }
+unitNames = sorted(unitsOfPressure.keys())
+
+unitsOfFlow = {  # 1.0 lpm is equal to:
+    "lpm":            1.0,
+    "lps":            0.0167,
+    "cfm":            0.0353,
+    "cms":            1.67E-5,
+    "gpm":            0.26417,
+    "gph":            0.0044028,
+}
+
+def from_kPa(f, targetUnitName):
+    return f * unitsOfPressure[targetUnitName]
+
+def to_kPa(f, sourceUnitName):
+    return f / unitsOfPressure[sourceUnitName]
+
+def from_to(f, sourceUnitName, targetUnitName):
+    m = multiplierForUnit1ToGetUnit2(sourceUnitName, targetUnitName)
+    return f * m
+
+def multiplierForUnit1ToGetUnit2(u1, u2):
+    return unitsOfPressure[u2]/unitsOfPressure[u1]
+
+
+###############################################################################
+#
+def processOptions():
+    try:
+        from BlockFormatter import BlockFormatter
+        parser = argparse.ArgumentParser(
+            description=descr, formatter_class=BlockFormatter)
+    except ImportError:
+        parser = argparse.ArgumentParser(description=descr)
+
+    parser.add_argument(
+        "--divide",           action='store_true',
+        help='With --tableFrom, show what to divide by, not multiply by.')
+    parser.add_argument(
+        "--format",           type=str, default="%16.6f",
+        help='Use this format to output the numbers. Default: "%16.6f"')
     parser.add_argument(
         "--quiet", "-q",      action='store_true',
         help='Suppress most messages.')
+    parser.add_argument(
+        "--tableFrom",        action='store_true',
+        help='Generate a Python dict of multipliers to convert the unit.')
+    parser.add_argument(
+        "--to", "-t",         type=str, choices=unitsOfPressure.keys(),
+        help='Only report this target unit.')
     parser.add_argument(
         "--verbose", "-v",    action='count',       default=0,
         help='Add more messages (repeatable).')
@@ -99,25 +206,36 @@ See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
         choices = unitNames,
         help='pressure unit')
 
-
     args0 = parser.parse_args()
-    #su = sjdUtils()
-    #lg = su.lg
-    #su.setVerbose(args0.verbose)
     return(args0)
 
 
-###############################################################################
 ###############################################################################
 # Main
 #
 args = processOptions()
 
-print("You have: %16.6f %s" % (args.p, args.unit))
-kPa = args.p / units[args.unit]
 
-for u in unitNames:
-    print("        = %16.6f %s" % (kPa*units[u], u))
+if (args.tableFrom):
+    kw = "Divide" if (args.divide) else "Multiply"
+    print("    # %s %s by these values to get to other units" %
+        (kw, args.unit))
+    print("    from_%s_to = {" % (args.unit))
+    lineFormat = "        %-12s : " + args.format + ","
+    for targetUnit in unitNames:
+        mfactor = multiplierForUnit1ToGetUnit2(args.unit, targetUnit)
+        if (args.divide):
+            print(lineFormat % ('"'+targetUnit+'"', 1/mfactor))
+        else:
+            print(lineFormat % ('"'+targetUnit+'"',  mfactor))
+    print("    }")
 
+else:
+    print("You have: %f %s, which equals:" % (args.p, args.unit))
+    kPa = to_kPa(args.p, args.unit)
+    lineFormat = "        " + args.format + " %s"
+    for u in unitNames:
+        if (not args.to or args.to == u):
+            print(lineFormat % (kPa*unitsOfPressure[u], u))
 
 sys.exit()

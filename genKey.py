@@ -2,7 +2,7 @@
 #
 # genKey.py
 #
-# 2016-01-04: Written. Copyright by Steven J. DeRose.
+# 2016-01-04: Written by Steven J. DeRose.
 # Creative Commons Attribution-Share-alike 3.0 unported license.
 # See http://creativecommons.org/licenses/by-sa/3.0/.
 #

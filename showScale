@@ -1,23 +1,138 @@
 #!/usr/bin/perl -w
 #
 # showScale: Display a line to help count character columns and widths.
-#
 # 2006-11-??: Written by Steven J. DeRose.
-# 2008-01-17 sjd: Getopt.
-# 2012-09-12: ?
-# 2015-01-15: Add --startCount, --up, --width, --base.
-# 2016-02-29: Fix doc.
-# 2018-08-26: Add --separator.
-# 2018-10-22: Add --zero. Fix 'colorstring' call.
 #
 use strict;
 use Getopt::Long;
 
-our $VERSION_DATE = "2018-08-26";
+our %metadata = (
+    'title'        => "showScale",
+    'rightsHolder' => "Steven J. DeRose",
+    'creator'      => "http://viaf.org/viaf/50334488",
+    'type'         => "http://purl.org/dc/dcmitype/Software",
+    'language'     => "Perl 5.18",
+    'created'      => "2006-11",
+    'modified'     => "2020-09-08",
+    'publisher'    => "http://github.com/sderose",
+    'license'      => "https://creativecommons.org/licenses/by-sa/3.0/"
+);
+our $VERSION_DATE = $metadata{'modified'};
 
+
+=pod
+
+=head1 Usage
+
+scale [options]
+
+Displays a scale for counting columns in your *nix shell, such as:
+
+----+----1----+----2----+----3----+----4----+----5
+
+or a plain separator line (see C<--separator>):
+
+###############################################################################
+
+The numbers represent the second-smallest digit of the column number (in
+decimal, the default, that's the "tens" digit). For even bases, a "+"
+appears at the "halfway" points (multiples of 5, for decimal).
+
+To start counting somewhere other than from 1, see I<--startCount>.
+
+As long as environment variable '\$COLUMNS' has been set (for example, by
+having C<export COLUMNS> in your F<.bashrc> or similar file),
+the scale will be sized to fit your window.
+
+
+=head1 Options
+
+=over
+
+=item * B<--base> I<n>
+
+Label the scale in base I<n>.
+
+=item * B<--char> I<c>
+
+The character to repeat for rules made via I<--separator> (default "#").
+=item * B<--color>
+
+Use color.
+
+=item * B<--separator>
+
+Instead of a numbered scale, just draw I<--width> copies of I<--char>
+(default "#").
+
+=item * B<--startCount> I<n>
+
+Number the first column as I<n> (default: 1).
+I<n> may be specified in the usual bases.
+This could be useful for showing offsets into 0-based strings,
+absolute offsets for text extracted from known starting point(s) in a
+file (say, with C<cut> or I<body>), etc.
+
+=item * B<--up> I<n>
+
+Display the scale I<n> lines above the current place,
+for example, to put it closer to what you want to measure.
+I<--up> uses ANSI terminal cursor-movement commands.
+Not applicable to I<--separator> lines.
+
+=item * B<--width> I<n>
+
+Display I<n> columns of scale. Default: the value of the C<$COLUMNS>
+environment variable, or 160 if not available.
+I<n> may be specified in the usual bases.
+
+=item * B<--zero>
+
+Start the scale at offset 0 instead of 1.
+
+=back
+
+
+=head1 Known bugs and limitations
+
+B<Note>: The bash shell does not automatically C<export COLUMNS>, so
+for this script to know your terminal width,
+your F<.bashrc> or similar file must do that explicitly.
+
+
+=History
+
+  2006-11-??: Written by Steven J. DeRose.
+  2008-01-17 sjd: Getopt.
+  2012-09-12: ?
+  2015-01-15: Add --startCount, --up, --width, --base.
+  2016-02-29: Fix doc.
+  2018-08-26: Add --separator.
+  2018-10-22: Add --zero. Fix 'colorstring' call.
+  2020-09-08: New layout. Add --char, doc --separator.
+
+
+=head1 Rights
+
+Copyright 2006 by Steven J. DeRose. This work is licensed under a
+Creative Commons Attribution-Share Alike 3.0 Unported License.
+For further information on this license, see
+L<https://creativecommons.org/licenses/by-sa/3.0>.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities> or
+L<https://github.com/sderose>.
+
+=cut
+
+
+###############################################################################
+# Options
+#
 my $base       = 10;
+my $char       = "#";
 my $color      = ($ENV{USE_COLOR} && -t STDERR) ? 1:0;
 my $quiet      = 0;
+my $rule       = "";
 my $separator  = 0;
 my $startCount = 1;
 my $up         = 0;
@@ -28,9 +143,11 @@ my $zero       = 0;
 Getopt::Long::Configure ("ignore_case");
 my $result = GetOptions(
     "base=o"            => \$base,
+    "char=s"            => \$char,
 	"c|color!"          => \$color,
 	"h|help|?"          => sub { system "perldoc $0"; exit; },
 	"q|quiet!"          => \$quiet,
+	"rule=s"            => \$rule,
 	"separator!"        => \$separator,
 	"startCount=o"      => \$startCount,
 	"up=o"              => \$up,
@@ -44,8 +161,9 @@ my $result = GetOptions(
 
 ($result) || die "Bad options.\n";
 
+(length($char) == 1) || die "--char must be exactly one character.\n";
 
-###############################################################################
+
 ###############################################################################
 # Main
 #
@@ -58,7 +176,7 @@ if (!$width) {
 }
 
 if ($separator) {
-    print(("#" x $width) . "\n");
+    print(($char x $width) . "\n");
     exit;
 }
 
@@ -112,85 +230,3 @@ sub makeScale {
     }
     return($buf);
 }
-
-
-##############################################################################
-##############################################################################
-#
-
-=pod
-
-=head1 Usage
-
-scale [options]
-
-Displays a scale for counting columns in your *nix shell, such as:
-
-----+----1----+----2----+----3----+----4----+----5
-
-The numbers represent the second-smallest digit of the column number (in
-decimal, the default, that's the "tens" digit). For even bases, a "+"
-appears at the "halfway" points (multiples of 5, for decimal).
-
-To start counting somewhere other than from 1, see I<--startCount>.
-
-As long as environment variable '\$COLUMNS' has been set (for example, by
-having C<export COLUMNS> in your F<.bashrc> or similar file),
-the scale will be sized to fit your window.
-
-
-=head1 Options
-
-=over
-
-=item * B<--base> I<n>
-
-Label the scale in base I<n>.
-
-=item * B<--color>
-
-Use color.
-
-=item * B<--startCount> I<n>
-
-Number the first column as I<n> (default: 1).
-I<n> may be specified in the usual bases.
-This could be useful for showing offsets into 0-based strings,
-absolute offsets for text extracted from known starting point(s) in a
-file (say, with C<cut> or I<body>), etc.
-
-=item * B<--up> I<n>
-
-Display the scale I<n> lines above the current place,
-for example, to put it closer to what you want to measure.
-I<--up> uses ANSI terminal cursor-movement commands.
-
-=item * B<--width> I<n>
-
-Display I<n> columns of scale. Default: the value of the C<$COLUMNS>
-environment variable, or 160 if not available.
-I<n> may be specified in the usual bases.
-
-=item * B<--zero>
-
-Start the scale at offset 0 instead of 1.
-
-=back
-
-
-=head1 Known bugs and limitations
-
-B<Note>: The bash shell does not automatically C<export COLUMNS>, so
-for this script to know your terminal width,
-your F<.bashrc> or similar file must do that explicitly.
-
-
-=head1 Ownership
-
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
-
-For the most recent version, see L<http://www.derose.net/steve/utilities/>.
-
-=cut

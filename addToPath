@@ -112,12 +112,11 @@ def checkPath(p):
 #
 def processOptions():
     try:
-        from MarkupHelpFormatter import MarkupHelpFormatter
-        formatter = MarkupHelpFormatter
+        from BlockFormatter import BlockFormatter
+        parser = argparse.ArgumentParser(
+            description=descr, formatter_class=BlockFormatter)
     except ImportError:
-        formatter = None
-    parser = argparse.ArgumentParser(
-        description=descr, formatter_class=formatter)
+        parser = argparse.ArgumentParser(description=descr)
 
     parser.add_argument(
         "--absolutize",       action='store_true',
@@ -178,10 +177,10 @@ for p1 in pathEntries:
 
 if (args.recursive):
     subs = []
-    dirpath, dirnames, filenames = os.walk(p2)
-    for dirname in dirnames:
-        subs.append(os.path.join(dirpath, dirname))
-    args.dirs.extend(subs)
+    for dirpath, dirnames, filenames in os.walk(p2):
+        for dirname in dirnames:
+            subs.append(os.path.join(dirpath, dirname))
+        args.dirs.extend(subs)
 
 # Add new entry(s)
 for p1 in args.dirs:

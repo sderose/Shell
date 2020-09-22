@@ -2,51 +2,60 @@
 #
 # whichBoot: Is it UEFI or BIOS?
 #
-# 2014-08-09: Written by Steven J. DeRose.
-#
-# To do:
-#
 from __future__ import print_function
 import sys
 import os
-import re
 import argparse
-import string
 import subprocess
 
-from sjdUtils import sjdUtils
 from alogging import ALogger
+lg = ALogger()
 
-__version__ = "2014-08-09"
+__metadata__ = {
+    'title'        : "whichBoot.py",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2014-08-09",
+    'modified'     : "2020-03-04",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+}
+__version__ = __metadata__['modified']
 
-
-###############################################################################
-# Process options
-#
-parser = argparse.ArgumentParser(
-    description="""
-=pod
-
+descr = """
 =head1 Usage
 
 whichBoot: Report whether the machine was booted via UEFI or BIOS.
 
 See: L<http://askubuntu.com/questions/162564>.
 
-=head1 Ownership
+=History=
 
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
+* 2014-08-09: Written by Steven J. DeRose.
 
-The author's present email is sderose at acm.org.
+* 2020-03-04: Layout, lint.
 
-For the most recent version, see L<http://www.derose.net/steve/utilities/>.
+=Rights=
 
-=cut
-""",
-    epilog="(see also 'perldoc "+sys.argv[0]+"')"
+Copyright 2020-03-04 by Steven J. DeRose. This work is licensed under a
+Creative Commons Attribution-Share-alike 3.0 unported license.
+See [http://creativecommons.org/licenses/by-sa/3.0/ for more information].
+
+For the most recent version, see L<http://www.derose.net/steve/utilities/>
+or L<http://github.com/sderose>.
+
+=Options=
+"""
+
+###############################################################################
+# Process options
+#
+parser = argparse.ArgumentParser(
+    description=descr
 )
+
 parser.add_argument(
     "-q",                action='store_true',  dest='quiet',
     help='Suppress most messages.')
@@ -57,11 +66,9 @@ parser.add_argument(
     '-version',          action='version',     version='Version of '+__version__,
     help='Display version information, then exit.')
 
-global args, su
-#lg = ALogger()
 args = parser.parse_args()
-su = sjdUtils()
-su.setVerbose(args.verbose)
+lg.setVerbose(args.verbose)
+
 
 ###############################################################################
 ###############################################################################
@@ -87,6 +94,5 @@ if (os.path.isdir('/sys/firmware/efi')):
 
 if (not uefiFinds):
     print("dmesg and /sys/firmware/efi checks failed, which means BIOS.")
-
 
 sys.exit(0)

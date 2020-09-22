@@ -2,7 +2,7 @@
 #
 # tracePythonPackage.py
 #
-# 2018-05-18: Written. Copyright by Steven J. DeRose.
+# 2018-05-18: Written by Steven J. DeRose.
 # Creative Commons Attribution-Share-alike 3.0 unported license.
 # See http://creativecommons.org/licenses/by-sa/3.0/.
 #

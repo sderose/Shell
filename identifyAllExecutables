@@ -2,38 +2,180 @@
 #
 # identifyAllExecutables
 #
-# 2007-12-06: Written by Steven J. DeRose.
-# 2007-12-17 sjd: Handle profiles/rcs better.
-# 2010-09-12 sjd: ??
-# 2012-01-09 sjd: Refactor. Add --underscore. Test for bash use.
-# 2013-02-08 sjd: Add --system, --login.
-# 2015-08-27: --. Option aliases. Improve doc. Color.
-# 2015-09-18: Add --ignoreCase. Improve output layout.
-#
-# To do:
-#     Compare against package managers (see --managers):
-#         macports     uses /opt/local
-#         anaconda     uses
-#         easy_install uses            (doesn't work if ln /usr/bin/python)
-#         homebrew     uses /usr/local
-#         fink         uses /sw
-#         apt-get      uses (Linux)
-#     Python-specific ones:
-#         pip          uses
-#         virtualenv   uses (choose)
-#     Sort by priority or alpha
-#     Show definition too (aliases)?
-#     Show or filter by shebang lines?
-#     Separate items by space or null, or alignData them like 'ls'.
-#
 use strict;
 use Getopt::Long;
 
 use sjdUtils;
 use alogging;
 
-our $VERSION_DATE = "2015-09-18";
+our %metadata = (
+    'title'        => "identifyAllExecutables.pm",
+    'rightsHolder' => "Steven J. DeRose",
+    'creator'      => "http://viaf.org/viaf/50334488",
+    'type'         => "http://purl.org/dc/dcmitype/Software",
+    'language'     => "Perl 5.18",
+    'created'      => "2006-10",
+    'modified'     => "2020-03-04",
+    'publisher'    => "http://github.com/sderose",
+    'license'      => "https://creativecommons.org/licenses/by-sa/3.0/"
+);
+our $VERSION_DATE = $metadata{'modified'};
 
+
+=pod
+
+=head1 Usage
+
+identifyAllExecutables [options]
+
+Finds anything (hopefully) that can be typed as a command, and display
+them along with their types:
+
+    aliases
+    shell functions
+    shell builtins
+    shell keywords
+    executable files along your \$PATH
+
+By default:
+
+    all types are shown (see I<--sa --sb --f --x>)
+    names beginning with "_" are omitted (see I<--underscore>.
+
+To list all executables of a given name or matching a regex, use:
+
+    identifyAllExecutables --find
+
+This does not just find the one that actually would get invoked, but all.
+This can be useful to track down PATH issues or other conflicts.
+
+
+
+=head1 Options
+
+=over
+
+=item * B<-c> OR B<--count>
+
+Count by type (and executable files by directory).
+
+=item * B<--find> I<regex>
+
+Go through as specified by other options but only display items whose
+names match I<regex>. See also I<--ignoreCase>.
+
+=item * B<--ignoreCase> OR B<-i>
+
+With I<--find>, ignore case when testing whether commands match the regex.
+
+=item * B<--login>
+
+Invoke bash with I<--login> when using it to get lists of things (PATH,
+aliases, shell functions,...), rather than searching for profiles manually.
+
+=item * B<-q> OR B<--quiet>
+
+Suppress most messages.
+
+=item * B<--sa> OR B<--showAliases> OR B<--aliases>
+
+Show aliases.
+
+=item * B<--sb> OR B<--showBuiltins> OR B<--builtins>
+
+Show builtins and keywords.
+
+=item * B<--sf> OR B<--showFunctions> OR B<--functions>
+
+Show shell functions.
+
+=item * B<--sp> OR B<--showPathDirs> OR B<--pathDirs>
+
+Show directories of \$PATH.
+
+=item * B<--sx> OR B<--showExecutables> OR B<--executables>
+
+Show executable files.
+
+=item * B<--system>
+
+Include system commands (default; use I<--nosystem> to turn off).
+System commands are bash builtins, and
+executables under /usr, /bin, or /sbin.
+
+=item * B<--underscore>
+
+Show items whose names begin with "_" (default: off, because there
+are a lot and they're rarely interesting).
+
+=item * B<-v> OR B<--verbose>
+
+Add more detailed messages.
+
+=item * B<--version>
+
+Display version info and exit.
+
+=back
+
+=head1 Known bugs and limitations
+
+C<bash help> output (used to get the list of builtins),
+is not parsed correctly enough.
+
+This isn't certain to get the exact environment you invoked it from, since it
+has to re-start Bash to get information. If you have more than one startup
+file, or your Bash environment has changed since startup, there may be
+inaccuracies.
+
+=head1 Related Commands
+
+C<which -a> -- lists all executables of a given name, along $PATH.
+
+=head1 History
+
+=over
+
+=item 2007-12-06: Written by Steven J. DeRose.
+=item 2007-12-17 sjd: Handle profiles/rcs better.
+=item 2010-09-12 sjd: ??
+=item 2012-01-09 sjd: Refactor. Add --underscore. Test for bash use.
+=item 2013-02-08 sjd: Add --system, --login.
+=item 2015-08-27: --. Option aliases. Improve doc. Color.
+=item 2015-09-18: Add --ignoreCase. Improve output layout.
+
+=back
+
+=head1 To do
+
+     Compare against package managers (see --managers):
+         macports     uses /opt/local
+         anaconda     uses
+         easy_install uses
+         homebrew     uses /usr/local
+         fink         uses /sw
+         apt-get      uses (Linux)
+     Python-specific ones:
+         pip          uses
+         virtualenv   uses (choose)
+     Sort by priority or alpha
+     Show definition too (aliases)?
+     Show or filter by shebang lines?
+     Separate items by space or null, or alignData them like 'ls'.
+
+=head1 Ownership
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see L<here|"http://creativecommons.org/licenses/by-sa/3.0/">.
+
+For the most recent version, see L<here|"http://www.derose.net/steve/utilities/">.
+
+=cut
+
+
+###############################################################################
+#
 my $color             = ($ENV{USE_COLOR} && -t STDERR) ? 1:0;
 my $count             = 0;
 my $find              = "";
@@ -54,13 +196,13 @@ my $verbose           = 0;
 # Process options
 #
 my %getoptHash = (
-	"c|count!"                        => \$count,
-	"find=s"                          => \$find,
-	"h|help|?"                        => sub { system "perldoc $0"; exit; },
-	"i|ignoreCase!"                   => \$ignoreCase,
+    "c|count!"                        => \$count,
+    "find=s"                          => \$find,
+    "h|help|?"                        => sub { system "perldoc $0"; exit; },
+    "i|ignoreCase!"                   => \$ignoreCase,
     "login!"                          => \$login,
-#    "managers!"                       => \$managers,
-	"q|quiet!"                        => \$quiet,
+    #"managers!"                       => \$managers,
+    "q|quiet!"                        => \$quiet,
     "sa|showAliases|aliases!"         => \$showAliases,
     "sb|showBuiltins|builtins!"       => \$showBuiltins,
     "sx|showExecutables|executables!" => \$showExecutables,
@@ -69,18 +211,18 @@ my %getoptHash = (
     "sort!"                           => \$sort,
     "system!"                         => \$system,
     "underscore!"                     => \$underscore,
-	"v|verbose+"                      => \$verbose,
+    "v|verbose+"                      => \$verbose,
     "version"                         => sub {
-		die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
-	},
-	);
+        die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
+    },
+    );
 Getopt::Long::Configure ("ignore_case");
 GetOptions(%getoptHash) || die "Bad options.\n";
 
 # Show everything unless they asked for specifics.
 my $showAll =
-	($showAliases+$showBuiltins+$showFunctions+$showExecutables+$showPathDirs+$count
-	 == 0);
+    ($showAliases+$showBuiltins+$showFunctions+$showExecutables+$showPathDirs+$count
+     == 0);
 
 ($ENV{SHELL} eq "/bin/bash") || die
     "Only works if you're using bash, not '$ENV{SHELL}'.\n";
@@ -102,9 +244,9 @@ if ($find) {
 # Find the user's startup file
 #
 my @profs = ( "/home/$ENV{USER}/.bash_profile",
-			  "/home/$ENV{USER}/.bash_login",
-			  "/home/$ENV{USER}/.profile",
-			  "/home/$ENV{USER}/.bashrc");
+              "/home/$ENV{USER}/.bash_login",
+              "/home/$ENV{USER}/.profile",
+              "/home/$ENV{USER}/.bashrc");
 my $rcf = "";
 if ($login) {
     $rcf = "--login";
@@ -154,7 +296,6 @@ report();
 exit;
 
 
-###############################################################################
 ###############################################################################
 # Report
 #
@@ -332,9 +473,6 @@ sub getFiles {
     return(\@xfiles);
 }
 
-
-###############################################################################
-#
 sub dropUS {
     my ($aRef) = @_;
     my @copy = ();
@@ -343,135 +481,3 @@ sub dropUS {
     }
     @{$aRef} = @copy;
 }
-
-
-
-###############################################################################
-###############################################################################
-###############################################################################
-#
-
-=pod
-
-=head1 Usage
-
-identifyAllExecutables [options]
-
-Finds anything (hopefully) that can be typed as a command, and display
-them along with their types:
-
-    aliases
-    shell functions
-    shell builtins
-    shell keywords
-    executable files along your \$PATH
-
-By default:
-
-    all types are shown (see I<--sa --sb --f --x>)
-    names beginning with "_" are omitted (see I<--underscore>.
-
-To list all executables of a given name or matching a regex, use:
-
-    identifyAllExecutables --find
-
-This does not just find the one that actually would get invoked, but all.
-This can be useful to track down PATH issues or other conflicts.
-
-
-
-=head1 Options
-
-=over
-
-=item * B<-c> OR B<--count>
-
-Count by type (and executable files by directory).
-
-=item * B<--find> I<regex>
-
-Go through as specified by other options but only display items whose
-names match I<regex>. See also I<--ignoreCase>.
-
-=item * B<--ignoreCase> OR B<-i>
-
-With I<--find>, ignore case when testing whether commands match the regex.
-
-=item * B<--login>
-
-Invoke bash with I<--login> when using it to get lists of things (PATH,
-aliases, shell functions,...), rather than searching for profiles manually.
-
-=item * B<-q> OR B<--quiet>
-
-Suppress most messages.
-
-=item * B<--sa> OR B<--showAliases> OR B<--aliases>
-
-Show aliases.
-
-=item * B<--sb> OR B<--showBuiltins> OR B<--builtins>
-
-Show builtins and keywords.
-
-=item * B<--sf> OR B<--showFunctions> OR B<--functions>
-
-Show shell functions.
-
-=item * B<--sp> OR B<--showPathDirs> OR B<--pathDirs>
-
-Show directories of \$PATH.
-
-=item * B<--sx> OR B<--showExecutables> OR B<--executables>
-
-Show executable files.
-
-=item * B<--system>
-
-Include system commands (default; use I<--nosystem> to turn off).
-System commands are bash builtins, and
-executables under /usr, /bin, or /sbin.
-
-=item * B<--underscore>
-
-Show items whose names begin with "_" (default: off, because there
-are a lot and they're rarely interesting).
-
-=item * B<-v> OR B<--verbose>
-
-Add more detailed messages.
-
-=item * B<--version>
-
-Display version info and exit.
-
-=back
-
-
-
-=head1 Known bugs and limitations
-
-C<bash help> output (used to get the list of builtins),
-is not parsed correctly enough.
-
-This isn't certain to get the exact environment you invoked it from, since it
-has to re-start Bash to get information. If you have more than one startup
-file, or your Bash environment has changed since startup, there may be
-inaccuracies.
-
-
-=head1 Related Commands
-
-C<which -a> -- lists all executables of a given name, along $PATH.
-
-
-
-=head1 Ownership
-
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see L<here|"http://creativecommons.org/licenses/by-sa/3.0/">.
-
-For the most recent version, see L<here|"http://www.derose.net/steve/utilities/">.
-
-=cut

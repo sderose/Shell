@@ -1,16 +1,403 @@
 #!/usr/bin/env python
-"""
-Rudimentary Perl -> Python translation assistant.
+#
+# Rudimentary Perl -> Python translation assistant.
+# Written 2011-09, by Steven J. DeRose.
+#
+import sys, argparse, re, time, datetime
 
-Written 2011-09, by Steven J. DeRose.
+__metadata__ = {
+    'title'        : "perl2python",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2011-09",
+    'modified'     : "2020-08-19",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+}
+__version__ = __metadata__['modified']
 
-2011-09-19ff sjd: Fixed:
+descr = """
+=Usage=
+
+perl2python [options] file
+
+A rudimentary `Perl` to '''Python''' translation assistant.
+
+This script does not do a complete translation, but does handle many of
+the tedious, repetitive, simple parts. Run some Perl code through
+it, and then finish the translation by hand. You'll still have a lot of
+small changes to make, but you won't have to remove thousands of semicolons,
+change `{` to ''':''', take `$@%` off of variables
+(leaving `sprintf("...%..."...)` intact),
+rename functions (`lc`() to '''lower'''(), etc.).
+
+''Note'': This mainly applies a long list of regex changes, line by line.
+
+''Note'': A few errors that can be caught, will be reported inline with
+comments starting `## PROBLEM`.
+
+
+=head2 Some things this script will do (mostly)
+
+* Change the shebang (`#!`) line.
+
+* Put in '''import''' lines for common packages.
+
+* Convert loops and conditions:
+  if/elsif/else
+  postfix `if` and `unless`;
+  `(expr) ? y:z`;
+  `(expr) && action`;
+  `next` to '''continue''';
+  `last` to '''break''';
+  `for (my x=y; x<z; z++)` and similar simple cases
+  and so on.
+
+* Fix most `{}`, etc.
+
+* Discard `my/our/local`, and the type-characters on variables.
+
+* Rearrange `=~` and `!~` into Python '''re''' package forms.
+Even change them to lstrip() and rstrip() when appropriate.
+
+* Change regex matches to save the Python match object as '''mat''',
+add $1 etc. to mat.group(1) etc. These will sometimes need manual cleanup.
+
+* Change $_ to $dftVar (more will typically be needed since '''$_'''
+is set automatically, and that doesn't translate easily).
+
+* Convert `Getopt::Long` to Python's '''argparse'''.
+However, there are some limitations, including:
+
+** one argument definition per line (synonyms are handled, though).
+
+** If you create a hash of the argument definitions as a separate variable,
+instead of just passing them all as arguments to `getOpt::Long()`, then you
+must specify the variabe name on the '''--getOptVar''' option to this script.
+
+** Anonymous `sub`s for the action part don't work.
+
+** Entries for '''--help''' and/or '''--version''' will be deleted, since
+Python gives you those for free.
+
+** Won't copy option-variable declarations from earlier (for
+defaults), into the '''default''' paremeter of '''add_argument''', or
+documentation from Perldoc into the '''help''' parameter. It does create
+an empty '''help''' parameter, however.
+
+** Won't do anything special for Python argparse types
+that aren't known to GetOpt (files, complex numbers, etc.).
+
+
+* Move Perldoc information into a Python triple-quoted string to
+keep it out of the way. Nothing between `=pod` and `=cut` is changed.
+
+* Change `sub` to '''def''', and mostly adjust the parameter declarations
+'''if''' you did them like:
+
+  sub foo {
+    my ($x, $myFoo, $zorch) = @_;
+  ...}
+
+* Convert a wide variety of operators, such as:
+  string and numeric comparisons (including `< <=` >> and `cmp`),
+  `.`, `x` (for strings),
+  `||`, `&&`,
+  `++`, `--`, `+=`, `-=`, `*+`, `/-`,
+  `!`, `< =` >>,
+  `-f` and other file predicates,
+  simple uses of ternary '?'
+  and so on.
+
+* Turn `substr(s,start,length)` into '''s[start:start+length]'''.
+Will only work if there are no commas embedded within the arguments.
+
+* Clean up some casts, lookups, and references like @{x}, $x->{y},
+@$x, %@x, etc.
+
+* Convert rudimentary file I/O calls.
+
+* Rename common functions, such as `int` to '''floor''',
+`lc` to '''lower''', `push` to '''append''', `sort` to '''sorted''', etc.
+Change `$ENV{}` to '''os.environ[]'''.
+
+* Turn `print` and `warn` into appropriate Python code.
+
+= item * Break variables out of quoted strings, and add '''str'''()
+around them.
+Doesn't do a very good job of it yet (mostly only works on full-line strings).
+This is improving, along with support for various Perl quote-types.
+
+* Change package-name separator from `::` to '''.'''. Change `package`
+keyword to '''class'''. Change `sub new` to '''def __init__'''.
+Does not yet change assignments to the object hash in new(), to make real
+instance variables.
+
+
+=head2 Some things this script will NOT do
+
+* Convert perl ref() calls to Python type().
+
+* Doesn't move functions so they're defined before used.
+
+* Doesn't  handle regexes using other than `/` as delimiter.
+
+* Doesn't support `do { }`.
+
+* Doesn't do much to move assignments outside of `if` conditions.
+
+* Doesn't introduce or normalize indentation, other than
+expand tabs (default width: 4, see '''--tabs''').
+Use an editor or pretty-printer if needed before using this script.
+
+* No support for most Perl reserved variables:
+`$/`, `$\\`, `$``, `$&`, `$'`, `$_[]`, etc.
+
+* Some, but incomplete, support for Perl references:
+`$self`, `\\$`, `\\@`, `\\%`, `@$`, `%$`, etc.
+
+* Doesn't catch `x` operators with anything but a quoted string before.
+
+* Doesn't do much with packages and references.
+Doesn't do anything at all about packages you `use`.
+
+* Doesn't indent '''def''' within classes.
+
+* Weak support for inline subs (such as for `sort` or `Getopt` actions).
+
+`grep`, `oct`, `chop`, `splice`, `lcfirst`, `ucfirst`,
+`tr///`, `study`, `pack`, `unpack`, `values`, `map`,
+`eof`, `printf`, `readline`, `stat`, `sprintf`,
+`binmode`, `opendir`, `readdir`,
+`redo`, `wantarray`, `caller`, `use`, `require`,
+`tie`,
+
+* Doesn't handle `exec`, `fork`, etc.
+
+* Per filehandle special variables
+
+* '' $| ''
+
+If set to nonzero, forces a flush after every write or print
+
+* '' $% ''
+
+Current page number
+
+* '' $= ''
+
+Current page length
+
+* '' $- ''
+
+Number of lines left on the page
+
+* '' $~ ''
+
+Name of the current report format
+
+* '' $^ ''   Name of the current top-of-page format
+
+
+* Local special variables
+
+* '' $1..$9 ''   Contains the subpattern from the corresponding set of parentheses in the last pattern matched. I<Renamed to `mat.group(n)`, because regex matches are changed to assign to `mat`.
+
+* '' $& ''
+
+Contains the string matched by the last pattern match
+
+* '' $` ''
+
+The string preceding whatever was matched by the last pattern match, not counting patterns matched in nested blocks that have been exited already.
+
+* '' $' ''
+
+The string following whatever was matched by the last pattern match, not counting patterns matched in nested blockes that have been exited already.
+
+* '' $+ ''
+
+the last bracket matched by the last search pattern. This is useful if you don't know which of a set of alternative patterns matched.
+
+
+* Global special variables
+
+* '' $_ ''   The default input and pattern-searching space. '''Renamed to dftVar'''
+
+* '' $. ''
+
+The current input line number of the last filehandle that was read.
+
+* '' $/ ''
+
+The input record separator, newline by default.
+
+* '' $\\ ''
+
+The output record separator for the print operator.
+
+* '' $, ''
+
+The output field separator for the print operator.
+
+* '' $" ''    This is similar to $, except that it applies to array values interpolated into a double-quoted string (or similar interpreted string). Default is space.
+
+* '' $# ''
+
+The output format for numbers display via the print operator.
+
+* '' $$ ''
+
+The process number of the Perl running this script.
+
+* '' $? ''    The status returned by the last pipe close, backtick(``) command or system operator.
+
+* '' $* ''    Set to 1 for multi-line matching within a string, 0 to tell Perl that it can assume that strings contain a single line, for the purpose of optimizing pattern matches. Default is 0
+
+* '' $0 ''
+
+Contains the name of the file containing the Perl script being executed.
+
+* '' $[ ''
+
+The index of the first element in an array, and of the first character in a substring.
+
+* '' $] ''    The first part of the string printed out when you say perl -v.
+
+* '' $; ''    The subscript separator for multi-dimensional array emulation.
+
+* '' $! ''
+
+If used in a numeric context, yields the current value of errno, with all the usual caveats.
+
+* '' $@ ''    The Perl syntax error or routine error message from the last eval, do-FILE, or require command.
+
+
+=head2 How to make Perl code convert better
+
+* Use consistent whitespace and indentation.
+
+* Break up complicated embedded constructions into more, simpler
+ones. For example, don't nest `?`, `substr`(), etc.
+
+* Always break after the `{` that starts a block,
+before the `}` that ends one, and after `;` (except in `for`).
+
+* Use function parentheses.
+
+* Always copy `sub` arguments from `@_` to named variables to use,
+on the line right after the `sub name {`.
+    my ($x, $y, $z) = @_;
+
+* Use `< () `> around all conditions, even in shortcuts
+like `(cond) && action;`.
+
+
+=Options=
+
+=over
+
+* ''--getOptVar''
+
+If you create a hash of the argument definitions as a separate variable,
+instead of just passing them all as arguments to `getOpt::Long()`, then you
+must specify the variabe name on this option.
+
+* ''--quiet'' OR ''-q''
+Suppress most messages.
+
+* ''--singleQuoteOptions''
+
+Declare long option names to start with "-" (default is to use "--").
+
+* ''--tabs'' '''n'''
+
+Expand tabs assuming tab-stops are every '''n''' columns (default: 4).
+
+* ''--trace''
+
+Give lots of detail on regex operations. See also '''--verbose'''.
+
+* ''--verbose''
+
+Add more messages (repeatable). See also '''--trace'''.
+
+* ''--version''
+
+Show version info and exit.
+
+=back
+
+
+=Known Bugs and Limitations / To do list=
+
+Many.
+
+Major:
+    Fix argparse handling to handle "my %getOptHash = ("...
+    Option to use my newer argparse (ref MarkuphelpFormatter, use flag options)
+
+Problems:
+    with tests of substr() vs. 0, change to try...except
+    handle multi-line quotes better (esp. qw)
+    Turns some line-final '{' that open hashes, into ':'.
+    {} left in {z} ??
+    do *something* with $/, etc. (now loses the '$')
+    move file arg for print (r'\\bprint\\s+(\\w+)\\s+')
+
+    Flow constructs:
+        toasts 'if' even if only got ==, not =
+        sometimes fails to indent 'if'
+        swap "if (x = ...)" to "x = ...\\nif(x)" in general?
+        leaves line-final ' +' on some 'if's
+        Gets confused on some if/for w/ block on same line.
+    Sorting:
+        sort keys x (lose 'keys')
+        sorted keys ... -> sorted(foo, key=foo.get, cmp=compfunction)
+        sort(a,b) convention
+    Constructors:
+        self{\\w+} goes to [], should go to .
+        self inits in new() should create items, not hash entries.
+            self\\[(\\w+)\\]   ->  self.\\1
+        constructors shouldn't return 'self'.
+        new -> __init__; class -> self
+        Finish -getOptVar.
+    regexes:
+        always puts in mat = re.sub... even inside an if.
+        changes to put in match instead of sub don't seem to work.
+        /= {/ vs. { for open-block vs. { in regex -- breaks when shouldn't
+        backslashes the apostrophes around regexes
+        re.sub loses RHS, at least if null
+    printf/sprintf:
+        turns %f in sprint to 'flt'??
+        loses '%' in sprintf format strings.
+    strings:
+        ..." . $x . "...  -> '%s'...%(x)
+    cosmetic:
+        doesn't delete all the ";", and leaves blank lines and ";"-only lines
+        space before final ':'
+        extra space after 'not'
+        indent 'sub' when after 'package'
+
+
+=Related commands=
+
+`perl`, `python`
+
+
+=History=
+
+* Written 2011-09, by Steven J. DeRose.
+
+* 2011-09-19ff sjd: Fixed:
     toasted indentation (expandTabs?
     break lines at ";" early on?
     how to get at $1 etc. after =~ s///?
     shift @foo to foo.shift()
     sys.stdout.isatty()
-    -- is confused; only change after \w?
+    -- is confused; only change after \\w?
     spurious insertion of 1-os.path.getsize from ---s
     ? operator: create whole 'if' with newlines
     ditch 'new'
@@ -32,29 +419,37 @@ Written 2011-09, by Steven J. DeRose.
     Handle shebang line at top, outside loop.
     Split and complile changes before main loop.
     (x]
-    \$ \@ \%
+    \\$ \\@ \\%
     x[y]->[z]
-    [@%]\{.*?\}
-2011-10-17 sjd: tweaks
-2012-01-10 sjd: +=, -=, *=, /=, .=, ->, (\s+, ; alone, preserve !=, ....
-2012-01-12 sjd: Various regex tweaks for if, for, substr, =~, -->, ternary ?.
+    [@%]\\{.*?\\}
+
+* 2011-10-17 sjd: tweaks
+
+* 2012-01-10 sjd: +=, -=, *=, /=, .=, ->, (\\s+, ; alone, preserve !=, ....
+
+* 2012-01-12 sjd: Various regex tweaks for if, for, substr, =~, -->, ternary ?.
     Major upgrades to GetOpt() handling. Clean up mainline logic. "+" options.
-2012-01-24 sjd: Major rewrite to handleGetOpt: Handle inverted options,
+
+* 2012-01-24 sjd: Major rewrite to handleGetOpt: Handle inverted options,
     set dest when needed, do aliases better, modularize.
-2012-01-31 sjd: Minor tweaks. Add helpMessages. Fix list ops.
+
+* 2012-01-31 sjd: Minor tweaks. Add helpMessages. Fix list ops.
     Remove part-line comments early, then replace at end.
-2014-04-25 Misc. clean-up. Code regexes as [ lhs, rhs ] instead of a string.
+
+* 2014-04-25 Misc. clean-up. Code regexes as [ lhs, rhs ] instead of a string.
     Don't turn regex /g into flags="g" instead of nothing (or count=0)
-2014-05-14: Better handling of @{$x}, for, while($x = readline()),...
 
-(for "To do list", see POD at bottom)
+* 2014-05-14: Better handling of @{$x}, for, while($x = readline()),...
+
+
+=Ownership=
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see L<http://creativecommons.org/licenses/by-sa/3.0/?.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities/>.
 """
-
-import sys, os, argparse, math, string, re, time, datetime
-
-global recnum, args
-
-__version__ = "2014-05-14"
 
 
 ###############################################################################
@@ -83,7 +478,6 @@ reservedExpr = r'\$(' + '|'.join(reservedWords) + r')\b'
 # Default help messages to supply for common GetOptLong option names.
 # Maybe: recursive, field, tickInterval, unicode, ascii,
 #
-global helpMessages
 helpMessages = {
     "delim"          : 'Field separator.',
     "quote"          : 'Field quoting character.',
@@ -107,13 +501,13 @@ helpMessages = {
     # For CSV package
     #
     "comment"        : "Ignore records beginning with this string.",
-    "delim"          : "Field separator (default: tab).",
+    #"delim"          : "Field separator (default: tab).",
     "escape"         : "Character to escape quotes inside quotes.",
     "header"         : "There is a header record, providing field names",
     "noheader"       : "There is NO header record, providing field names",
     "nlInQuotes"     : "Allow newlines within quoted fields.",
     "nonlInQuotes"   : "Do not allow newlines within quoted fields.",
-    "quote"          : "Character used to quote field values (default: '\"').",
+    #"quote"          : "Character used to quote field values (default: '\"').",
     "qdouble"        : "Allow a quote inside quotes via '\"\"'.",
     "noqdouble"      : "Do not allow a quote inside quotes via '\"\"'.",
     "stripFields"    : "Remove leading/trailing whitespace from fields.",
@@ -124,7 +518,6 @@ helpMessages = {
 
 
 ###############################################################################
-###############################################################################
 # An ordered list of regex changes.
 #
 changes = [
@@ -132,12 +525,14 @@ changes = [
     [ r'\s+$/',                                     r''                     ],
     [ r'^(\s*)([^#]*?;)\s*([^\s#])',                r'\1\2;\n\1\3'          ], # ????
 
+
     ###########################################################################
     # Packages and inits
     #
     [ r'use strict.*',                              r'import sys, os, re, subprocess' +
         r'\nimport string\n' + r'import math\n'               ],
     [ r'use Getopt.Long',                           r'import argparse'      ],
+
 
     ###########################################################################
     # Regex match/change
@@ -264,6 +659,7 @@ changes = [
     [ r'\bshift @{$(\w+)}\b',                       r'\1.pop(0)'        ],
     [ r'\bunshift @{$(\w+)},\s*(.+?)\b',            r'\1.insert(0,\2)'  ],
 
+
     ###########################################################################
     # Variable and subroutine definitions
     # (multi-line array/hash assignments don't have their () fixed)
@@ -283,7 +679,7 @@ changes = [
 
     ###########################################################################
     # Reserved variables, system stuff, etc.
-    #     Special variable are not done yet. See Perldoc at end.
+    #     Special variable are not done yet. See doc.
     #
     [ r'\$ENV\{(.*?)\}',                        r'os.environ["\1"]'     ],
     [ r'\b[$@]ARGV',                            r'sys.argv'             ],
@@ -309,6 +705,7 @@ changes = [
     [ r'\$self->\{([^{}]+)\}',                  r'self.\1'              ],
     [ r'->',                                    r'.'                    ],
     [ r'\$(\w+)(\.)?\{([^{}]+)\}',              r'\1[\3]'               ],
+
 
     ###########################################################################
     # File operations
@@ -421,13 +818,13 @@ specialVarChanges = [
     [ r'$~\b',     r'#FIX \\1#' ], # Name of the current report format
     [ r'$^\b',     r'#FIX \\1#' ], # Name of the current top-of-page format
 
-    # [ r'$\d\b',  r'#FIX \\1#' ], # Subpattern from last match. I<Renamed to C<mat.group(n)>
+    # [ r'$\d\b',  r'#FIX \\1#' ], # Subpattern from last match. I<Renamed to `mat.group(n)`
     [ r'$&\b',     r'#FIX \\1#' ], # String matched by the last pattern match
     [ r'$`\b',     r'#FIX \\1#' ], # String preceding whatever was matched
     [ r"$'\b",     r'#FIX \\1#' ], # String following whatever was matched
     [ r'$+\b',     r'#FIX \\1#' ], # Last bracket matched by last pattern
 
-    [ r'$_\b',     r'#FIX \\1#' ], # Default input and pattern space. I<Renamed to dftVar>
+    [ r'$_\b',     r'#FIX \\1#' ], # Default input and pattern space. '''Renamed to dftVar'''
     [ r'$.\b',     r'#FIX \\1#' ], # Current line number of the last filehandle read
     [ r'$/\b',     r'#FIX \\1#' ], # Input record separator
     [ r'$\\b',     r'#FIX \\1#' ], # Output record separator for print
@@ -446,7 +843,6 @@ specialVarChanges = [
 ]
 
 
-###############################################################################
 ###############################################################################
 # Expand variable references inside a Perl double-quoted string
 # (may come in with ';' and/or comment at end)
@@ -489,36 +885,37 @@ def varsInString(s):
 
 
 ###############################################################################
-"""Extract variables from inside quotes, and handle Perl's many quote types.
-
- ==> Move to top level so only unquoted stuff goes to the regexes. Requires
- separately collecting stuff outside of quotes, and passing that through with
- some substitutes for the quotes bits inserted then replaced.
-
- (see http://perldoc.perl.org/perlop.html#Quote-and-Quote-like-Operators)
-
- Customary Generic       Meaning           Interpolates
- --------- -------       -------           ------------
-       ''   q{}          Literal           no
-       ""  qq{}          Literal           yes
-       ``  qx{}          Command           yes*
-           qw{}          Word list         no
-       //   m{}          Pattern match     yes*
-           qr{}          Pattern           yes*
-            s{}{}        Substitution      yes*
-           tr{}{}        Transliteration   no (but see below)
-            y{}{}        Transliteration   no (but see below)
-          <<EOF          here-doc          yes*
-
-   * unless the delimiter is ''.
-
- To do:
-     insert first/last qw quotes
-     insert system call for back-quotes
-     handle s/tr/y 2nd argument (must 1st and 2nd use same delim?
-
-"""
+#
 def varsInString2(s):
+    """Extract variables from inside quotes, and handle Perl's many quote types.
+
+     ==> Move to top level so only unquoted stuff goes to the regexes. Requires
+     separately collecting stuff outside of quotes, and passing that through
+     with some substitutes for the quotes bits inserted then replaced.
+
+     (see http://perldoc.perl.org/perlop.html#Quote-and-Quote-like-Operators)
+
+     Customary Generic       Meaning           Interpolates
+     --------- -------       -------           ------------
+           ''   q{}          Literal           no
+           ""  qq{}          Literal           yes
+           ``  qx{}          Command           yes*
+               qw{}          Word list         no
+           //   m{}          Pattern match     yes*
+               qr{}          Pattern           yes*
+                s{}{}        Substitution      yes*
+               tr{}{}        Transliteration   no (but see below)
+                y{}{}        Transliteration   no (but see below)
+              <<EOF          here-doc          yes*
+
+       * unless the delimiter is ''.
+
+     To do:
+         insert first/last qw quotes
+         insert system call for back-quotes
+         handle s/tr/y 2nd argument (must 1st and 2nd use same delim?
+
+    """
     buf = ""              # Build up the result here
     pos = 0               # Current offset in source string
     inQuote = ""          # What kind of Perl quote are we in ("" = none)
@@ -620,7 +1017,7 @@ def varsInString2(s):
                     buf += '", "'
                     pos += len(mat.group)
                 else:
-                      buf += c
+                    buf += c
                 continue
             buf += c                                        # just copy
 
@@ -629,35 +1026,34 @@ def varsInString2(s):
     return(buf)
 
 
-
 ###############################################################################
-###############################################################################
-"""Handle GetOpt::Long (option parser) package. It is separate because it:
- * takes several regexes out of an already-long list
- * doesn't collide with similar code elsewhere
- * accumulates option variable names so we can update them later
- # does some fancy parsing for option types, repetition flags, etc.
-
- To do:
-     write out sub and convert_bases definitions
-
- Python argparse add_argument() notes:
-     1 or more args for name(s): "-f", "file", "in"
-     action='store'|'store_const'|'store_true'|'store_false'|'append'|
-         'append_const'|'count'|'help'|'version' or impl of argparse.Action
-         const=value (used for store_const, or for option w/o arg nargs='?'
-     nargs=int|'?'|'*'|'+'|argparse.REMAINDER
-     dest="dictKey" (defaults reasonably)
-     type={bool|int|float|complex|str|open|argparse.FileType('w')}
-         (or can name a fn that returns a converted value or raises exc)
-     choices=range(0,10) | "UMD" | ("U", "M", "D")
-     required=True
-     help="some doc on the option"
-     default="something"|argparse.SUPPRESS
-     metavar='xxx' to get different print name in help
- Can also do mutually-exclusive groups.
-"""
+#
 def oneArg(n, v, quote=True):
+    """Handle GetOpt::Long (option parser) package. It is separate because it:
+     * takes several regexes out of an already-long list
+     * doesn't collide with similar code elsewhere
+     * accumulates option variable names so we can update them later
+     # does some fancy parsing for option types, repetition flags, etc.
+
+     To do:
+         write out sub and convert_bases definitions
+
+     Python argparse add_argument() notes:
+         1 or more args for name(s): "-f", "file", "in"
+         action='store'|'store_const'|'store_true'|'store_false'|'append'|
+             'append_const'|'count'|'help'|'version' or impl of argparse.Action
+             const=value (used for store_const, or for option w/o arg nargs='?'
+         nargs=int|'?'|'*'|'+'|argparse.REMAINDER
+         dest="dictKey" (defaults reasonably)
+         type={bool|int|float|complex|str|open|argparse.FileType('w')}
+             (or can name a fn that returns a converted value or raises exc)
+         choices=range(0,10) | "UMD" | ("U", "M", "D")
+         required=True
+         help="some doc on the option"
+         default="something"|argparse.SUPPRESS
+         metavar='xxx' to get different print name in help
+     Can also do mutually-exclusive groups.
+    """
     if (not v):
         return("")
     if (quote):
@@ -665,7 +1061,7 @@ def oneArg(n, v, quote=True):
     else:
         return((n+'='+v+',').ljust(24))
 
-def niceText(names, dest=None, nargs=None, action=None, type=None):
+def niceText(names, dest=None, nargs=None, action=None, typ=None):
     global args, helpMessages
 
     theOpt = 'parser.add_argument(\n'
@@ -680,7 +1076,7 @@ def niceText(names, dest=None, nargs=None, action=None, type=None):
 
     # Add any options
     theOpt += '\n    '
-    theOpt += oneArg('type', type, quote=False)
+    theOpt += oneArg('type', typ, quote=False)
     if (dest != names[0]):
         theOpt += oneArg('dest', dest)
     theOpt += oneArg('action', action)
@@ -691,11 +1087,10 @@ def niceText(names, dest=None, nargs=None, action=None, type=None):
 
     return(theOpt)
 
-
-"""Sort out just what argparse options we need, based on GetOpt flags.
- Let niceText() above, do the layout from that.
-"""
 def makeOneOption(nameList, suffix, varType, varName, append):
+    """Sort out just what argparse options we need, based on GetOpt flags.
+     Let niceText() above, do the layout from that.
+    """
     buf = ""
     # Only specify dest, if the Perl varName not same as option name.
     dest = None
@@ -711,11 +1106,11 @@ def makeOneOption(nameList, suffix, varType, varName, append):
     elif (suffix == "+"):                     # increment
         buf = niceText(names, dest=dest, action='count')
     elif (suffix == "=s"):                    # string
-        buf = niceText(names, dest=dest, action=action, type='str')
+        buf = niceText(names, dest=dest, action=action, typ='str')
     elif (suffix == "=n" or suffix == "=i"):  # int
-        buf = niceText(names, dest=dest, action=action, type='int')
+        buf = niceText(names, dest=dest, action=action, typ='int')
     elif (suffix == "=f"):                    # float
-        buf = niceText(names, dest=dest, action=action, type='float')
+        buf = niceText(names, dest=dest, action=action, typ='float')
     elif (suffix == "=o"):                    # int 077 0xff 0b11
         if (not action): action = 'convert_bases'
         buf = niceText(names, dest=dest, action=action)
@@ -735,10 +1130,9 @@ def makeOneOption(nameList, suffix, varType, varName, append):
         # such as =s@ =n% =f{3,5}
     return(buf)
 
-
-"""Provide fixed text to go at the end of the option dcls.
-"""
 def addBoilerPlate():
+    """Provide fixed text to go at the end of the option dcls.
+    """
     bp = ""
     bp += ('parser.add_argument("files",\n' +
            '    type=argparse.FileType("w"), nargs=argparse.REMAINDER,\n' +
@@ -748,10 +1142,9 @@ def addBoilerPlate():
     bp += "\n"
     return(bp)
 
-
-"""Parse the actual Getopt::Long call and convert to Python.
-"""
 def handleGetOpt(ifh):
+    """Parse the actual Getopt::Long call and convert to Python.
+    """
     optionsResult = """
         parser = argparse.ArgumentParser(
             version="Version of  " + __version__,
@@ -760,6 +1153,7 @@ def handleGetOpt(ifh):
     lastLineBad = 0
 
     global recnum, args
+    recnum = 0
     while (True):
         rec = ifh.readline()
         if (not rec):                                  # EOF
@@ -791,7 +1185,7 @@ def handleGetOpt(ifh):
             if (not lastLineBad): # don't issue lots of messages in a row
                 print("## PROBLEM in GetOpt (line #" + str(recnum) + "):")
                 lastLineBad = 1
-            print "##" + rec,
+            print("##" + rec)
             continue
 
         lastLineBad = 0
@@ -827,52 +1221,51 @@ def handleGetOpt(ifh):
 # handleGetOpt
 
 
+###############################################################################
+#
+def anyInt(x):
+    return int(x, 0)
+
+def processOptions():
+    try:
+        from BlockFormatter import BlockFormatter
+        parser = argparse.ArgumentParser(
+           description=descr, formatter_class=BlockFormatter)
+    except ImportError:
+        parser = argparse.ArgumentParser(
+        description=descr)
+
+    parser.add_argument('-getOptVar', type=str,
+        help='Assume this variable is where getOptLong arguments are built.')
+    parser.add_argument('-singleQuoteOptions', action="store_true",
+        help='Prefix "-" instead of "--" for long option names.')
+    parser.add_argument('-tabs', type=int, default=4,
+        help='Assume tab stops this far apart.')
+    parser.add_argument('-trace', action="store_true",
+        help='Display regexes while compiling and running.')
+    parser.add_argument('-verbose', action="count",
+        help='Provide more tracing information.')
+    parser.add_argument('files',
+        type=argparse.FileType("r"), nargs=argparse.REMAINDER,
+        help='Path to a Perl file to (partly) convert to Python.')
+
+    args0 = parser.parse_args()
+    return args0
+
 
 ###############################################################################
-###############################################################################
-"""Parse command-line options to this conversion script
-"""
-parser = argparse.ArgumentParser(
-    version="Version of " + __version__,
-    description="""
-Partially convert a Perl program to Python. This doesn't really understand
-anything; it mainly does an awful lot of regex changes. But that fixes
-countless keyword differences, operators, functions, curly braces,
-variables in "strings", simple uses of regexes, etc. It also know about
-Getopt::Long, and does a pretty good job of converting to Pythons argparse.
-Of course, Perl has many ways of doing things, and this script does not catch
-nearly all of them, and it gets a few things wrong.
-But I find it saves a lot of time.
-A utility by Steven J. DeRose.
-    """,
-    epilog="(see also 'perldoc "+sys.argv[0]+"')"
-    )
-parser.add_argument('-getOptVar', type=str,
-    help='Assume this variable is where getOptLong arguments are built.')
-parser.add_argument('-singleQuoteOptions', action="store_true",
-    help='Prefix "-" instead of "--" for long option names.')
-parser.add_argument('-tabs', type=int, default=4,
-    help='Assume tab stops this far apart.')
-parser.add_argument('-trace', action="store_true",
-    help='Display regexes while compiling and running.')
-parser.add_argument('-verbose', action="count",
-    help='Provide more tracing information.')
-parser.add_argument('files',
-    type=argparse.FileType("r"), nargs=argparse.REMAINDER,
-    help='Path to a Perl file to (partly) convert to Python.')
-
-global args
-args = parser.parse_args()
-#args = vars(args)
+#
+args = processOptions()
 
 recnum      = 0   # What line number are we at?
 inpod       = 0   # State: inside a Perldoc pod...cut block?
 seenPackage = 0   # Has there been a 'package' line yet?
 
-ifh = args.files[0]
-if (not ifh):
-    su.die("Can't open input file '" + args.files[0] + "'")
-print("file: '"+`ifh`+"'")
+ifh0 = args.files[0]
+if (not ifh0):
+    sys.stderr.write("Can't open input file '" + args.files[0] + "'")
+    sys.exit()
+print("file: '"+str(ifh0)+"'")
 
 # Compile the regexes.
 #
@@ -891,516 +1284,94 @@ for ch in changes:
         sys.exit(0)
     try:
         ch.append(re.compile(ch[0]))
-    except:
+    except re.error:
         print("## Can't compile regex #%d: LHS: /%s/" % (nc, ch[0]))
         sys.exit(1)
 
 
 ###############################################################################
-"""Read the Perl code and apply the regexes to each line (handle comments,
-    perldoc pod...cut blocks, whole-line strings, package,
-    and GetOpt() calls specially).
-"""
-rec = ifh.readline()
+# Read the Perl code and apply the regexes to each line (handle comments,
+# perldoc pod...cut blocks, whole-line strings, package,
+# and GetOpt() calls specially).
+#
+rec0 = ifh0.readline()
 recnum = recnum + 1
-while(rec):
+while(rec0):
     recnum += 1
-    if (args.verbose): print("#"+`recnum`+": "+rec)
-    rec = re.sub(r'\n','',rec)
-    if (args.verbose): print "\n*** [" + recnum + "]: '" + rec
+    if (args.verbose): print("#"+str(recnum)+": "+rec0)
+    rec0 = re.sub(r'\n','',rec0)
+    if (args.verbose): print("\n*** [" + recnum + "]: '" + rec0)
 
     if (inpod > 0):                                    # in perldoc
-        print rec
-        if (re.match('=cut',rec)):
-            print '""" # End of pod'
+        print(rec0)
+        if (re.match(r'=cut',rec0)):
+            print('""" # End of pod')
             inpod = 0
 
-    elif (re.match('=' + 'pod',rec)):                  # start perldoc
-        print 'pod = """'
-        print ''
-        print rec
+    elif (re.match(r'=' + 'pod',rec0)):                  # start perldoc
+        print('pod = """')
+        print('')
+        print(rec0)
         inpod = 1
 
-    elif (re.match('(my\s+)?\$\w+\s*=\s*GetOptions\s*\(',rec)): # GetOpt::Long
-        handleGetOpt(ifh)
+    elif (re.match(r'(my\s+)?\$\w+\s*=\s*GetOptions\s*\(',rec0)): # GetOpt::Long
+        handleGetOpt(ifh0)
 
     elif (args.getOptVar and
-          re.match('\s*(my\s+)?[$%]\s*=',rec)):       # Args for GetOpt::Long
-        handleGetOpt(ifh)
+          re.match(r'\s*(my\s+)?[$%]\s*=',rec0)):       # Args for GetOpt::Long
+        handleGetOpt(ifh0)
 
-    elif (re.match('\s*"[^"]*";?\s*(#.*)?$',rec)):    # lone "string"
-        print varsInString(rec)
+    elif (re.match(r'\s*"[^"]*";?\s*(#.*)?$',rec0)):    # lone "string"
+        print(varsInString(rec0))
 
-    elif (re.match('\s*#!',rec)):                     # shebang
-        print '#!/usr/bin/env python'
+    elif (re.match(r'\s*#!',rec0)):                     # shebang
+        print('#!/usr/bin/env python')
         #print ('# ' + str(time.localtime()) +
-        print ('# ' + str(datetime.date.fromtimestamp(time.time())) +
+        print('# ' + str(datetime.date.fromtimestamp(time.time())) +
                ': Converted by perl2python, by Steven J. DeRose.')
 
-    elif (re.match('\s*#',rec)):                      # comments
-        print rec
+    elif (re.match(r'\s*#',rec0)):                      # comments
+        print(rec0)
 
-    elif (re.match('package ',rec)):                  # indent 'def'?
-        print(re.sub(r'package', 'class', rec))
+    elif (re.match(r'package ',rec0)):                  # indent 'def'?
+        print(re.sub(r'package', 'class', rec0))
         seenPackage = 1
 
     else:
-        rec = rec.expandtabs(args.tabs)               # normalize tabs
+        rec0 = rec0.expandtabs(args.tabs)               # normalize tabs
 
-        com = ""                                      # Strip trailing comment
-        mat = re.search(r'\s*#[^"]*$',rec)
-        if (mat):
-            com = rec[mat.start():]
-            rec = rec[0:mat.start()]
+        com0 = ""                                      # Strip trailing comment
+        mat0 = re.search(r'\s*#[^"]*$',rec0)
+        if (mat0):
+            com0 = rec0[mat0.start():]
+            rec0 = rec0[0:mat0.start()]
 
-        for i in range(nChanges):                     # do the changes
+        for i0 in range(nChanges):                     # do the changes
             if (args.trace):
-                print('    ' + str(i) + ': |' + changes[i][2].pattern +
-                      '|' + changes[i][1] + '|')
+                print('    ' + str(i0) + ': |' + changes[i0][2].pattern +
+                      '|' + changes[i0][1] + '|')
             try:
-                rec2 = re.sub(changes[i][2], changes[i][1], rec)
-            except Exception as X:
+                rec2 = re.sub(changes[i0][2], changes[i0][1], rec0)
+            except re.error as X:
                 if (str(X) != "unmatched group"):
                     print("#### Exception at line " + str(recnum) + "\n" +
-                          "    " + rec + "\n" |
-                          "    lhs: " + changes[i][0] + "\n" |
-                          "    rhs: " + changes[i][1] + "\n" |
+                          "    " + rec0 + "\n" |
+                          "    lhs: " + changes[i0][0] + "\n" |
+                          "    rhs: " + changes[i0][1] + "\n" |
                           "    Exception is: " + str(X))
-                    exit
-            if (rec != rec2):
-                rec = rec2
-        if (com):
-            rec = rec.rstrip() + " " + com
-        if (re.match('(  )?def',rec)):                # join up with arg dcl
-            print rec,
-        elif (rec != "\s*;\s*\n"):
-            print rec
+                    sys.exit()
+            if (rec0 != rec2):
+                rec0 = rec2
+        if (com0):
+            rec0 = rec0.rstrip() + " " + com0
+        if (re.match(r'(  )?def',rec0)):                # join up with arg dcl
+            print(rec0)
+        elif (re.match(r"\s*;\s*\n", rec0)):
+            print(rec0)
     # endif
-    rec = ifh.readline()
+    rec0 = ifh0.readline()
     recnum = recnum + 1
 
-ifh.close()
+ifh0.close()
 
 exit(0)
-
-
-
-###############################################################################
-###############################################################################
-#
-perldoc = """
-
-=pod
-
-=head1 Usage
-
-perl2python [options] file
-
-A rudimentary C<Perl> to I<Python> translation assistant.
-
-This script does not do a complete translation, but does handle many of
-the tedious, repetitive, simple parts. Run some Perl code through
-it, and then finish the translation by hand. You'll still have a lot of
-small changes to make, but you won't have to remove thousands of semicolons,
-change C<{> to I<:>, take C<$@%> off of variables
-(leaving C<sprintf("...%..."...)> intact),
-rename functions (C<lc>() to I<lower>(), etc.).
-
-B<Note>: This mainly applies a long list of regex changes, line by line.
-
-B<Note>: A few errors that can be caught, will be reported inline with
-comments starting C<## PROBLEM>.
-
-
-=head2 Some things this script will do (mostly)
-
-=over
-
-=item * Change the shebang (C<#!>) line.
-
-=item * Put in I<import> lines for common packages.
-
-=item * Convert loops and conditions:
-  if/elsif/else
-  postfix C<if> and C<unless>;
-  C<(expr) ? y:z>;
-  C<(expr) && action>;
-  C<next> to I<continue>;
-  C<last> to I<break>;
-  C<for (my x=y; x<z; z++)> and similar simple cases
-  and so on.
-
-=item * Fix most C<{}>, etc.
-
-=item * Discard C<my/our/local>, and the type-characters on variables.
-
-=item * Rearrange C<=~> and C<!~> into Python I<re> package forms.
-Even change them to lstrip() and rstrip() when appropriate.
-
-=item * Change regex matches to save the Python match object as I<mat>,
-add $1 etc. to mat.group(1) etc. These will sometimes need manual cleanup.
-
-=item * Change $_ to $dftVar (more will typically be needed since I<$_>
-is set automatically, and that doesn't translate easily).
-
-=item * Convert C<Getopt::Long> to Python's I<argparse>.
-However, there are some limitations, including:
-
-=over
-
-=item * one argument definition per line (synonyms are handled, though).
-
-=item * If you create a hash of the argument definitions as a separate variable,
-instead of just passing them all as arguments to C<getOpt::Long()>, then you
-must specify the variabe name on the I<--getOptVar> option to this script.
-
-=item * Anonymous C<sub>s for the action part don't work.
-
-=item * Entries for I<--help> and/or I<--version> will be deleted, since
-Python gives you those for free.
-
-=item * Won't copy option-variable declarations from earlier (for
-defaults), into the I<default> paremeter of I<add_argument>, or
-documentation from Perldoc into the I<help> parameter. It does create
-an empty I<help> parameter, however.
-
-=item * Won't do anything special for Python argparse types
-that aren't known to GetOpt (files, complex numbers, etc.).
-
-=back
-
-
-=item * Move Perldoc information into a Python triple-quoted string to
-keep it out of the way. Nothing between C<=pod> and C<=cut> is changed.
-
-=item * Change C<sub> to I<def>, and mostly adjust the parameter declarations
-I<if> you did them like:
-
-  sub foo {
-    my ($x, $myFoo, $zorch) = @_;
-  ...}
-
-=item * Convert a wide variety of operators, such as:
-  string and numeric comparisons (including C<< <=> >> and C<cmp>),
-  C<.>, C<x> (for strings),
-  C<||>, C<&&>,
-  C<++>, C<-->, C<+=>, C<-=>, C<*+>, C</->,
-  C<!>, C<< => >>,
-  C<-f> and other file predicates,
-  simple uses of ternary '?'
-  and so on.
-
-=item * Turn C<substr(s,start,length)> into I<s[start:start+length]>.
-Will only work if there are no commas embedded within the arguments.
-
-=item * Clean up some casts, lookups, and references like @{x}, $x->{y},
-@$x, %@x, etc.
-
-=item * Convert rudimentary file I/O calls.
-
-=item * Rename common functions, such as C<int> to I<floor>,
-C<lc> to I<lower>, C<push> to I<append>, C<sort> to I<sorted>, etc.
-Change C<$ENV{}> to I<os.environ[]>.
-
-=item * Turn C<print> and C<warn> into appropriate Python code.
-
-= item * Break variables out of quoted strings, and add I<str>()
-around them.
-Doesn't do a very good job of it yet (mostly only works on full-line strings).
-This is improving, along with support for various Perl quote-types.
-
-=item * Change package-name separator from C<::> to I<.>. Change C<package>
-keyword to I<class>. Change C<sub new> to I<def __init__>.
-Does not yet change assignments to the object hash in new(), to make real
-instance variables.
-
-=back
-
-
-
-=head2 Some things this script will NOT do
-
-=over
-
-=item * Convert perl ref() calls to Python type().
-
-=item * Doesn't move functions so they're defined before used.
-
-=item * Doesn't  handle regexes using other than C</> as delimiter.
-
-=item * Doesn't support C<do { }>.
-
-=item * Doesn't do much to move assignments outside of C<if> conditions.
-
-=item * Doesn't introduce or normalize indentation, other than
-expand tabs (default width: 4, see I<--tabs>).
-Use an editor or pretty-printer if needed before using this script.
-
-=item * No support for most Perl reserved variables:
-C<$/>, C<$\>, C<$`>, C<$&>, C<$'>, C<$_[]>, etc.
-
-=item * Some, but incomplete, support for Perl references:
-C<$self>, C<\$>, C<\@>, C<\%>, C<@$>, C<%$>, etc.
-
-=item * Doesn't catch C<x> operators with anything but a quoted string before.
-
-=item * Doesn't do much with packages and references.
-Doesn't do anything at all about packages you C<use>.
-
-=item * Doesn't indent I<def> within classes.
-
-=item * Weak support for inline subs (such as for C<sort> or C<Getopt> actions).
-
-C<grep>, C<oct>, C<chop>, C<splice>, C<lcfirst>, C<ucfirst>,
-C<tr///>, C<study>, C<pack>, C<unpack>, C<values>, C<map>,
-C<eof>, C<printf>, C<readline>, C<stat>, C<sprintf>,
-C<binmode>, C<opendir>, C<readdir>,
-C<redo>, C<wantarray>, C<caller>, C<use>, C<require>,
-C<tie>,
-
-=item * Doesn't handle C<exec>, C<fork>, etc.
-
-
-=item * Per filehandle special variables
-
-=over
-
-=item * B<< $| >>
-
-If set to nonzero, forces a flush after every write or print
-
-=item * B<< $% >>
-
-Current page number
-
-=item * B<< $= >>
-
-Current page length
-
-=item * B<< $- >>
-
-Number of lines left on the page
-
-=item * B<< $~ >>
-
-Name of the current report format
-
-=item * B<< $^ >>   Name of the current top-of-page format
-
-=back
-
-
-=item * Local special variables
-
-=over
-
-=item * B<< $1..$9 >>   Contains the subpattern from the corresponding set of parentheses in the last pattern matched. I<Renamed to C<mat.group(n)>, because regex matches are changed to assign to C<mat>.
-
-=item * B<< $& >>
-
-Contains the string matched by the last pattern match
-
-=item * B<< $` >>
-
-The string preceding whatever was matched by the last pattern match, not counting patterns matched in nested blocks that have been exited already.
-
-=item * B<< $' >>
-
-The string following whatever was matched by the last pattern match, not counting patterns matched in nested blockes that have been exited already.
-
-=item * B<< $+ >>
-
-the last bracket matched by the last search pattern. This is useful if you don't know which of a set of alternative patterns matched.
-
-=back
-
-
-=item * Global special variables
-
-=over
-
-
-=item * B<< $_ >>   The default input and pattern-searching space. I<Renamed to dftVar>
-
-=item * B<< $. >>
-
-The current input line number of the last filehandle that was read.
-
-=item * B<< $/ >>
-
-The input record separator, newline by default.
-
-=item * B<< $\ >>
-
-The output record separator for the print operator.
-
-=item * B<< $, >>
-
-The output field separator for the print operator.
-
-=item * B<< $" >>    This is similar to $, except that it applies to array values interpolated into a double-quoted string (or similar interpreted string). Default is space.
-
-=item * B<< $# >>
-
-The output format for numbers display via the print operator.
-
-=item * B<< $$ >>
-
-The process number of the Perl running this script.
-
-=item * B<< $? >>    The status returned by the last pipe close, backtick(``) command or system operator.
-
-=item * B<< $* >>    Set to 1 for multi-line matching within a string, 0 to tell Perl that it can assume that strings contain a single line, for the purpose of optimizing pattern matches. Default is 0
-
-=item * B<< $0 >>
-
-Contains the name of the file containing the Perl script being executed.
-
-=item * B<< $[ >>
-
-The index of the first element in an array, and of the first character in a substring.
-
-=item * B<< $] >>    The first part of the string printed out when you say perl -v.
-
-=item * B<< $; >>    The subscript separator for multi-dimensional array emulation.
-
-=item * B<< $! >>
-
-If used in a numeric context, yields the current value of errno, with all the usual caveats.
-
-=item * B<< $@ >>    The Perl syntax error or routine error message from the last eval, do-FILE, or require command.
-
-=back
-
-
-=head2 How to make Perl code convert better
-
-=over
-
-=item * Use consistent whitespace and indentation.
-
-=item * Break up complicated embedded constructions into more, simpler
-ones. For example, don't nest C<?>, C<substr>(), etc.
-
-=item * Always break after the C<{> that starts a block,
-before the C<}> that ends one, and after C<;> (except in C<for>).
-
-=item * Use function parentheses.
-
-=item * Always copy C<sub> arguments from C<@_> to named variables to use,
-on the line right after the C<sub name {>.
-    my ($x, $y, $z) = @_;
-
-=item * Use C<< () >> around all conditions, even in shortcuts
-like C<(cond) && action;>.
-
-
-=back
-
-
-
-=head1 Options
-
-=over
-
-=item * B<--getOptVar>
-
-If you create a hash of the argument definitions as a separate variable,
-instead of just passing them all as arguments to C<getOpt::Long()>, then you
-must specify the variabe name on this option.
-
-=item * B<--quiet> OR B<-q>
-Suppress most messages.
-
-=item * B<--singleQuoteOptions>
-
-Declare long option names to start with "-" (default is to use "--").
-
-=item * B<--tabs> I<n>
-
-Expand tabs assuming tab-stops are every I<n> columns (default: 4).
-
-=item * B<--trace>
-
-Give lots of detail on regex operations. See also I<--verbose>.
-
-=item * B<--verbose>
-
-Add more messages (repeatable). See also I<--trace>.
-
-=item * B<--version>
-
-Show version info and exit.
-
-=back
-
-
-
-=head1 Known Bugs and Limitations / To do list
-
-Many.
-
-Major:
-    Fix argparse handling to handle "my %getOptHash = ("...
-    Option to use my newer argparse (ref MarkuphelpFormatter, use flag options)
-
-Problems:
-    with tests of substr() vs. 0, change to try...except
-    handle multi-line quotes better (esp. qw)
-    Turns some line-final '{' that open hashes, into ':'.
-    {} left in {z} ??
-    do *something* with $/, etc. (now loses the '$')
-    move file arg for print (r'\bprint\s+(\w+)\s+')
-
-    Flow constructs:
-        toasts 'if' even if only got ==, not =
-        sometimes fails to indent 'if'
-        swap "if (x = ...)" to "x = ...\nif(x)" in general?
-        leaves line-final ' +' on some 'if's
-        Gets confused on some if/for w/ block on same line.
-    Sorting:
-        sort keys x (lose 'keys')
-        sorted keys ... -> sorted(foo, key=foo.get, cmp=compfunction)
-        sort(a,b) convention
-    Constructors:
-        self{\w+} goes to [], should go to .
-        self inits in new() should create items, not hash entries.
-            self\[(\w+)\]   ->  self.\1
-        constructors shouldn't return 'self'.
-        new -> __init__; class -> self
-        Finish -getOptVar.
-    regexes:
-        always puts in mat = re.sub... even inside an if.
-        changes to put in match instead of sub don't seem to work.
-        /= {/ vs. { for open-block vs. { in regex -- breaks when shouldn't
-        backslashes the apostrophes around regexes
-        re.sub loses RHS, at least if null
-    printf/sprintf:
-        turns %f in sprint to 'flt'??
-        loses '%' in sprintf format strings.
-    strings:
-        ..." . $x . "...  -> '%s'...%(x)
-    cosmetic:
-        doesn't delete all the ";", and leaves blank lines and ";"-only lines
-        space before final ':'
-        extra space after 'not'
-        indent 'sub' when after 'package'
-
-
-
-=head1 Related commands
-
-C<perl>, C<python>
-
-
-
-=head1 Ownership
-
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see L<http://creativecommons.org/licenses/by-sa/3.0/?.
-
-For the most recent version, see L<http://www.derose.net/steve/utilities/>.
-
-=cut
-"""

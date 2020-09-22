@@ -52,7 +52,7 @@ BSD support is experimental.
 
 =History=
 
-* 2017-02-03: Written. Copyright by Steven J. DeRose.
+* 2017-02-03: Written by Steven J. DeRose.
 
 =Rights=
 

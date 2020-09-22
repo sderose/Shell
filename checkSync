@@ -2,32 +2,77 @@
 #
 # checkSync: compare files that ought to be the same, and report.
 #
-# 2015-03-23: Written. Copyright by Steven J. DeRose.
-# Creative Commons Attribution-Share-alike 3.0 unported license.
-# See http://creativecommons.org/licenses/by-sa/3.0/.
-#
-# To do:
-#     Way to check one dir as subset of another, or just common files
-#
 from __future__ import print_function
 import sys, os, argparse
-#import re
-#import string
-#import math
-#import subprocess
+import re
+import subprocess
 import codecs
-import collections
 
-#import pudb
-#pudb.set_trace()
-
-from sjdUtils import sjdUtils
 from alogging import ALogger
-from MarkupHelpFormatter import MarkupHelpFormatter
+lg = ALogger()
 
-global args, su, stats
-#lg = ALogger()
-__version__ = "2015-03-23"
+__metadata__ = {
+    'title'        : "checkSync",
+    'rightsHolder' : "Steven J. DeRose",
+    'creator'      : "http://viaf.org/viaf/50334488",
+    'type'         : "http://purl.org/dc/dcmitype/Software",
+    'language'     : "Python 3.7",
+    'created'      : "2015-03-23",
+    'modified'     : "2020-03-04",
+    'publisher'    : "http://github.com/sderose",
+    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+}
+__version__ = __metadata__['modified']
+
+descr = """
+=Description=
+
+Checks files for whether they're the same, and screams or fixes if not.
+
+==The --filelist option==
+
+Use this option to specify a file, which in turn contains a list of files to
+compare. The format:
+
+* Empty lines, or lines beginning with '#', are ignored.
+
+* Lines starting with a name followed by '=' define variables
+    MYSVN="/Users/Wayne/Projects/C/"
+
+Such variables can be redefined.
+
+* Other lines should list 2 or more files or directories, separated by
+colons (or another character as specified by I<--fieldSep>). Whitespace is
+allowed around the field separator, and will be discarded.
+
+When you specify directories rather than lines for checking, they following files
+will be excluded from comparison:
+
+* Apparent backup files (~, #, .bak, etc.)
+
+* Hidden files or directories
+
+=Related Commands=
+
+`diff`
+
+=Known bugs and Limitations=
+
+=History=
+
+* 2015-03-23: Written by Steven J. DeRose.
+
+=Rights=
+
+Copyright 2015 by Steven J. DeRose. This work is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see [http://creativecommons.org/licenses/by-sa/3.0].
+
+For the most recent version, see [http://www.derose.net/steve/utilities] or
+[http://github.com/sderose].
+
+=Options=
+"""
 
 # First col status of index, second status of work tree
 gitStats = {  # With -s option
@@ -59,66 +104,13 @@ svnStats = {
 #
 def processOptions():
     "Parse command-line options and arguments."
-    global args, su, stats
+    from MarkupHelpFormatter import MarkupHelpFormatter
+
     x = sys.argv[0]
     parser = argparse.ArgumentParser(
-        description="""
-
-=head1 Description
-
-Checks files for whether they're the same, and screams or fixes if not.
-
-=head2 The --filelist option
-
-Use this option to specify a file, which in turn contains a list of files to
-compare. The format:
-
-=over
-
-=item * Empty lines, or lines beginning with '#', are ignored.
-
-=item * Lines starting with a name followed by '=' define variables
-    MYSVN="/Users/Wayne/Projects/C/"
-
-Such variables can be redefined.
-
-=item * Other lines should list 2 or more files or directories, separated by
-colons (or another character as specified by I<--fieldSep>). Whitespace is
-allowed around the field separator, and will be discarded.
-
-=back
-
-When you specify directories rather than lines for checking, they following files
-will be excluded from comparison:
-
-=over
-
-=item * Apparent backup files (~, #, .bak, etc.)
-
-=item * Hidden files or directories
-
-=back
-
-
-=head1 Related Commands
-
-C<diff>
-
-=head1 Known bugs and Limitations
-
-=head1 Licensing
-
-Copyright 2015 by Steven J. DeRose. This script is licensed under a
-Creative Commons Attribution-Share-alike 3.0 unported license.
-See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
-
-=head1 Options
-        """,
+        description=descr,
         formatter_class=MarkupHelpFormatter
     )
-    parser.add_argument(
-        "--color",  # Don't default. See below.
-        help='Colorize the output.')
     parser.add_argument(
         "--fieldSep",         type=str, default=":",
         help='Paths listed in the --filelist file are separated by this (:).')
@@ -140,14 +132,10 @@ See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
         nargs=argparse.REMAINDER,
         help='Path(s) to input file(s)')
 
-    args = parser.parse_args()
-    su = sjdUtils()
-    su.setVerbose(args.verbose)
-    if (args.color is None):
-        args.color = ("USE_COLOR" in os.environ and sys.stderr.isatty())
-    su.setColors(args.color)
-    sys.argv = [x] + args.files
-    return(args)
+    args0 = parser.parse_args()
+    lg.setVerbose(args0.verbose)
+    sys.argv = [x] + args0.files
+    return(args0)
 
 
 ###############################################################################
@@ -156,7 +144,7 @@ def compareDirs(paths):
     un = set()
     lists = []
     for i in range(len(paths)):
-        lst = os.path.listdir(paths[i])
+        lst = os.listdir(paths[i])
         lists.append(lst)
         un = un.union(set(lst))
 
@@ -174,7 +162,7 @@ def compareDirs(paths):
 def compareFiles(paths):
     lg.vMsg(0, "Checking: '%s'" % (os.path.split(paths[0])[1]))
     sawDiff = False
-    su.MsgPush()
+    lg.MsgPush()
     date = []
     size = []
 
@@ -196,12 +184,12 @@ def compareFiles(paths):
                 rc = subprocess.check_output([ 'diff', '-q', paths[0], p ])
                 sawDiff = True
                 msg = "diff '%s'" % (rc)
-        su.pline("%d: %s" % (i, os.path.split(p)[0]), msg)
+        lg.pline("%d: %s" % (i, os.path.split(p)[0]), msg)
         try:
             rc = subprocess.check_output([ 'git', 'status', '-s', p ])
             if ("Not a git repository" not in rc):
                 if (rc != ""):
-                    su.pline(p, "git: '%s'." % (rc[0]))
+                    lg.pline(p, "git: '%s'." % (rc[0]))
                     sawDiff = True
         except subprocess.CalledProcessError:
             lg.vMsg(0, "git fail")
@@ -210,17 +198,16 @@ def compareFiles(paths):
             rc = subprocess.check_output([ 'svn', 'status', p ], stderr=None)
             if ("is not a working copy" not in rc):
                 if (not rc.startswith(" ")):
-                    su.pline(p, "svn: '%s'." % (rc[0:2]))
+                    lg.pline(p, "svn: '%s'." % (rc[0:2]))
                     sawDiff = True
         except subprocess.CalledProcessError:
             lg.vMsg(0, "svn fail")
-    su.MsgPop()
+    lg.MsgPop()
     return(sawDiff)
 
 
 ###############################################################################
 #
-global varDict
 varDict = {}
 def lookup(m):
     varName = m.group(1)
@@ -239,7 +226,7 @@ def varSub(s):
 args = processOptions()
 varDict = {}
 pathSplitExpr = re.compile(r'\s*'+args.fieldSep+r'\s*')
-su.setOption("plineWidth", 65)
+lg.setOption("plineWidth", 65)
 
 if (args.filelist):
     try:
@@ -265,19 +252,18 @@ if (args.filelist):
                 lg.error("%s:%d: Bad variable assignment: %s" %
                     (args.filelist, recnum, rec))
         else:
-            paths = re.split(pathSplitExpr, rec)
-            if (len(paths) < 2):
+            paths0 = re.split(pathSplitExpr, rec)
+            if (len(paths0) < 2):
                 lg.error("%s:%d: Fewer than 2 paths: %s" %
                     (args.filelist, recnum, rec))
                 continue
-            for i in range(len(paths)):
-                paths[i] = varSub(paths[i])
-            if (os.path.isdir(paths[0])): compareDirs(paths)
-            else: compareFiles(paths)
+            for i0 in range(len(paths0)):
+                paths0[i0] = varSub(paths0[i0])
+            if (os.path.isdir(paths0[0])): compareDirs(paths0)
+            else: compareFiles(paths0)
 
 elif (len(args.files) > 1):
     lg.error("Must use --file for now....")
-    pass
 else:
     lg.error("No fileS or --file specified....")
     sys.exit()
