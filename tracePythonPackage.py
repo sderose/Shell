@@ -1,18 +1,14 @@
 #!/usr/bin/env python
 #
 # tracePythonPackage.py
-#
 # 2018-05-18: Written by Steven J. DeRose.
-# Creative Commons Attribution-Share-alike 3.0 unported license.
-# See http://creativecommons.org/licenses/by-sa/3.0/.
 #
 from __future__ import print_function
 import sys, os
 import argparse
-#import re
+import re
+import subprocess
 from subprocess import check_output
-
-from MarkupHelpFormatter import MarkupHelpFormatter
 
 __metadata__ = {
     'title'        : "tracePythonPackage.py",
@@ -21,7 +17,7 @@ __metadata__ = {
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2018-05-18",
-    'modified'     : "2020-03-01",
+    'modified'     : "2020-10-07",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -30,7 +26,7 @@ __version__ = __metadata__['modified']
 descr = """
 =Description=
 
-Look all over the place to see where Python is getting a given package
+See where Python is getting a given package
 (packages whose name ''contains'' the requested string are also reported).
 
 Python package managers included:
@@ -54,7 +50,7 @@ Apparently Python will only resolve `import pkg` if:
 
 * the file *does* have extension ".py" (not even ".pyc")
 
-* the file cannot be in a subdirectory of the PYTHONPATH dir specified
+* the file is not in a subdirectory of the PYTHONPATH dir specified
 (and you can't specify the path in the import statement, either).
 
 
@@ -63,19 +59,27 @@ Apparently Python will only resolve `import pkg` if:
 `identifyAllExecutables` -- search `PATH` for executables of a given name,
 as well as reporting shell functions, aliases,shell keywords, and builtins.
 
+
 =Known bugs and Limitations=
 
 Probably should also be able to list the versions of the package managers.
 
+
+=History=
+
+  2018-05-18: Written by Steven J. DeRose.
+  2020-10-07: Use `sys.path`, make `PYTHONPATH` optional. Trap `grep` fail.
+
+
 =Rights=
 
-Copyright 2015 by Steven J. DeRose.
+Copyright 2018-05-18 by Steven J. DeRose.
 This work by Steven J. DeRose is licensed under a Creative Commons
 Attribution-Share Alike 3.0 Unported License. For further information on
 this license, see http://creativecommons.org/licenses/by-sa/3.0/.
 
 For the most recent version, see [http://www.derose.net/steve/utilities] or
-[http://github.com/sderose].
+[https://github.com/sderose].
 
 =Options=
 """
@@ -83,13 +87,19 @@ For the most recent version, see [http://www.derose.net/steve/utilities] or
 ###############################################################################
 #
 def processOptions():
-    parser = argparse.ArgumentParser(
-        description=descr,
-        formatter_class=MarkupHelpFormatter
-    )
+    try:
+        from BlockFormatter import BlockFormatter
+        parser = argparse.ArgumentParser(
+            description=descr, formatter_class=BlockFormatter)
+    except ImportError:
+        parser = argparse.ArgumentParser(description=descr)
+
     parser.add_argument(
         "--quiet", "-q",      action='store_true',
         help='Suppress most messages.')
+    parser.add_argument(
+        "--pythonpath",       action='store_true',
+        help='Check along PYTHONPATH, not just sys.path.')
     parser.add_argument(
         "--showPython",       action='store_true', default=True,
         help='Also show info about which Python will run.')
@@ -110,28 +120,38 @@ def processOptions():
 
 def tracePackage(packageName):
     # BASIC PYTHONPATH
-    dirs = os.environ['PYTHONPATH'].split(':')
-    print("PYTHONPATH:")
+    if (args.pythonpath):
+        dirs = os.environ['PYTHONPATH'].split(':')
+        print("\n======= PYTHONPATH:")
+        checkDirs(dirs, packageName)
+
+    print("\n======= current sys.path:")
+    checkDirs(sys.path, packageName)
+
+    usualWay('port list', packageName)
+    usualWay('brew list', packageName)
+    usualWay('brew list --cask', packageName)
+    usualWay('pip list', packageName)
+    usualWay('conda list', packageName)
+
+def checkDirs(dirs, packageName):
     for i, theDir in enumerate(dirs):
         msg = "%2d: '%s'" % (i, theDir)
         if (not os.path.isdir(theDir)): msg += " (NO SUCH DIRECTORY)"
-        print(msg)
+        if (not args.quiet): print(msg)
         if (os.path.isfile(packageName+".py")):
-            print("        Found")
-
-    usualWay('port', packageName)
-    usualWay('brew', packageName)
-    usualWay('brew cask', packageName)
-    usualWay('pip', packageName)
-    usualWay('conda', packageName)
+            print("        *** Found ***")
 
 def usualWay(mgr, packageName):
-    print("\n======= %s" % (mgr))
+    print("\n======= Checking %s" % (mgr))
     try:
-        cmd = '%s list | grep "%s"' % (mgr, packageName)
+        cmd = '%s | grep "%s"' % (mgr, packageName)
         print(check_output(cmd, shell=True))
-    except Exception:
-        print("*** Failed: %s" % (cmd))
+    except subprocess.CalledProcessError as e:
+        if (re.search(r'returned non-zero exit status 1', "%s" % (e))):
+            pass  # Normal grep 'not found'
+        else:
+            print("*** Failed: %s:\n    %s" % (cmd, e))
 
 
 ###############################################################################
@@ -150,6 +170,9 @@ if (args.showPython):
     sc = "whereis python"
     print("======= %s\n%s" % (sc, check_output(sc, shell=True)))
 
+    print("======= Running Python: %s" % (sys.version_info))
+
+
 if (len(args.packages) == 0):
     sys.stderr.write("No packages specified....\n")
     sys.exit()
@@ -159,4 +182,4 @@ else:
         tracePackage(pkg)
 
 if (not args.quiet):
-    print("Done, %d packages checked." % (nChecked))
+    print("Done, checked for %d package(s)." % (nChecked))
