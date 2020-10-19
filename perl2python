@@ -142,7 +142,7 @@ instance variables.
 
 * Doesn't move functions so they're defined before used.
 
-* Doesn't  handle regexes using other than `/` as delimiter.
+* Doesn't handle regexes using other than `/` as delimiter.
 
 * Doesn't support `do { }`.
 
@@ -711,15 +711,15 @@ changes = [
     # File operations
     #    (happens *after* stripping variable prefix chars [$@%])
     #
-    [ r'\b-r\s+\$?([^()]+)',                    r'os.access(\1,os.R_OK)'    ],
-    [ r'\b-w\s+\$?([^()]+)',                    r'os.access(\1,os.W_OK)'    ],
-    [ r'\b-x\s+\$?([^()]+)',                    r'os.access(\1,os.X_OK)'    ],
-    [ r'\b-e\s+\$?([^()]+)',                    r'os.path.exists(\1)'       ],
-    [ r'\b-z\s+\$?([^()]+)',                    r'os.path.getsize(\1)>0'    ],
-    [ r'\b-s\s+\$?([^()]+)',                    r'os.path.getsize(\1)'      ],
-    [ r'\b-d\s+\$?([^()]+)',                    r'os.path.isdir(\1)'        ],
-    [ r'\b-f\s+\$?([^()]+)',                    r'os.path.isfile(\1)'       ],
-    [ r'\b-t\s+\$?([^()]+)',                    r'\1.isatty()'              ],
+    [ r'(?<!w)-r\s+\$?([^()]+)',               r'os.access(\1,os.R_OK)'    ],
+    [ r'(?<!w)-w\s+\$?([^()]+)',               r'os.access(\1,os.W_OK)'    ],
+    [ r'(?<!w)-x\s+\$?([^()]+)',               r'os.access(\1,os.X_OK)'    ],
+    [ r'(?<!w)-e\s+\$?([^()]+)',               r'os.path.exists(\1)'       ],
+    [ r'(?<!w)-z\s+\$?([^()]+)',               r'os.path.getsize(\1)>0'    ],
+    [ r'(?<!w)-s\s+\$?([^()]+)',               r'os.path.getsize(\1)'      ],
+    [ r'(?<!w)-d\s+\$?([^()]+)',               r'os.path.isdir(\1)'        ],
+    [ r'(?<!w)-f\s+\$?([^()]+)',               r'os.path.isfile(\1)'       ],
+    [ r'(?<!w)-t\s+\$?([^()]+)',               r'\1.isatty()'              ],
 
     [ r'\bSTDIN\b',                             r'sys.stdin'                ],
     [ r'\bSTDOUT\b',                            r'sys.stdout'               ],
