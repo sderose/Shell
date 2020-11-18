@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 #
 # pythonpath -- display and check where Python is going to look.
+# 2014-06-12: Written by Steven J. DeRose.
 #
 from __future__ import print_function
 import sys
 import os
 import re
 import argparse
-#import string
 import subprocess
 import glob
 
@@ -21,7 +21,7 @@ __metadata__ = {
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2014-06-12",
-    'modified'     : "2020-03-01",
+    'modified'     : "2020-11-06",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -30,47 +30,42 @@ __version__ = __metadata__['modified']
 descr = """
 =Usage=
 
-Display $PYTHONPATH, and check that all the mentioned directories exist.
+Display `$PYTHONPATH`, and check that all the mentioned directories exist.
 Also can check correspondence to sys.path, and warn for duplicate mentions
 of the same directory or class name.
 
-It is also useful to try 'find . -name '*.py'.
 
-=Notes=
+=History=
 
 * 2014-06-12: Written by Steven J. DeRose.
-
 * 2014-07-10: Report missing __init__.py.
-
 * 2014-09-09: Add --extras, --where, notify() indirection.
-
 * 2015-08-06: Clean up options. Quieter by default. Finish --find x.
+* 2020-11-06: Fix split().
+
 
 =To do=
 
-* CATCH existing .pyc when there's no .py in same dir!
-
+* CATCH existing .pyc when there's no .py in same dir.
 * Identify pip, port, brew, easy_install
-
 * Hook up getClassDefs2()!!! FIX
-
 * Check for file, or even classes, defined at more than one place on path
-
 * Check for more module conventions?
-
 * CF: findExternals.py.
+
 
 =Rights=
 
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
+Copyright 2014-06-12 by Steven J. DeRose. This work is licensed under a Creative
+Commons Attribution-Share Alike 3.0 Unported License. For further information on
 this license, see http://creativecommons.org/licenses/by-sa/3.0/.
 
 For the most recent version, see [http://www.derose.net/steve/utilities] or
-[http://github.com/sderose].
+[https://github.com/sderose].
+
 
 =Options
-""",
+"""
 
 args = None
 su = sjdUtils()
@@ -123,7 +118,7 @@ def getClassDefs(path, recursive=False):
     try:
         buf = subprocess.check_output(cmdTokens, shell=False, stderr=None)
         if (type(buf) == type('x')):
-            bufRecs = "\n".split(buf)
+            bufRecs = buf.split(sep="\n")
     except Exception as e:
         sys.stderr.write("Exception: %s" % (e))
         bufRecs = []

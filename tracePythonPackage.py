@@ -56,7 +56,14 @@ Apparently Python will only resolve `import pkg` if:
 
 =Related Commands=
 
-`identifyAllExecutables` -- search `PATH` for executables of a given name,
+`pipdeptree` -- finds all the dependency chains and version ranges known for
+installed pip libraries.
+
+`pipcompile` [https://github.com/jazzband/pip-tools] -- creates a
+requirements.txt file. See
+[https://medium.com/knerd/the-nine-circles-of-python-dependency-hell-481d53e3e025]
+
+My `identifyAllExecutables` -- search `PATH` for executables of a given name,
 as well as reporting shell functions, aliases,shell keywords, and builtins.
 
 
