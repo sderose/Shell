@@ -1,0 +1,36 @@
+#!/bin/bash
+#
+# Dublin Core Metadata
+DC_title=".sh"
+DC_rightsHolder="Steven J. DeRose"
+DC_creator="http://viaf.org/viaf/"
+DC_type="http://purl.org/dc/dcmitype/Software"
+DC_language="bash"
+DC_created="2020-12-11"
+DC_modified="2020-12-11"
+DC_publisher="http://github.com/"
+DC_license="https://creativecommons.org/licenses/by-sa/3.0/"
+#
+# https://superuser.com/questions/150117/
+#
+if [ "$1" == "-h" ]; then
+    echo "Shell function ${FUNCNAME[0]}, from $me: "
+    echo "    Show the chain of parent processes, given a pid."
+    exit
+fi
+
+bashPID=$$
+if [ "$1" == "" ]; then
+    targetPID=$bashPID
+else
+    targetPID=$1
+fi
+
+while [[ $targetPID -gt 0 ]]; do
+    #echo "Target pid: $targetPID"
+    par=`ps -p $targetPID -o ppid | tail -n 1`
+    cmd=`ps -p $targetPID -o command | tail -n 1`
+    echo "$par: $cmd"
+    targetPID=$par
+done
+
