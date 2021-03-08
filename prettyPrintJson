@@ -1,1 +1,3 @@
-See json2xml.py.
+#!/bin/sh
+
+echo "prettyPrintJson.py: See json2xml.py instead."
