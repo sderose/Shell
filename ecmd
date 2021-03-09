@@ -7,6 +7,7 @@ use Getopt::Long;
 
 our %metadata = (
     'title'        => "ecmd",
+    'description'  => "Find an alias, shell function, or command, and edit it.",
     'rightsHolder' => "Steven J. DeRose",
     'creator'      => "http://viaf.org/viaf/50334488",
     'type'         => "http://purl.org/dc/dcmitype/Software",
@@ -17,6 +18,7 @@ our %metadata = (
     'license'      => "https://creativecommons.org/licenses/by-sa/3.0/"
 );
 our $VERSION_DATE = $metadata{'modified'};
+
 
 =pod
 
@@ -48,7 +50,7 @@ as well as ~/bin/bash_profile, which is where the author keeps his profile so
 that it isn't hidden (for Mac Finder, for backup/copy processing, etc).
 
 If you have extra files that define aliases or shell functions (perhaps that are
-sourced from .bash_profile), you can list them in
+sourced from .bash_profile), list them in
 environment variable C<ECMDPATH>, or specify them via I<--addProfile>.
 
 You can use I<-v> to get a list of all the places to be searched.
@@ -102,9 +104,8 @@ Does not expand $BASH_ENV or $ENV before trying it as a path.
 
 Assumes your $EDITOR has a "+n" option to take you to line number I<n>
 (this is used to get you right to the definition of an alias or shell function).
-C<emacs>, C<vi>, C<pico>, C<gedit>, C<bbedit>, and C<xedit> are all ok.
-C<kompozer> isn't (but see
-L<http://sourceforge.net/tracker/index.php?func=detail&aid=2941487&group_id=170132&atid=853125>).
+C<emacs>, C<vi>, C<pico>, C<gedit>, C<bbedit>, and C<xedit> are all ok,
+but not C<sublimeText> or C<kompozer>.
 
 C<type> returns stereotyped responses for each kind of command.
 If your local C<type> command returns significantly different forms,
@@ -140,7 +141,8 @@ To enable auto-completion with this script in C<bash> use
 
     complete -F _command ecmd
 
-On Mac OS X, you may need to install bash_completion first, for example as:
+On Mac OS X, you may need to do the C<zsh> equivalent first,
+or install bash_completion, for example as:
 
     sudo port install bash-completion
 
@@ -370,7 +372,7 @@ else {
 if ($tgtFile ne "") {
     ($quiet) || printf(
         "  Last modified %3.1f days ago.\n", -M($tgtFile));
-    my $cmd = "$ENV{EDITOR}" . ($fndLine ? " +$fndLine":"") . " $tgtFile";
+    my $cmd = "$ENV{EDITOR}" . (($fndLine > 1) ? " +$fndLine":"") . " $tgtFile";
     ($verbose) && warn "Running: $cmd\n";
     system($cmd) || warn("Failed.\n");
 }
