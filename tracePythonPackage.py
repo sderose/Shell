@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# tracePythonPackage.py
+# tracePythonPackage.py: Find where a Python package is installed.
 # 2018-05-18: Written by Steven J. DeRose.
 #
 from __future__ import print_function
@@ -12,6 +12,7 @@ from subprocess import check_output
 
 __metadata__ = {
     'title'        : "tracePythonPackage.py",
+    'description'  : "Find where a Python package is installed.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
@@ -31,11 +32,12 @@ See where Python is getting a given package
 
 Python package managers included:
 
-    PYTHONPATH itself
+    PYTHONPATH itself (via sys.path)
     pip
     port
     conda
     brew
+    apt
 
 '''Note''': A package manager's name for something, is often not the same as the
 name you import. For example, you would import "sklearn", but it lives in
@@ -91,7 +93,49 @@ For the most recent version, see [http://www.derose.net/steve/utilities] or
 =Options=
 """
 
+
 ###############################################################################
+#
+def tracePackage(packageName):
+    # BASIC PYTHONPATH
+    if (args.pythonpath):
+        dirs = os.environ['PYTHONPATH'].split(':')
+        print("\n======= PYTHONPATH:")
+        checkDirs(dirs, packageName)
+
+    print("\n======= current sys.path:")
+    checkDirs(sys.path, packageName)
+
+    usualWay('port list', packageName)
+    usualWay('brew list --formula', packageName)
+    usualWay('brew list --cask', packageName)
+    usualWay('pip list', packageName)              ## or pip show [x]
+    usualWay('conda list', packageName)
+    usualWay('apt list', packageName)
+
+
+def checkDirs(dirs, packageName):
+    for i, theDir in enumerate(dirs):
+        msg = "%2d: '%s'" % (i, theDir)
+        if (not os.path.isdir(theDir)): msg += " (NO SUCH DIRECTORY)"
+        if (not args.quiet): print(msg)
+        if (os.path.isfile(packageName+".py")):
+            print("        *** Found ***")
+
+def usualWay(mgr, packageName):
+    print("\n======= Checking %s" % (mgr))
+    try:
+        cmd = '%s | grep "%s"' % (mgr, packageName)
+        print(check_output(cmd, shell=True))
+    except subprocess.CalledProcessError as e:
+        if (re.search(r'returned non-zero exit status 1', "%s" % (e))):
+            pass  # Normal grep 'not found'
+        else:
+            print("*** Failed: %s:\n    %s" % (cmd, e))
+
+
+###############################################################################
+# Main
 #
 def processOptions():
     try:
@@ -125,45 +169,7 @@ def processOptions():
     args0 = parser.parse_args()
     return(args0)
 
-def tracePackage(packageName):
-    # BASIC PYTHONPATH
-    if (args.pythonpath):
-        dirs = os.environ['PYTHONPATH'].split(':')
-        print("\n======= PYTHONPATH:")
-        checkDirs(dirs, packageName)
 
-    print("\n======= current sys.path:")
-    checkDirs(sys.path, packageName)
-
-    usualWay('port list', packageName)
-    usualWay('brew list', packageName)
-    usualWay('brew list --cask', packageName)
-    usualWay('pip list', packageName)
-    usualWay('conda list', packageName)
-
-def checkDirs(dirs, packageName):
-    for i, theDir in enumerate(dirs):
-        msg = "%2d: '%s'" % (i, theDir)
-        if (not os.path.isdir(theDir)): msg += " (NO SUCH DIRECTORY)"
-        if (not args.quiet): print(msg)
-        if (os.path.isfile(packageName+".py")):
-            print("        *** Found ***")
-
-def usualWay(mgr, packageName):
-    print("\n======= Checking %s" % (mgr))
-    try:
-        cmd = '%s | grep "%s"' % (mgr, packageName)
-        print(check_output(cmd, shell=True))
-    except subprocess.CalledProcessError as e:
-        if (re.search(r'returned non-zero exit status 1', "%s" % (e))):
-            pass  # Normal grep 'not found'
-        else:
-            print("*** Failed: %s:\n    %s" % (cmd, e))
-
-
-###############################################################################
-# Main
-#
 args = processOptions()
 
 nChecked = 0
@@ -177,8 +183,7 @@ if (args.showPython):
     sc = "whereis python"
     print("======= %s\n%s" % (sc, check_output(sc, shell=True)))
 
-    print("======= Running Python: %s" % (sys.version_info))
-
+    print("======= Running Python: %s" + str(sys.version_info))
 
 if (len(args.packages) == 0):
     sys.stderr.write("No packages specified....\n")
