@@ -383,8 +383,8 @@ if ($tgtFile ne "") {
         "  Last modified %3.1f days ago.\n", -M($tgtFile));
     my $lineArg = "";
     if ($fndLine > 1) {
-        if ($ENV{EDITOR} eq "subl") { $lineArg = ":$fndLine"; }
-        else { $lineArg = "+$fndLine"; }
+        if ($ENV{EDITOR} eq "subl") { $lineArg = " :$fndLine"; }
+        else { $lineArg = " +$fndLine"; }
     }
     my $cmd = "$ENV{EDITOR}" . $lineArg . " $tgtFile";
     ($verbose) && warn "Running: $cmd\n";
