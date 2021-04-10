@@ -186,7 +186,6 @@ if (not os.path.isdir(args.maildirpath)):
 
 
 ###############################################################################
-###############################################################################
 # Main
 #
 dirname = args.maildirpath
@@ -210,7 +209,7 @@ if (args.text):
     sys.exit(0)
 
 for curDir in listofdirs:
-    curlist=[mboxname]+curDir.split('.')
+    curlist=[mboxname]+curDir.split(sep='.')
     curpath=os.path.join(*[dn+'.sbd' for dn in curlist if dn])
     if not os.path.exists(curpath):
         os.makedirs(curpath)

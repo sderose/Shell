@@ -111,8 +111,10 @@ Does not expand $BASH_ENV or $ENV before trying it as a path.
 
 Assumes your $EDITOR has a "+n" option to take you to line number I<n>
 (this is used to get you right to the definition of an alias or shell function).
-C<emacs>, C<vi>, C<pico>, C<gedit>, C<bbedit>, and C<xedit> are all ok,
-but not C<sublimeText> or C<kompozer>.
+C<emacs>, C<vi>, C<pico>, C<gedit>, C<bbedit>, and C<xedit> are all ok.
+C<SublimeText> uses C<:n> instead.
+C<kompozer> isn't (but see
+L<http://sourceforge.net/tracker/index.php?func=detail&aid=2941487&group_id=170132&atid=853125>).
 
 C<type> returns stereotyped responses for each kind of command.
 If your local C<type> command returns significantly different forms,
@@ -134,13 +136,13 @@ to fiddle around a bit to get that working.
 
 C<bash>, C<which>, C<type>, C<shopt>.
 
+
 =head1 Notes
 
 When an instance of C<bash> starts up, if it's a B<login> shell, it runs F</etc/profile>. Then
 it looks for ~/.bash_profile, ~/.bash_login, and ~/.profile,
 in  that order, and reads and executes commands from the first one readable.
 C<ecmd> checks all those places.
-
 
 =head2 Auto-completion
 
@@ -160,7 +162,6 @@ bash-completion >=2.0 requires bash >=4.1. Also, add to your .bash_profile:
   fi
 
 See L<http://superuser.com/questions/288438/bash-completion-for-commands-in-mac-os>.
-
 
 =head2 Categories of commands
 
@@ -182,7 +183,6 @@ The POSIX special builtins only apply in POSIX mode. They are:
 
     break, :, ., continue, eval, exec, exit, export, readonly, return, set,
 shift, trap, unset.
-
 
 =head2 bash configuration
 
@@ -221,7 +221,11 @@ or I<POSIX> compatibility mode
 A nice page on bash's startup and other behavior is:
 L<http://wiki.bash-hackers.org/scripting/bashbehaviour>.
 
+
 =head1 To do
+
+  * Add zsh support
+
 
 =head1 History
 
@@ -247,7 +251,9 @@ Add --addProfile.
 
 =item * 2020-04-15: New layout. Add $ECMDPATH support.
 
-=item * 2021-03-10: Only add line arg if >1. Switch '+n' to ':n' for sublimeText.
+=item * 2021-01-21: Map 'open to line number' as needed per EDITOR.
+
+=item * 2021-03-10: Only add line arg if >1. Switch '+n' to ':n' for sublimeText.=======
 
 =back
 
@@ -261,10 +267,12 @@ See L<http://creativecommons.org/licenses/by-sa/3.0> for more information.
 For the most recent version, see L<http://www.derose.net/steve/utilities/>
 or L<http://github.com/sderose>.
 
+
 =cut
 
 
 ###############################################################################
+# Options
 #
 my @addProfile    = ();
 my $interactive   = 0;
@@ -381,17 +389,31 @@ else {
 if ($tgtFile ne "") {
     ($quiet) || printf(
         "  Last modified %3.1f days ago.\n", -M($tgtFile));
-    my $lineArg = "";
-    if ($fndLine > 1) {
-        if ($ENV{EDITOR} eq "subl") { $lineArg = " :$fndLine"; }
-        else { $lineArg = " +$fndLine"; }
-    }
-    my $cmd = "$ENV{EDITOR}" . $lineArg . " $tgtFile";
+    my $cmd = "$ENV{EDITOR} " . lineSeekOption($fndLine) . " $tgtFile";
     ($verbose) && warn "Running: $cmd\n";
     system($cmd) || warn("Failed.\n");
 }
 
 exit;
+
+
+my %lineSeekPrefix = (  # lookups are via lowercased name
+    'emacs'  		=> '+',
+    'vi'	    	=> '+',
+    'pico'		    => '+',
+    'gedit'         => '+',
+    'bbedit'        => '+',
+    'xedit'         => '+',
+    'sublimetext'   => ':',
+    'kompozer'      => '',  # not supported?
+);
+
+sub lineSeekOption {
+    my ($editorName, $fndLine) = @_;
+    (!$fndLine) && return '';
+    (defined $lineSeekPrefix{lc($editorName)}) || return '';
+    return $lineSeekPrefix{lc($editorName)} . $fndLine;
+}
 
 
 ###############################################################################

@@ -8,12 +8,13 @@ use Getopt::Long;
 
 our %metadata = (
     'title'        => "showScale",
+    'description'  => "Display a line with character columns, or a separator.",
     'rightsHolder' => "Steven J. DeRose",
     'creator'      => "http://viaf.org/viaf/50334488",
     'type'         => "http://purl.org/dc/dcmitype/Software",
     'language'     => "Perl 5.18",
     'created'      => "2006-11",
-    'modified'     => "2020-09-08",
+    'modified'     => "2020-12-18",
     'publisher'    => "http://github.com/sderose",
     'license'      => "https://creativecommons.org/licenses/by-sa/3.0/"
 );
@@ -30,10 +31,6 @@ Displays a scale for counting columns in your *nix shell, such as:
 
 ----+----1----+----2----+----3----+----4----+----5
 
-or a plain separator line (see C<--separator>):
-
-###############################################################################
-
 The numbers represent the second-smallest digit of the column number (in
 decimal, the default, that's the "tens" digit). For even bases, a "+"
 appears at the "halfway" points (multiples of 5, for decimal).
@@ -43,6 +40,15 @@ To start counting somewhere other than from 1, see I<--startCount>.
 As long as environment variable '\$COLUMNS' has been set (for example, by
 having C<export COLUMNS> in your F<.bashrc> or similar file),
 the scale will be sized to fit your window.
+
+Can also make plain separator line (see C<--separator>), such as shown below,
+and/or display the line C<--up n> lines in an ANSI terminal program, so you
+can place it near a line you want to measure.
+
+###############################################################################
+
+//=============================================================================
+
 
 
 =head1 Options
@@ -56,9 +62,16 @@ Label the scale in base I<n>.
 =item * B<--char> I<c>
 
 The character to repeat for rules made via I<--separator> (default "#").
+
 =item * B<--color>
 
 Use color.
+
+=item * B<--comment> I<extsion>
+
+Turn the line into a syntactic comment as befits the specified extension
+(don't include the dot),
+such as by prefixing '//' or '#', or surrounding with '<!--' and '-->'.
 
 =item * B<--separator>
 
@@ -89,15 +102,24 @@ I<n> may be specified in the usual bases.
 =item * B<--zero>
 
 Start the scale at offset 0 instead of 1.
+This is just shorthand for C<--startCount 0>.
 
 =back
 
 
 =head1 Known bugs and limitations
 
-B<Note>: The bash shell does not automatically C<export COLUMNS>, so
-for this script to know your terminal width,
+B<Note>: C<bash> does not automatically C<export COLUMNS>, so
+for this script to know your terminal width
 your F<.bashrc> or similar file must do that explicitly.
+
+
+=head1 To do
+
+Provide comment delimiters for various languages by extension.
+See L<https://gist.github.com/ppisarczyk].
+
+Finish makeVerticalLine() option to draw a vertical line at a given column(s).
 
 
 =History
@@ -110,6 +132,7 @@ your F<.bashrc> or similar file must do that explicitly.
   2018-08-26: Add --separator.
   2018-10-22: Add --zero. Fix 'colorstring' call.
   2020-09-08: New layout. Add --char, doc --separator.
+  2020-12-18: Clean up. Start --extension.
 
 
 =head1 Rights
@@ -122,7 +145,58 @@ L<https://creativecommons.org/licenses/by-sa/3.0>.
 For the most recent version, see L<http://www.derose.net/steve/utilities> or
 L<https://github.com/sderose>.
 
+
 =cut
+
+
+my %other = (
+    'asp'       => '//',
+    'swf'       => '//',
+    'php'       => '//',
+    'rb'        => '//',
+    'rss'       => '//',
+    'cgi'       => '//',
+    'r'         => '//',
+    'el'        => ';;',
+    # prolog, haskell, lisp, clisp, scheme, smalltalk
+);
+my %slash = (
+    'c'         => '//',
+    'cpp'       => '//',
+    'c#'        => '//',
+    'css'       => '//',
+    'js'        => '//',
+    'jsp'       => '//',
+);
+my %pound = (
+    'py'        => '#',
+    'sh'        => '#',
+    'pl'        => '#',
+);
+my %sgml = (
+    'xml'       => '//',
+    'htm'       => '//',
+    'html'      => '//',
+    'sgm'       => '//',
+    'sgml'      => '//',
+    'svg'       => '//',
+);
+
+# Could use 'curses' but it seems like overkill.
+my $cursorUp    = "\x1B[A";
+my $cursorDown  = "\x1B[B";
+my $cursorLeft  = "";
+my $cursorRight = "";
+my $cursorCol1  = "";
+
+# TODO: Add escaping, indentation. Hook up.
+sub commenter {
+    my ($line, $ext) = @_;
+    if ($slash{$ext}) { return '// ' . $line; }
+    if ($pound{$ext}) { return '# ' . $line; }
+    if ($sgml{$ext})  { return '<!-- ' . $line . ' -->'; }
+    die "Unsupported --ext value '$ext'.\n";
+}
 
 
 ###############################################################################
@@ -131,6 +205,7 @@ L<https://github.com/sderose>.
 my $base       = 10;
 my $char       = "#";
 my $color      = ($ENV{USE_COLOR} && -t STDERR) ? 1:0;
+my $comment    = 0;
 my $quiet      = 0;
 my $rule       = "";
 my $separator  = 0;
@@ -144,20 +219,21 @@ Getopt::Long::Configure ("ignore_case");
 my $result = GetOptions(
     "base=o"            => \$base,
     "char=s"            => \$char,
-	"c|color!"          => \$color,
-	"h|help|?"          => sub { system "perldoc $0"; exit; },
-	"q|quiet!"          => \$quiet,
-	"rule=s"            => \$rule,
-	"separator!"        => \$separator,
-	"startCount=o"      => \$startCount,
-	"up=o"              => \$up,
-	"v|verbose+"        => \$verbose,
+    "c|color!"          => \$color,
+    "comment!"          => \$comment,
+    "h|help|?"          => sub { system "perldoc $0"; exit; },
+    "q|quiet!"          => \$quiet,
+    "rule=s"            => \$rule,
+    "separator!"        => \$separator,
+    "startCount=o"      => \$startCount,
+    "up=o"              => \$up,
+    "v|verbose+"        => \$verbose,
     "version"           => sub {
-		die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
-	},
-	"width=o"           => \$width,
-	"zero!"             => \$zero,
-	);
+        die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
+    },
+    "width=o"           => \$width,
+    "zero!"             => \$zero,
+    );
 
 ($result) || die "Bad options.\n";
 
@@ -169,9 +245,9 @@ my $result = GetOptions(
 #
 if ($width == 0) { $width = $ENV{COLUMNS}; }
 if (!$width) {
-	if (!$quiet) {
-	    warn "Can't get \$COLUMNS -- .profile could export it (cf --width).\n";
-	}
+    if (!$quiet) {
+        warn "Can't get \$COLUMNS -- .profile could export it (cf --width).\n";
+    }
     $width = 160;
 }
 
@@ -201,7 +277,7 @@ else {
 if ($zero) { $scale = "0" . substr($scale, 0, length($scale)-1); }
 
 if ($up) {
-    $scale = ("\x1B[A" x $up) . "\r" . $scale . ("\x1B[B" x $up);
+    $scale = ($cursorUp x $up) . "\r" . $scale . ($cursorDown x $up);
 }
 print "$r$scale$c\n";
 
@@ -229,4 +305,13 @@ sub makeScale {
         }
     }
     return($buf);
+}
+
+sub makeVerticalLine {
+    my ($lines, $col) = @_;
+    my $buf = $cursorUp x $lines;
+    for (my $i=0; $i<$lines; $i++) {
+        $buf .= $cursorDown + "|" + $cursorLeft;
+    }
+    return $buf;
 }
