@@ -9,12 +9,13 @@ use Getopt::Long;
 
 our %metadata = (
     'title'        => "greprange",
+    'description'  => "Extract text from starting to endine matches.",
     'rightsHolder' => "Steven J. DeRose",
     'creator'      => "http://viaf.org/viaf/50334488",
     'type'         => "http://purl.org/dc/dcmitype/Software",
     'language'     => "Perl 5.18",
     'created'      => "2008-02-01",
-    'modified'     => "2020-08-31",
+    'modified'     => "2021-04-11",
     'publisher'    => "http://github.com/sderose",
     'license'      => "https://creativecommons.org/licenses/by-sa/3.0/"
 );
@@ -34,12 +35,15 @@ For example:
 
     greprange --start '<abstract>' --end '</abstract>'
 
-would pull out all the lines constituting an XML 'abstract' element(s).
+would pull out all the lines tagged as an XML 'abstract' element(s).
+
+The regexes do not have to exhause the lines they match on; if you want that,
+give them as ^...$.
 
 
 =head1 Options
 
-(most are like for 'grep'):
+(most are like for C<grep>):
 
 =over
 
@@ -47,7 +51,7 @@ would pull out all the lines constituting an XML 'abstract' element(s).
 
 Just count hits, don't display them.
 
-=item * B<--end> I<'expr'>
+=item * B<--end> I<expr>
 
 Expression to end at.
 
@@ -61,7 +65,7 @@ Ignore case.
 
 =item * B<--iend>
 
-Include the matching 'end' line itself.
+Include the matching end line itself.
 
 =item * B<--invert-match> (or -v)
 
@@ -69,7 +73,7 @@ Print lines *outside* of matched ranges.
 
 =item * B<--istart>
 
-Include the matching 'start' line itself.
+Include the matching start line itself.
 
 =item * B<--label> I<l>
 
@@ -114,12 +118,14 @@ Display version info and exit.
 
 You can do this with a bit of C<awk> if you remember how.
 
+C<head>, C<tail>, and my C<grepData> and C<body> scripts do other extractions.
+
 
 =head1 Known bugs and limitations
 
 I<-h> and I<-o> are not finished.
 
-There are no 'grep'-like options for:
+There are no C<grep>-like options for:
     context: I<-A> I<-B> I<-C>;
     regex types: I<-E> I<-e> I<-F> I<-G> I<-w> I<-x>;
     unusual file options: I<-a> I<-d> I<-D> I<-I> I<-U>;
@@ -128,17 +134,19 @@ There are no 'grep'-like options for:
 
 =head1 History
 
-  2008-02-01: Written by Steven J. DeRose.
-  2008-02-11 sjd: Add -c, -i, --iend, --istart, -n, -v(invert-match).
+    2008-02-01: Written by Steven J. DeRose.
+    2008-02-11 sjd: Add -c, -i, --iend, --istart, -n, -v(invert-match).
 Start multi-file support, -h -H -o.
-  2015-08-20: Clean up.
-  2020-08-31: New layout.
+    2015-08-20: Clean up.
+    2020-08-31: New layout.
+    2021-04-11: Fix file handling.
 
 
 =head1 To do
-      Maybe just integrate into 'body' or 'grepData'?
-      -b (byte-offset), -u (unix-byte-offsets) (strips CR).
-      Pull in code for various other options from grepData.
+
+    Maybe just integrate into C<body> or C<grepData>?
+    -b (byte-offset), -u (unix-byte-offsets) (strips CR).
+    Pull in code for various other options from grepData.
 
 
 =head1 Rights
@@ -150,6 +158,7 @@ L<https://creativecommons.org/licenses/by-sa/3.0>.
 
 For the most recent version, see L<http://www.derose.net/steve/utilities> or
 L<https://github.com/sderose>.
+
 
 =cut
 
@@ -231,7 +240,21 @@ my $nFound = 0;
 my $totLines = 0;
 
 sub doOneFile {
-    my ($path, $fh) = @_;
+    my ($path) = @_;
+    my $fh;
+    if ($path eq "-") {
+        $fh = *STDIN;
+    }
+    elsif (-f $path) {
+        $fh = open("<$path");
+    }
+    else {
+        ($suppress) || warn "Could not find file '$path'.\n";
+        return 0;
+    }
+
+    my $inRange = 0;
+    my $lnum = 0;
     while(my $rec = <$fh>) {
         $lnum++;
         $totLines++;
@@ -259,6 +282,7 @@ sub doOneFile {
             }
         }
     } # EOF
+    ($path eq "-") || $fh.close();
 }
 
 
@@ -266,15 +290,13 @@ sub doOneFile {
 # Main
 #
 if (scalar @ARGV == 0) {
-    doOneFile("[STDIN]",
+    warn "Waiting on STDIN...\n";
+    push @ARGV, "-";
+}
+
 while (my $f = shift) {
-    if (! -f $f) {
-        ($suppress) || warn "Could not find file '$f'.\n";
-        next;
-    }
+    doOneFile($f);
     $nFiles++;
-    my $inRange = 0;
-    my $lnum = 0;
 } # per file
 
 ($quiet) || warn
