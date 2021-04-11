@@ -93,7 +93,7 @@ Only find this many ranges.
 
 =item * B<--only-matching> or B<-o>
 
-Show only the in-range part of the start/end lines.
+Include only the inward part of the start/end lines.
 
 =item * B<-q> or B<--quiet>
 
@@ -117,6 +117,9 @@ Display version info and exit.
 =head1 Related commands
 
 You can do this with a bit of C<awk> if you remember how.
+See L<https://stackoverflow.com/questions/38972736/how-to-print-lines-between-two-patterns-inclusive-or-exclusive-in-sed-awk-or>.
+For example:
+    awk '/PAT1/{flag=1} flag; /PAT2/{flag=0}' myFile
 
 C<head>, C<tail>, and my C<grepData> and C<body> scripts do other extractions.
 
@@ -139,14 +142,13 @@ There are no C<grep>-like options for:
 Start multi-file support, -h -H -o.
     2015-08-20: Clean up.
     2020-08-31: New layout.
-    2021-04-11: Fix file handling.
+    2021-04-11: Fix file handling. Implement --only-matching. Show awk alternative.
 
 
 =head1 To do
 
     Maybe just integrate into C<body> or C<grepData>?
     -b (byte-offset), -u (unix-byte-offsets) (strips CR).
-    Pull in code for various other options from grepData.
 
 
 =head1 Rights
@@ -253,6 +255,7 @@ sub doOneFile {
         return 0;
     }
 
+    ($quiet) || warn("******* Starting file $path\n");
     my $inRange = 0;
     my $lnum = 0;
     while(my $rec = <$fh>) {
@@ -263,6 +266,10 @@ sub doOneFile {
                 ($ignoreFlag && $rec =~ m/$end/i)) {
                 if (!$count && !$iEnd) {
                     print "" . ($lineNumber ? "$lnum:":"") . $rec;
+                }
+                elsif ($onlyMatching) {
+                    $rec =~ s/$end.*//;
+                    print $rec;
                 }
                 $inRange = 0;
                 if ($maxRanges > 0 && $nFound >= $maxRanges) { last; }
@@ -278,6 +285,10 @@ sub doOneFile {
                  $nFound++;
                  if (!$count && !$iStart) {
                      print "" . ($lineNumber ? "$lnum:":"") . $rec;
+                 }
+                 elsif ($onlyMatching) {
+                    $rec =~ s/.*$start//;
+                    print $rec;
                  }
             }
         }
