@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 #
-# countShells.py
+# countShells.py: How many shells are running?
+# 2017-02-03: Written by Steven J. DeRose.
 #
 from __future__ import print_function
 import sys, os, argparse
@@ -10,20 +11,20 @@ import math
 from subprocess import check_output
 from collections import namedtuple
 
-from MarkupHelpFormatter import MarkupHelpFormatter
-
 __metadata__ = {
     'title'        : "countShells.py",
+    "description"  : "How many shells are running?",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2017-02-03",
-    'modified'     : "2020-03-01",
+    'modified'     : "2021-04-21",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__['modified']
+
 
 descr = """
 =Description=
@@ -42,17 +43,22 @@ The count depends on definitions:
 
 * Attached to a terminal?
 
+
 =Related Commands=
 
 `w`, `last`, `ps`,....
+
 
 =Known bugs and Limitations=
 
 BSD support is experimental.
 
+
 =History=
 
 * 2017-02-03: Written by Steven J. DeRose.
+* 2021-04-21: New layout.
+
 
 =Rights=
 
@@ -63,35 +69,9 @@ this license, see [http://creativecommons.org/licenses/by-sa/3.0].
 For the most recent version, see [http://www.derose.net/steve/utilities] or
 [http://github.com/sderose].
 
+
 =Options=
 """
-
-###############################################################################
-#
-def processOptions():
-    parser = argparse.ArgumentParser(
-        description=descr, formatter_class=MarkupHelpFormatter
-    )
-    parser.add_argument(
-        "--quiet", "-q",      action='store_true',
-        help='Suppress most messages.')
-    parser.add_argument(
-        "--shellName",        type=str, default='bash',
-        help='What shell program to check for. Default: bash.')
-    parser.add_argument(
-        "--verbose", "-v",    action='count', default=0,
-        help='Add more messages (repeatable).')
-    parser.add_argument(
-        "--version",          action='version', version=__version__,
-        help='Display version information, then exit.')
-
-    parser.add_argument(
-        'files',              type=str,
-        nargs=argparse.REMAINDER,
-        help='Path(s) to input file(s)')
-
-    args0 = parser.parse_args()
-    return(args0)
 
 
 ###############################################################################
@@ -124,11 +104,42 @@ def formatSecond(s):
 
 
 ###############################################################################
-###############################################################################
 # Main
 #
 # @see psTest.py for info in Linux vs. BSD options.
 #
+###############################################################################
+#
+def processOptions():
+    try:
+        from BlockFormatter import BlockFormatter
+        parser = argparse.ArgumentParser(
+            description=descr, formatter_class=BlockFormatter)
+    except ImportError:
+        parser = argparse.ArgumentParser(description=descr)
+
+    parser.add_argument(
+        "--quiet", "-q",      action='store_true',
+        help='Suppress most messages.')
+    parser.add_argument(
+        "--shellName",        type=str, default='bash',
+        help='What shell program to check for. Default: bash.')
+    parser.add_argument(
+        "--verbose", "-v",    action='count', default=0,
+        help='Add more messages (repeatable).')
+    parser.add_argument(
+        "--version",          action='version', version=__version__,
+        help='Display version information, then exit.')
+
+    parser.add_argument(
+        'files',              type=str,
+        nargs=argparse.REMAINDER,
+        help='Path(s) to input file(s)')
+
+    args0 = parser.parse_args()
+    return(args0)
+
+
 args = processOptions()
 
 ### etimes not on bsd, though etime is....

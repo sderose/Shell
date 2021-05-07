@@ -1,42 +1,166 @@
 #!/usr/bin/perl -w
 #
-# bases: Convert numbers to various bases and forms.
-#
-# Written: ?? By Steven J. DeRose.
-# 2007-11-~~ sjd: Add -k, -t, -u, input multiplier letters.
-# 2010-09-12 sjd: Cleanup.
-# 2011-06-29 sjd: Eine kleine nichtKleenup.
-# 2012-02-23 sjd: Add #rgb support.
-# 2012-03-22 sjd: Handle multiple numbers. Support decimal colors #d,d,d
-#
-# To do:
-#     Make short colors round, not just shift?
-#     Handle UTF-8.
-#     Break long numbers into groups of digits via sjdUtils::lpadc().
+# showNumberInBases: Convert numbers to various bases and forms.
+# ~2007-11: Written by Steven J. DeRose.
 #
 use strict;
 use Getopt::Long;
 use Encode;
 use charnames ':full';
+use Date::Format;
+
 use sjdUtils;
-use alogging;
 
-our $VERSION_DATE = "2012-03-22";
+our %metadata = (
+    "title"        => "showNumberInBases",
+    "description"  => "Convert numbers to various bases and forms.",
+    "rightsHolder" => "Steven J. DeRose",
+    "creator"      => "http://viaf.org/viaf/50334488",
+    "type"         => "http://purl.org/dc/dcmitype/Software",
+    "language"     => "Perl 5.18",
+    "created"      => "~2007-11",
+    "modified"     => "2021-05-07",
+    "publisher"    => "http://github.com/sderose",
+    "license"      => "https://creativecommons.org/licenses/by-sa/3.0/"
+);
+our $VERSION_DATE = $metadata{"modified"};
 
+
+=pod
+
+=head1 Usage
+
+showNumberInBases [options] [numbers]
+
+Display the input number(s) or times in several bases (or other forms)
+
+Specifically:
+
+=over
+
+=item * as a character, if in ASCII range
+
+=item * as a Unicode UTF-8 byte sequence, if above the ASCII range
+
+=item * as RGB color codes and the nearest X color name,
+if starts with "#" (backslash the "#" if needed).
+The "#" may be followed by
+3, 6, 9, or 12 hexadecimal digits I<without> intervening punctuation
+(for example, C<#FF0000>), or (soon)
+3 groups of decimal digits I<with> intervening commas or other punctuation
+(for example, C<#255,0,00000>).
+
+=item * as a time (hh:mm:ss) if you specify -t.
+
+=back
+
+I<num> can be decimal, hex (0xFFF), octal (0777), or binary (0b1010);
+and can have a suffix of K, M, G, T, or P for powers of 1024 (like ls -h),
+or k, m, g, t, or p for powers of 1000.
+
+
+=head1 Options
+
+=over
+
+=item * B<-l> or B<--lines>
+
+Put each base on a separate line.
+
+=item * B<-k> or B<--human>
+
+Print big numbers in units of K, M, G, T, P, E, Z, Y.
+
+=item * B<-t> or B<--time>
+
+Format a number of seconds as an H:M:S duration, and a Unix epoch time.
+
+=item * B<--tf> or B<--timeFormat>
+
+Change the I<-t> epoch time format from the usual C form, to this.
+See L<https://metacpan.org/pod/Date::Format> for information on how
+to specify a format. ISO 8601 is "%Y-%m-%dT%H:%M%S".
+
+
+=back
+
+
+=head1 Known bugs and limitations
+
+Knows nothing about any color models but RGB.
+
+Time units larger than hours are not calculated.
+
+Doesn't have output in comma-grouped decimal, or in units of 1024**n.
+
+
+=head1 Related commands
+
+C<chr>, C<ord> -- convert between characters and code point numbers.
+
+C<showrgb> -- displays list of available X colors.
+
+C<findColorName> -- used to find the nearest named X colors.
+
+C<ord>, C<CharDisplay.py> -- much more info about character sets,
+Unicode code points, etc.
+
+C<sjdUtils.pm> -- Supplies h-number conversion.
+
+
+=head1 History
+
+  ~2007-11: Written by Steven J. DeRose.
+  2007-11-~~ sjd: Add -k, -t, -u, input multiplier letters.
+  2010-09-12 sjd: Cleanup.
+  2011-06-29 sjd: Eine kleine nichtKleenup.
+  2012-02-23 sjd: Add #rgb support.
+  2012-03-22 sjd: Handle multiple numbers. Support decimal colors #d,d,d
+  2021-05-07: New layout. Switch to hashes of units, and add Eleven Zeppelins, Yo.
+Better 0b formatting. Add --line. Better Unicode reporting.
+With -t, give date assuming it's a Unix time-stamp. Add --timeFormat.
+
+
+=head1 To do:
+
+    Make short colors round, not just shift?
+    Handle UTF-8 input (nah, ord and CharDisplay do it)
+    Break long numbers into groups of digits via sjdUtils::lpadc().
+    Support negative numbers.
+
+
+=head1 Rights
+
+Copyright 2007 by Steven J. DeRose. This work is licensed under a
+Creative Commons Attribution-Share Alike 3.0 Unported License.
+For further information on this license, see
+L<https://creativecommons.org/licenses/by-sa/3.0>.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities> or
+L<https://github.com/sderose>.
+
+
+=cut
+
+
+###############################################################################
+# Options
+#
 my $humanUnits = 0;
+my $lines      = 0;
 my $quiet      = 0;
 my $time       = 0;
+my $timeFormat = "%C";
 my $verbose    = 0;
 
-
-# Process options
-#
 Getopt::Long::Configure ("ignore_case");
 my $result = GetOptions(
     "h|help|?"          => sub { system "perldoc $0"; exit; },
-    "human|k"           => \$humanUnits,
+    "k|human!"          => \$humanUnits,
+    "l|lines!"          => \$lines,
     "q|quiet!"          => \$quiet,
-    "t|time"            => \$time,
+    "t|time!"           => \$time,
+    "tf|timeFormat=s"   => \$timeFormat,
     "v|verbose+"        => \$verbose,
     "version"           => sub {
      	die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
@@ -48,20 +172,47 @@ my $result = GetOptions(
 ($ARGV[0]) ||
     die "No argument specified.\n";
 
+my $phrase = "Karl Marx Gave The Proletariat Eleven Zeppelins Yo";
+my @prefixOrder = $phrase =~ m/([A-Z])/g;
 
-###############################################################################
-#
-my $k = 1000;
-my $m = 1000*1000;
-my $g = 1000*1000*1000;
-my $t = 1000*1000*1000*1000;
-my $p = 1000*1000*1000*1000*1000;
+my %by1000 = (
+    'k' => 1000**1,
+    'm' => 1000**2,
+    'g' => 1000**3,
+    't' => 1000**4,
+    'p' => 1000**5,
+    'e' => 1000**6,
+    'z' => 1000**7,
+    'y' => 1000**8,
+);
+my %by1024 = (
+    'K' => 1024**1,
+    'M' => 1024**2,
+    'G' => 1024**3,
+    'T' => 1024**4,
+    'P' => 1024**5,
+    'E' => 1024**6,
+    'Z' => 1024**7,
+    'Y' => 1024**8,
+);
 
-my $K = 1024;
-my $M = 1024*1024;
-my $G = 1024*1024*1024;
-my $T = 1024*1024*1024*1024;
-my $P = 1024*1024*1024*1024*1024;
+my $k = 1000**1;
+my $m = 1000**2;
+my $g = 1000**3;
+my $t = 1000**4;
+my $p = 1000**5;
+my $e = 1000**6;
+my $z = 1000**7;
+my $y = 1000**8;
+
+my $K = 1024*1;
+my $M = 1024**2;
+my $G = 1024**3;
+my $T = 1024**4;
+my $P = 1024**5;
+my $E = 1024**6;
+my $Z = 1024**7;
+my $Y = 1024**8;
 
 my $tot;
 
@@ -72,40 +223,59 @@ while (defined ($tot=shift)) {
         decodeColor($tot);
         next;
     }
-
+    $tot = int($tot);
     $tot = handleScaleSuffix($tot);
     $tot = oct($tot) if ($tot =~ m/^0/);
 
     if ($time) {
         print timeCode($tot) . "\n";
-        exit;
+        print time2str($timeFormat, $tot) . "\n";
+        next;
     }
 
-    print sprintf("    o0%o, d%d, 0x%x, 0b%08b\n", $tot, $tot, $tot, $tot);
+    my $buf = sprintf("    oct %12o, dec %12d, hex %12x, bin     %s",
+        $tot, $tot, $tot, formatBinary($tot));
+    if ($lines) { $buf =~ s/, /\n    /g; }
+    print "$buf\n";
+
     if ($humanUnits && $tot>1023) {
-        print sprintf(
-            "    Human-readable units: %4.2fK, %4.2fM, %4.2fG, %4.2fT\n",
-            $tot/$K, $tot/$M, $tot/$G, $tot/$T);
+        $buf = "\n";
+        for my $unit (@prefixOrder) {
+            #warn sprintf("unit %s, factor %d\n", $unit, $by1024{$unit});
+            my $val = $tot/$by1024{$unit};
+            $buf .= sprintf("    %12.2f%s\n", $val, $unit);
+            ($val < 0.01) && last;
+        }
+        print $buf;
     }
-    if (!$quiet) {
-        if ($tot > 31 && $tot < 128) {
-            print "    Printable character:  '" . chr($tot) . "'\n";
-        }
-        elsif ($tot >= 128 && $tot <= 0x2FFFF) {
-            print "    If that's a Unicode code point, the UTF-8 is: " .
-                sjdUtils::getUTF8($tot) .".\n";
-            my $uname = charnames::viacode($tot);
-            if ($uname) { print "    Unicode character name: $uname\n"; }
-        }
+
+    if (!$quiet && $tot < 0xFFFE) {
+        print "    Printable character:  '" . chr($tot) . "'\n";
+        print  "    If that's a Unicode code point:\n";
+        printf("        UTF-8:   %s\n", sjdUtils::getUTF8($tot));
+        printf("        literal: '%s'\n", chr($tot));
+        my $uname = charnames::viacode($tot);
+        if ($uname) { print "        name:    $uname\n"; }
     }
 } # shift
 
 exit;
 
 
+###############################################################################
+# Make prettier binary display
+#
+sub formatBinary {
+    my ($n) = @_;
+    my $buf = '';
+    while ($n > 0) {
+        my $byte = $n & 0x00FF;
+        $buf = sprintf("%08b ", $byte) . $buf;
+        $n = $n >> 8;
+    }
+    return $buf;
+}
 
-###############################################################################
-###############################################################################
 # See if user typed in a number with a suffix letter, and figure it in.
 #
 sub handleScaleSuffix {
@@ -118,7 +288,7 @@ sub handleScaleSuffix {
         elsif ($unit eq "g") { $tot *= $g; }
         elsif ($unit eq "t") { $tot *= $t; }
         elsif ($unit eq "p") { $tot *= $p; }
-        
+
         elsif ($unit eq "K") { $tot *= $K; }
         elsif ($unit eq "M") { $tot *= $M; }
         elsif ($unit eq "G") { $tot *= $G; }
@@ -204,7 +374,7 @@ sub showColor {
         $x4 = $hex;
         $pct = $d * 100.0 / 255.0;
     }
-    
+
     printf("    %-10s %03d     %2s     %4s   %6.2f\n",
            $name, $d, $x2, $x4, $pct);
     return($x2);
@@ -214,7 +384,7 @@ sub showColor {
 ###############################################################################
 # timeCode: Change elapsed seconds into hh:mm:ss form.
 # Params:   0: Time as a number of seconds.
-# 
+#
 sub timeCode {
 	my $etime = $_[0];
     my $s = $etime % 60;
@@ -222,88 +392,3 @@ sub timeCode {
     my $h = int($etime/3660);
 	return(sprintf("%02d:%02d:%02d", $h, $m, $s));
 }
-
-
-
-###############################################################################
-###############################################################################
-###############################################################################
-#
-
-=pod
-
-=head1 Usage
-
-showNumberInBases [options] [numbers]
-
-Display the input number(s) in several bases (or other forms)
-
-Specifically:
-
-=over
-
-=item * as a character, if in ASCII range
-
-=item * as a Unicode UTF-8 byte sequence, if above the ASCII range
-
-=item * as RGB color codes and the nearest X color name,
-if starts with "#" (backslash the "#" if needed).
-The "#" may be followed by 
-3, 6, 9, or 12 hexadecimal digits I<without> intervening punctuation
-(for example, C<#FF0000>), or (soon)
-3 groups of decimal digits I<with> intervening commas or other punctuation
-(for example, C<#255,0,00000>).
-
-=item * as a time (hh:mm:ss) if you specify -t.
-
-=back
-
-I<num> can be decimal, hex (0xFFF), octal (0777), or binary (0b1010);
-and can have a suffix of K, M, G, T, or P for powers of 1024 (like ls -h),
-or k, m, g, t, or p for powers of 1000.
-
-
-
-=head1 Options
-
-=over
-
-=item * B<-k> or B<--human>
-
-Print big numbers in units of K, M, G, T, and P.
-
-=item * B<-t>
-
-Format an elapsed time (from number of seconds).
-
-=back
-
-
-
-=head1 Known bugs and limitations
-
-Knows nothing about any color models but RGB.
-
-Time units larger than hours are not calculated.
-
-
-
-=head1 Related commands
-
-C<chr>, C<ord> -- convert between characters and code point numbers.
-
-C<showrgb> -- displays list of available X colors.
-
-C<findColorName> -- used to find the nearest named X colors.
-
-
-
-=head1 Ownership
-
-This work by Steven J. DeRose is licensed under a Creative Commons 
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
-
-For the most recent version, see L<http://www.derose.net/steve/utilities/>.
-
-=cut

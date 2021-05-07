@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 #
 # ecmd: Find the implementation of a command and edit it.
+# 2012-05-08: Written by Steven J. DeRose.
 #
 use strict;
 use Getopt::Long;

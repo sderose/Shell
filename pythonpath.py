@@ -12,10 +12,10 @@ import subprocess
 import glob
 
 from sjdUtils import sjdUtils
-from MarkupHelpFormatter import MarkupHelpFormatter
 
 __metadata__ = {
     'title'        : "pythonpath.py",
+    'description'  : "display and check where Python is going to look",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
@@ -26,6 +26,7 @@ __metadata__ = {
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__['modified']
+
 
 descr = """
 =Usage=
@@ -207,10 +208,13 @@ def showClasses(curDir):
 # Process options
 #
 def processArgs():
-    parser = argparse.ArgumentParser(
-        description=descr,
-        formatter_class=MarkupHelpFormatter
-    )
+    try:
+        from BlockFormatter import BlockFormatter
+        parser = argparse.ArgumentParser(
+            description=descr, formatter_class=BlockFormatter)
+    except ImportError:
+        parser = argparse.ArgumentParser(description=descr)
+
     parser.add_argument(
         "--abbrevs",         action='store_true',
         help='Leave out portion of each path that is the same as previous.')
@@ -315,7 +319,6 @@ def searchForFile(sysdirs, tgt):
     return(whereFound)
 
 
-###############################################################################
 ###############################################################################
 # Main
 #

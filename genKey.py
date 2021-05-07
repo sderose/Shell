@@ -1,24 +1,17 @@
 #!/usr/bin/env python
 #
-# genKey.py
-#
+# genKey.py: Generate a random key from given symbols and length.
+
 # 2016-01-04: Written by Steven J. DeRose.
-# Creative Commons Attribution-Share-alike 3.0 unported license.
-# See http://creativecommons.org/licenses/by-sa/3.0/.
-#
-# To do:
 #
 from __future__ import print_function
 import sys, argparse
-#import re
 import string
-#import math
-#import subprocess
-#import codecs
 import random
 
 __metadata__ = {
     'title'        : "genKey.py",
+    "description"  : "Generate a random key from given symbols and length.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
@@ -33,6 +26,7 @@ __version__ = __metadata__['modified']
 PY3 = sys.version_info[0] == 3
 if PY3:
     def unichr(n): return chr(n)
+
 
 descr = """
 =Description=
@@ -81,14 +75,17 @@ For the most recent version, see [http://www.derose.net/steve/utilities] or
 =Options=
 """
 
+
 ###############################################################################
 #
 def processOptions():
-    from MarkupHelpFormatter import MarkupHelpFormatter
-    parser = argparse.ArgumentParser(
-        description=descr,
-        formatter_class=MarkupHelpFormatter
-    )
+    try:
+        from BlockFormatter import BlockFormatter
+        parser = argparse.ArgumentParser(
+            description=descr, formatter_class=BlockFormatter)
+    except ImportError:
+        parser = argparse.ArgumentParser(description=descr)
+
     parser.add_argument(
         "--dict",             type=str, default='/usr/share/dict/words',
         help='A dictionary file to use with --symbols words.')
@@ -118,6 +115,7 @@ def processOptions():
 
     args0 = parser.parse_args()
     return(args0)
+
 
 ###############################################################################
 # Main
