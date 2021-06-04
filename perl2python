@@ -3,10 +3,15 @@
 # Rudimentary Perl -> Python translation assistant.
 # Written 2011-09, by Steven J. DeRose.
 #
-import sys, argparse, re, time, datetime
+import sys
+import argparse
+import re
+import time
+import datetime
 
 __metadata__ = {
     'title'        : "perl2python",
+    'description'  : "Rudimentary Perl -> Python translation assistant.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
@@ -203,7 +208,9 @@ Name of the current report format
 
 * Local special variables
 
-* '' $1..$9 ''   Contains the subpattern from the corresponding set of parentheses in the last pattern matched. I<Renamed to `mat.group(n)`, because regex matches are changed to assign to `mat`.
+* '' $1..$9 ''   Contains the subpattern from the corresponding set of
+parentheses in the last pattern matched. I<Renamed to `mat.group(n)`,
+because regex matches are changed to assign to `mat`.
 
 * '' $& ''
 
@@ -211,20 +218,24 @@ Contains the string matched by the last pattern match
 
 * '' $` ''
 
-The string preceding whatever was matched by the last pattern match, not counting patterns matched in nested blocks that have been exited already.
+The string preceding whatever was matched by the last pattern match,
+not counting patterns matched in nested blocks that have been exited already.
 
 * '' $' ''
 
-The string following whatever was matched by the last pattern match, not counting patterns matched in nested blockes that have been exited already.
+The string following whatever was matched by the last pattern match,
+not counting patterns matched in nested blockes that have been exited already.
 
 * '' $+ ''
 
-the last bracket matched by the last search pattern. This is useful if you don't know which of a set of alternative patterns matched.
+the last bracket matched by the last search pattern. This is useful
+if you don't know which of a set of alternative patterns matched.
 
 
 * Global special variables
 
-* '' $_ ''   The default input and pattern-searching space. '''Renamed to dftVar'''
+* '' $_ ''   The default input and pattern-searching space.
+'''Renamed to dftVar'''
 
 * '' $. ''
 
@@ -242,7 +253,9 @@ The output record separator for the print operator.
 
 The output field separator for the print operator.
 
-* '' $" ''    This is similar to $, except that it applies to array values interpolated into a double-quoted string (or similar interpreted string). Default is space.
+* '' $" ''    This is similar to $, except that it applies to array
+values interpolated into a double-quoted string (or similar interpreted
+string). Default is space.
 
 * '' $# ''
 
@@ -252,9 +265,12 @@ The output format for numbers display via the print operator.
 
 The process number of the Perl running this script.
 
-* '' $? ''    The status returned by the last pipe close, backtick(``) command or system operator.
+* '' $? ''    The status returned by the last pipe close, backtick(``)
+command or system operator.
 
-* '' $* ''    Set to 1 for multi-line matching within a string, 0 to tell Perl that it can assume that strings contain a single line, for the purpose of optimizing pattern matches. Default is 0
+* '' $* ''    Set to 1 for multi-line matching within a string, 0 to
+tell Perl that it can assume that strings contain a single line, for
+the purpose of optimizing pattern matches. Default is 0
 
 * '' $0 ''
 
@@ -262,7 +278,8 @@ Contains the name of the file containing the Perl script being executed.
 
 * '' $[ ''
 
-The index of the first element in an array, and of the first character in a substring.
+The index of the first element in an array, and of the first character
+in a substring.
 
 * '' $] ''    The first part of the string printed out when you say perl -v.
 
@@ -270,9 +287,11 @@ The index of the first element in an array, and of the first character in a subs
 
 * '' $! ''
 
-If used in a numeric context, yields the current value of errno, with all the usual caveats.
+If used in a numeric context, yields the current value of errno, with all
+the usual caveats.
 
-* '' $@ ''    The Perl syntax error or routine error message from the last eval, do-FILE, or require command.
+* '' $@ ''    The Perl syntax error or routine error message from the
+last eval, do-FILE, or require command.
 
 
 =head2 How to make Perl code convert better
@@ -449,6 +468,9 @@ Attribution-Share Alike 3.0 Unported License. For further information on
 this license, see L<http://creativecommons.org/licenses/by-sa/3.0/?.
 
 For the most recent version, see L<http://www.derose.net/steve/utilities/>.
+
+
+=Options=
 """
 
 
@@ -522,142 +544,143 @@ helpMessages = {
 #
 changes = [
     # Remove trailing spaces to simplify many later regexes
-    [ r'\s+$/',                                     r''                     ],
-    [ r'^(\s*)([^#]*?;)\s*([^\s#])',                r'\1\2;\n\1\3'          ], # ????
+    [ r'\s+$/',                             r''                     ],
+    [ r'^(\s*)([^#]*?;)\s*([^\s#])',        r'\1\2;\n\1\3'          ], # ????
 
 
     ###########################################################################
     # Packages and inits
     #
-    [ r'use strict.*',                              r'import sys, os, re, subprocess' +
-        r'\nimport string\n' + r'import math\n'               ],
-    [ r'use Getopt.Long',                           r'import argparse'      ],
+    [ r'use strict.*',                      r'import sys, os, re, subprocess' +
+        r'\nimport string\n' + r'import math\n'                     ],
+    [ r'use Getopt.Long',                   r'import argparse'      ],
 
 
     ###########################################################################
     # Regex match/change
     # (maybe also change simple cases to lstrip/rstrip)
+    # (these are not careful enough about single/double/other quotes)
     #
-    [ r'^(\s*)\(\$(\w+) = \$(\w+)\) =~ s',         r'\1\2 = \3\n\1\1 =~ s'                     ],
+    [ r'^(\s*)\(\$(\w+) = \$(\w+)\) =~ s', r'\1\2 = \3\n\1\1 =~ s'                     ],
 
     # =~ m// and !~ m// (and assign to 'mat' in case later code uses \1)
     #
-    [ r'\$(\w+)\s*=~\s*m/^([^/]+)/g\b',            r"mat = re.match(r'\2', \1)"                ],
-    [ r'\$(\w+)\s*=~\s*m/^([^/]+)/(\w+)',          r"mat = re.match(r'\2', \1, flags=\"\3\")"  ],
-    [ r'\$(\w+)\s*=~\s*m/^([^/]+)/',               r"mat = re.match(r'\2', \1)"                ],
+    [ r'\$(\w+)\s*=~\s*m/^([^/]+)/g\b',    r"mat = re.match(r'\2', \1)"                ],
+    [ r'\$(\w+)\s*=~\s*m/^([^/]+)/(\w+)',  r"mat = re.match(r'\2', \1, flags=\"\3\")"  ],
+    [ r'\$(\w+)\s*=~\s*m/^([^/]+)/',       r"mat = re.match(r'\2', \1)"                ],
 
-    [ r'\$(\w+)\s*=~\s*m/([^/]+)/g\b',             r"mat = re.search(r'\2', \1, count=0)"      ],
-    [ r'\$(\w+)\s*=~\s*m/([^/]+)/(\w+)',           r"mat = re.search(r'\2', \1, flags=\"\3\")" ],
-    [ r'\$(\w+)\s*=~\s*m/([^/]+)/',                r"mat = re.search(r'\2', \1)"               ],
+    [ r'\$(\w+)\s*=~\s*m/([^/]+)/g\b',     r"mat = re.search(r'\2', \1, count=0)"      ],
+    [ r'\$(\w+)\s*=~\s*m/([^/]+)/(\w+)',   r"mat = re.search(r'\2', \1, flags=\"\3\")" ],
+    [ r'\$(\w+)\s*=~\s*m/([^/]+)/',        r"mat = re.search(r'\2', \1)"               ],
 
-    [ r'\$(\w+)\s*!~\s*m/([^/]+)/(\w+)',           r"not re.search(r'\2', \1, flags=\"\3\")"   ],
-    [ r'\$(\w+)\s*!~\s*m/([^/]+)/',                r"not re.search(r'\2', \1)"                 ],
+    [ r'\$(\w+)\s*!~\s*m/([^/]+)/(\w+)',   r"not re.search(r'\2', \1, flags=\"\3\")"   ],
+    [ r'\$(\w+)\s*!~\s*m/([^/]+)/',        r"not re.search(r'\2', \1)"                 ],
 
     # =~ s/// and remember that Perl changes the string in place...
     #
-    [ r'\$(\w+)\s*=~\s*s/\^\\s+//',                 r'\1 = \1.lstrip()'                         ],
-    [ r'\$(\w+)\s*=~\s*s/\\s+\$//',                 r'\1 = \1.rstrip()'                         ],
-    [ r'\$(\w+)\s*=~\s*s/([^/]+)/([^/]+)/(.*)',     r'\1 = re.sub(r\'\2\', \3, \1, flags="\4")' ],
-    [ r'\$(\w+)\s*=~\s*s/([^/]+)/([^/]+)/',         r'\1 = re.sub(r\'\2\', \3, \1)'             ],
+    [ r'\$(\w+)\s*=~\s*s/\^\\s+//',         r'\1 = \1.lstrip()'                         ],
+    [ r'\$(\w+)\s*=~\s*s/\\s+\$//',         r'\1 = \1.rstrip()'                         ],
+    [ r'\$(\w+)\s*=~\s*s/([^/]+)/([^/]+)/(.*)', r'\1 = re.sub(r\'\2\', \3, \1, flags="\4")' ],
+    [ r'\$(\w+)\s*=~\s*s/([^/]+)/([^/]+)/', r'\1 = re.sub(r\'\2\', \3, \1)'             ],
 
 
     ###########################################################################
     # Flow of control
     #
     [ r'^(\s*)if \((\s*my\s+)?\$(\w+)\s*=\s*(.*)\)\s*{',
-                                                    r'\1\3 = \4\n\1if (\3):'    ],
+                                            r'\1\3 = \4\n\1if (\3):'    ],
     # if
     #
-    [ r'(\bif\s*\([^\)]*\))\s*{',                   r'\1:'                      ],
-    [ r'^(\s*)if\s*(\([^{}]*\))\s*{(\s*\S+)?\s*$',  r'\1if \2:\n\1    \3'       ],
-    [ r'\belsif\s*(\S.*)\s*{',                      r'elif \1:'                 ],
-    [ r'\belse\s*{',                                r'else:'                    ],
-    [ r'^(\s*)(.*)\bunless\s*(\(.*?\));',           r'\1if (not \3):\n\1 \2'    ],
-    [ r'^(\s*)(\S.+?) unless (\(.*\));',            r'\1if (not \3):\n\1    \2' ],
-    [ r'^(\s*)(\S.+?) if (\(.*\));',                r'\1if (\3):\n\1    \2'     ],
+    [ r'(\bif\s*\([^\)]*\))\s*{',           r'\1:'                      ],
+    [ r'^(\s*)if\s*(\([^{}]*\))\s*{(\s*\S+)?\s*$', r'\1if \2:\n\1    \3' ],
+    [ r'\belsif\s*(\S.*)\s*{',              r'elif \1:'                 ],
+    [ r'\belse\s*{',                        r'else:'                    ],
+    [ r'^(\s*)(.*)\bunless\s*(\(.*?\));',   r'\1if (not \3):\n\1 \2'    ],
+    [ r'^(\s*)(\S.+?) unless (\(.*\));',    r'\1if (not \3):\n\1    \2' ],
+    [ r'^(\s*)(\S.+?) if (\(.*\));',        r'\1if (\3):\n\1    \2'     ],
 
     # for
     #
     [ r'\bfor\s*\((my\s+)?\$(\w+)\s*=\s*([^;]*);' +
       r'\s*\$\w+\s*<=?\s*([^;]*);' +
       r'\s*\$\w+\s*(\+\+|\+=\s*1)\)\s*{',
-                                                    r'for \2 in range([\3,\4]):' ],
+                                            r'for \2 in range([\3,\4]):' ],
     [ r'\bfor\s*\((my\s+)?\$(\w+)=(\d+);\s*\$\2\s*<=\s*(.*?);\s*\$\2\+\+\) {',
-                                                r'for \2 in (range(\3,\4+1)):'  ],
-    [ r'\bfor (my )?(\S+) \(keys (.*)\) {',         r'for \2 in (\3):'          ],
-    [ r'\bfor (my )?(\S+) \((.*)\) {',              r'for \2 in (\3):'          ],
-    [ r'\bforeach\s*(my\s+)?(\w+)\s*\(.*?\)',       r'for \2 in (\3)'           ],
+                                            r'for \2 in (range(\3,\4+1)):'  ],
+    [ r'\bfor (my )?(\S+) \(keys (.*)\) {', r'for \2 in (\3):'          ],
+    [ r'\bfor (my )?(\S+) \((.*)\) {',      r'for \2 in (\3):'          ],
+    [ r'\bforeach\s*(my\s+)?(\w+)\s*(.*?)', r'for \2 in (\3)'           ],
 
     # other flow of control
     #
-    [ r'\bwhile (\([^{]+\)) {',                     r'while (\1):'              ],
-    [ r'\bnext\b',                                  r'continue'                 ],
-    [ r'\blast\b',                                  r'break'                    ],
-    [ r'\bexit\b',                                  r'sys.exit'                 ],
+    [ r'\bwhile (\([^{]+\)) {',             r'while (\1):'              ],
+    [ r'\bnext\b',                          r'continue'                 ],
+    [ r'\blast\b',                          r'break'                    ],
+    [ r'\bexit\b',                          r'sys.exit'                 ],
 
     # Short-cut AND and OR
     #
-    [ r'^(\s*)(\(.*?\)) &&\s*',                     r'\1if \2:\n\1    '         ],
-    [ r'^(\s*)(\(.*?\)) \|\|\s*',                   r'\1if (not \2):\n\1    '   ],
+    [ r'^(\s*)(\(.*?\)) &&\s*',             r'\1if \2:\n\1    '         ],
+    [ r'^(\s*)(\(.*?\)) \|\|\s*',           r'\1if (not \2):\n\1    '   ],
 
     # Ternary ?... (not really right...).
     #
     [ r'^(\s*)(my\s+)([$@%]\w+)\s*=\s*(\(.*?\))\s*\?(.*)\s*:\s*(.*);',
-                        r'\1if \4:\n\1    \3 = \5\n\1else:\n\1    \3 = \6'      ],
-    [ r'\^(\s*)\((.*?)\) \|\| ',                    r'\1if (not \2):\n\1     '  ],
+                        r'\1if \4:\n\1    \3 = \5\n\1else:\n\1    \3 = \6' ],
+    [ r'\^(\s*)\((.*?)\) \|\| ',            r'\1if (not \2):\n\1     '  ],
 
 
     ###########################################################################
     # Functions
     #
-    [ r'\bsort keys ([$\w+]+|%{[$\w+]+})',          r'sorted(\1, key=\1.get)'   ],
-    [ r'\bsort\b',                                  r'sorted'           ],
+    [ r'\bsort keys ([$\w+]+|%{[$\w+]+})',  r'sorted(\1, key=\1.get)'   ],
+    [ r'\bsort\b',                          r'sorted'           ],
 
-    [ r'\bint\(\b',                                 r'floor('           ],
-    [ r'\bdelete\b',                                r'del'              ],
-    [ r'\bundef\b',                                 r'None'             ],
+    [ r'\bint\(\b',                         r'floor('           ],
+    [ r'\bdelete\b',                        r'del'              ],
+    [ r'\bundef\b',                         r'None'             ],
 
-    #[ r'\bpackage (.*);',                          r'class \1:'        ],
-    [ r'\bbless\b',                                 r'# bless'          ],
-    [ r'\bdefined\b',                               r'None == '         ],
-    [ r'= new ',                                    r'= '               ],
-    [ r'sub new ',                                  r'  def __init__()' ],
-    [ r'sub (\w+::)+(\w+) ',                        r'  def \2'         ],
+    #[ r'\bpackage (.*);',                  r'class \1:'        ],
+    [ r'\bbless\b',                         r'# bless'          ],
+    [ r'\bdefined\b',                       r'None == '         ],
+    [ r'= new ',                            r'= '               ],
+    [ r'sub new ',                          r'  def __init__()' ],
+    [ r'sub (\w+::)+(\w+) ',                r'  def \2'         ],
 
-    [ r'\blc\s*\(',                                 r' lower('          ],
-    [ r'\buc\s*\(',                                 r' upper('          ],
-    [ r'\blength\b\(',                              r'len\('            ],
-    [ r'\bjoin\(("[^"]"),\s*',                      r'\1.join('         ],
-    [ r'\bjoin\((\'[^\']\'),\s*',                   r'\1.join('         ],
-    [ r'\bchomp\s+([\$\w]+)',                       r'\1 = strip(\1,"\n\r")' ], # ???
-    [ r'\bsplit\(/(.*)/',                           r' re.split(\'\1\'' ],
-    [ r'\bsubstr\(([^,]*?),([^,\)]*)\)',            r' \1[\2:]'         ], # ???
+    [ r'\blc\s*\(',                         r' lower('          ],
+    [ r'\buc\s*\(',                         r' upper('          ],
+    [ r'\blength\b\(',                      r'len\('            ],
+    [ r'\bjoin\(("[^"]"),\s*',              r'\1.join('         ],
+    [ r'\bjoin\((\'[^\']\'),\s*',           r'\1.join('         ],
+    [ r'\bchomp\s+([\$\w]+)',               r'\1 = strip(\1,"\n\r")' ], # ???
+    [ r'\bsplit\(/(.*)/',                   r' re.split(\'\1\'' ],
+    [ r'\bsubstr\(([^,]*?),([^,\)]*)\)',    r' \1[\2:]'         ], # ???
     [ r'\bsubstr\(([^,]*?),([^,]+?),([^,]*?)\)',
-                                                    r' \1[\2:\2+\3]'    ],
-    [ r'\breverse\s*\(\$(\w+)\)',                   r' \1[::-1]'        ],
+                                            r' \1[\2:\2+\3]'    ],
+    [ r'\breverse\s*\(\$(\w+)\)',           r' \1[::-1]'        ],
     [ r'^(.*)\btranslate\s*\((.*?),(.*?),(.*?)\)',
-            r'\1mytrans = maketrans(\3,\4)\n\1translate(\2,mytrans)'    ],
-    [ r'\bhex\s*\(',                                r' fromhex('        ],
-    [ r'\btime\s*\(',                               r' gmtime('         ],
+            r'\1mytrans = maketrans(\3,\4)\n\1translate(\2,mytrans)' ],
+    [ r'\bhex\s*\(',                        r' fromhex('        ],
+    [ r'\btime\s*\(',                       r' gmtime('         ],
 
-    [ r'\bopen\s*\(?(\w+),\s*>(.*?)\)?',            r'\1 = open(\2,"w");' ],
-    [ r'\bopen\s*\(?(\w+),\s*<(.*?)\)?',            r'\1 = open(\2,"r");' ],
-    [ r'\bclose\s*\(?(\w+)\)?',                     r'\1.close()'       ],
+    [ r'\bopen\s*\(?(\w+),\s*>(.*?)\)?',    r'\1 = open(\2,"w");' ],
+    [ r'\bopen\s*\(?(\w+),\s*<(.*?)\)?',    r'\1 = open(\2,"r");' ],
+    [ r'\bclose\s*\(?(\w+)\)?',             r'\1.close()'       ],
 
-    [ r'\bsprintf\(("[^"]),\s*',                    r'\1 % ('           ],
-    [ r'\bprintf\(("[^"]),\s*',                     r'print(\1 % ('     ],
+    [ r'\bsprintf\(("[^"]),\s*',            r'\1 % ('           ],
+    [ r'\bprintf\(("[^"]),\s*',             r'print(\1 % ('     ],
 
     # Stack functions
     #
-    [ r'\bpop @(\w+)\b',                            r'\1.pop()'         ],
-    [ r'\bpush @(\w+)\s*,\s*(.+?)(\b|$|;)',         r'\1.append(\2)'    ],
-    [ r'\bshift @(\w+)\b',                          r'\1.pop(0)'        ],
-    [ r'\bunshift @(\w+),\s*(.+?)\b',               r'\1.insert(0,\2)'  ],
+    [ r'\bpop @(\w+)\b',                    r'\1.pop()'         ],
+    [ r'\bpush @(\w+)\s*,\s*(.+?)(\b|$|;)', r'\1.append(\2)'    ],
+    [ r'\bshift @(\w+)\b',                  r'\1.pop(0)'        ],
+    [ r'\bunshift @(\w+),\s*(.+?)\b',       r'\1.insert(0,\2)'  ],
 
-    [ r'\bpop @{$(\w+)}\b',                         r'\1.pop'           ],
-    [ r'\bpush @{$(\w+)}\s*,\s*(.+?)(\b|$|;)',      r'\1.append(\2)'    ],
-    [ r'\bshift @{$(\w+)}\b',                       r'\1.pop(0)'        ],
-    [ r'\bunshift @{$(\w+)},\s*(.+?)\b',            r'\1.insert(0,\2)'  ],
+    [ r'\bpop @{$(\w+)}\b',                 r'\1.pop'           ],
+    [ r'\bpush @{$(\w+)}\s*,\s*(.+?)(\b|$|;)', r'\1.append(\2)' ],
+    [ r'\bshift @{$(\w+)}\b',               r'\1.pop(0)'        ],
+    [ r'\bunshift @{$(\w+)},\s*(.+?)\b',    r'\1.insert(0,\2)'  ],
 
 
     ###########################################################################
@@ -681,127 +704,127 @@ changes = [
     # Reserved variables, system stuff, etc.
     #     Special variable are not done yet. See doc.
     #
-    [ r'\$ENV\{(.*?)\}',                        r'os.environ["\1"]'     ],
-    [ r'\b[$@]ARGV',                            r'sys.argv'             ],
-    [ r'\$_ ',                                  r'$dftVar '             ],
-    [ r'\$(\d)\b',                              r'mat.group(\1)'        ],
-    [ r'= `(\w+) (.*)`',            r'= exec_command(["\1", "\2"])'     ],
+    [ r'\$ENV\{(.*?)\}',                r'os.environ["\1"]'     ],
+    [ r'\b[$@]ARGV',                    r'sys.argv'             ],
+    [ r'\$_ ',                          r'$dftVar '             ],
+    [ r'\$(\d)\b',                      r'mat.group(\1)'        ],
+    [ r'= `(\w+) (.*)`',                r'= exec_command(["\1", "\2"])' ],
 
-    [ r'\bscalar[ \(]+',                        r'len('                 ],
-    [ r'\bprint[ (](.*?)\\n"\)?;',              r'print(\1")'           ],
-    [ r'\bprint[ (](.*?)\)?;',                  r'print(\1)'            ],
+    [ r'\bscalar[ \(]+',                r'len('                 ],
+    [ r'\bprint[ (](.*?)\\n"\)?;',      r'print(\1")'           ],
+    [ r'\bprint[ (](.*?)\)?;',          r'print(\1)'            ],
 
     # I tend to start a new line after 'die' and 'warn' keywords,
     # so insert the "(". Still have to insert the ")" manually.
     #
-    [ r'\b(die|warn|print)\s*$',                r'\1('                  ],
+    [ r'\b(die|warn|print)\s*$',        r'\1('                  ],
 
     # See also under handling of quoted lines....
     #
-    [ r'^(\s*)\bdie\b(.*);',        r'\1print(\2) # DIE\n\1    exit(0)' ],
-    [ r'\bwarn\s*\(?(.*)\)?\s*;',               r'sys.stderr.write(\1)' ],
-    [ r'\bwarn\s*$',                            r'sys.stderr.write('    ],
+    [ r'^(\s*)\bdie\b(.*);',            r'\1print(\2) # DIE\n\1    exit(0)' ],
+    [ r'\bwarn\s*\(?(.*)\)?\s*;',       r'sys.stderr.write(\1)' ],
+    [ r'\bwarn\s*$',                    r'sys.stderr.write('    ],
 
-    [ r'\$self->\{([^{}]+)\}',                  r'self.\1'              ],
-    [ r'->',                                    r'.'                    ],
-    [ r'\$(\w+)(\.)?\{([^{}]+)\}',              r'\1[\3]'               ],
+    [ r'\$self->\{([^{}]+)\}',          r'self.\1'              ],
+    [ r'->',                            r'.'                    ],
+    [ r'\$(\w+)(\.)?\{([^{}]+)\}',      r'\1[\3]'               ],
 
 
     ###########################################################################
     # File operations
     #    (happens *after* stripping variable prefix chars [$@%])
     #
-    [ r'(?<!w)-r\s+\$?([^()]+)',               r'os.access(\1,os.R_OK)'    ],
-    [ r'(?<!w)-w\s+\$?([^()]+)',               r'os.access(\1,os.W_OK)'    ],
-    [ r'(?<!w)-x\s+\$?([^()]+)',               r'os.access(\1,os.X_OK)'    ],
-    [ r'(?<!w)-e\s+\$?([^()]+)',               r'os.path.exists(\1)'       ],
-    [ r'(?<!w)-z\s+\$?([^()]+)',               r'os.path.getsize(\1)>0'    ],
-    [ r'(?<!w)-s\s+\$?([^()]+)',               r'os.path.getsize(\1)'      ],
-    [ r'(?<!w)-d\s+\$?([^()]+)',               r'os.path.isdir(\1)'        ],
-    [ r'(?<!w)-f\s+\$?([^()]+)',               r'os.path.isfile(\1)'       ],
-    [ r'(?<!w)-t\s+\$?([^()]+)',               r'\1.isatty()'              ],
+    [ r'(?<!w)-r\s+\$?([^()]+)',        r'os.access(\1,os.R_OK)'    ],
+    [ r'(?<!w)-w\s+\$?([^()]+)',        r'os.access(\1,os.W_OK)'    ],
+    [ r'(?<!w)-x\s+\$?([^()]+)',        r'os.access(\1,os.X_OK)'    ],
+    [ r'(?<!w)-e\s+\$?([^()]+)',        r'os.path.exists(\1)'       ],
+    [ r'(?<!w)-z\s+\$?([^()]+)',        r'os.path.getsize(\1)>0'    ],
+    [ r'(?<!w)-s\s+\$?([^()]+)',        r'os.path.getsize(\1)'      ],
+    [ r'(?<!w)-d\s+\$?([^()]+)',        r'os.path.isdir(\1)'        ],
+    [ r'(?<!w)-f\s+\$?([^()]+)',        r'os.path.isfile(\1)'       ],
+    [ r'(?<!w)-t\s+\$?([^()]+)',        r'\1.isatty()'              ],
 
-    [ r'\bSTDIN\b',                             r'sys.stdin'                ],
-    [ r'\bSTDOUT\b',                            r'sys.stdout'               ],
-    [ r'\bSTDERR\b',                            r'sys.stderr'               ],
+    [ r'\bSTDIN\b',                     r'sys.stdin'                ],
+    [ r'\bSTDOUT\b',                    r'sys.stdout'               ],
+    [ r'\bSTDERR\b',                    r'sys.stderr'               ],
 
     # <...> for reading input file
     # Would be nice to pull this out when it's in an '[el]if'...
     [ r'^(\s+)while\s*\((\w+)\s*=\s*<(\$?\w+)>\)?\s*{',
-        r'\1while(1):\n    \1\2 = \3.readline()\n    \1if (not \1): break'  ],
-    [ r'\s*=\s*<(\$\w+|[A-Z]+)>',               r'= \1.readline()'          ],
+        r'\1while(1):\n    \1\2 = \3.readline()\n    \1if (not \1): break' ],
+    [ r'\s*=\s*<(\$\w+|[A-Z]+)>',       r'= \1.readline()'          ],
 
 
     ###########################################################################
     # Operators
     #
-    # r'\s*%(\s+|$)',                           r'mod '       ], ###
-    [ r'=>',                                    r':'          ],
-    [ r'\s*\{(\s*#.*)$',                        r':\1'        ], # { # comment
-    [ r'\s*\{\s*$',                             r':'          ], # {
-    [ r'\s*\}(\s*#.*)$',                        r'\1'         ], # } # comment
-    [ r'\s*\}\s*$',                             r''           ], # }
-    [ r'\s+&&(\s+|$)',                          r' and '      ], # &&
-    [ r'(^|\s+)\|\|(\s+|$)',                    r' or '       ], # ||
-    [ r'\.\.',                                  r':'          ], # range
-    [ r'::',                                    r'.'          ], # package-sep
-    [ r'"\s+\.\s+\$',                           r'" + '       ], # concat
-    [ r'(\w)\s+\.\s+(["$])',                    r'"\1 + \2'   ], #
-    [ r'\+\+',                                  r' += 1'      ], # ++
-    [ r'([a-zA-Z])\-\-([^>])',                  r'\1 -= 1\2'  ], # -- (not -->)
-    # r'\b(\S)\s*([-+*/])=',                    r'\1 = \1 \2' ], ### += -= *= /=
-    [ r' \.=(\s+|$)',                           r' += '       ], # .= (concat)
-    [ r' \.(\s+|$)',                            r' + '        ], # . (concat)
-    [ r'" x ',                                  r' " * '      ], # "foo" x 7
-    [ r'(\$\w+) x ',                            r' "\1 * '    ], # $var x 3
-    [ r'%\$|@\$',                               r''           ], # cast-from-ref
-    [ r'\\[$@%]',                               r''           ], # cast-to-ref
-    [ R'\]->\[',                                r']['         ],
+    # r'\s*%(\s+|$)',                   r'mod '       ], ###
+    [ r'=>',                            r':'          ],
+    [ r'\s*\{(\s*#.*)$',                r':\1'        ], # { # comment
+    [ r'\s*\{\s*$',                     r':'          ], # {
+    [ r'\s*\}(\s*#.*)$',                r'\1'         ], # } # comment
+    [ r'\s*\}\s*$',                     r''           ], # }
+    [ r'\s+&&(\s+|$)',                  r' and '      ], # &&
+    [ r'(^|\s+)\|\|(\s+|$)',            r' or '       ], # ||
+    [ r'\.\.',                          r':'          ], # range
+    [ r'::',                            r'.'          ], # package-sep
+    [ r'"\s+\.\s+\$',                   r'" + '       ], # concat
+    [ r'(\w)\s+\.\s+(["$])',            r'"\1 + \2'   ], #
+    [ r'\+\+',                          r' += 1'      ], # ++
+    [ r'([a-zA-Z])\-\-([^>])',          r'\1 -= 1\2'  ], # -- (not -->)
+    # r'\b(\S)\s*([-+*/])=',            r'\1 = \1 \2' ], ### += -= *= /=
+    [ r' \.=(\s+|$)',                   r' += '       ], # .= (concat)
+    [ r' \.(\s+|$)',                    r' + '        ], # . (concat)
+    [ r'" x ',                          r' " * '      ], # "foo" x 7
+    [ r'(\$\w+) x ',                    r' "\1 * '    ], # $var x 3
+    [ r'%\$|@\$',                       r''           ], # cast-from-ref
+    [ r'\\[$@%]',                       r''           ], # cast-to-ref
+    [ R'\]->\[',                        r']['         ],
 
     # Operators: comparison
     #
-    [ r'(\S+)\s+<=>\s+(\S+)',                   r' cmp(\1,\2)'  ],
-    [ r'(\S+)\s+cmp\s+(\S+)',                   r' cmp(\1,\2)'  ],
-    [ r' lt ',                                  r' < '          ],
-    [ r' le ',                                  r' <= '         ],
-    [ r' gt ',                                  r' > '          ],
-    [ r' ge ',                                  r' >= '         ],
-    [ r' eq ',                                  r' == '         ],
-    [ r' ne ',                                  r' != '         ],
+    [ r'(\S+)\s+<=>\s+(\S+)',           r' cmp(\1,\2)'  ],
+    [ r'(\S+)\s+cmp\s+(\S+)',           r' cmp(\1,\2)'  ],
+    [ r' lt ',                          r' < '          ],
+    [ r' le ',                          r' <= '         ],
+    [ r' gt ',                          r' > '          ],
+    [ r' ge ',                          r' >= '         ],
+    [ r' eq ',                          r' == '         ],
+    [ r' ne ',                          r' != '         ],
 
-    [ r'([( ])!([^=~])',                        r' \1not \2'    ],
+    [ r'([( ])!([^=~])',                r' \1not \2'    ],
 
 
     ###########################################################################
     # Weird cleanup -- these were added to clean up problems discovered.
     # Deleting some of them would be nice.
     #
-    [ r'(\("[^"]*\')[$@%](\w+)(\'[^"]*")',    r'\1" + \2 + "\3' ],
-    [ r';\s*}:\s*$',                            r''             ], # ???
-    [ r'^(\s*)(if\s*\(.*\))\s*{\s*(}\s*)$',     r'\1\2:'        ], # if ()
-    [ r'^(\s*)(if\b.*:)\s*(\S)',             r'\1\2:\n\1    \3' ],
-    [ r'@\{(.*?)\}',                            r'\1'           ],
-    [ r'@\[(.*?)\]',                            r'\1'           ],
-    [ r'[$@%]([A-Za-z]+)',                      r'\1'           ], # var names
-    # r';\s*(#.*)$',                            r' \1'          ], ###
-    # r'([^#\s])\s\s+',                         r'\1 '          ], ###
-    [ r'\)\s+:\s*$',                            r'):'           ],
-    # r'[\(\[\{]\s+',                           r'('            ], ###
-    [ r'\.\[',                                  r'['            ],
-    # r'\.\{',                                  r'['            ], ###
-    [ r'^(\s*def .*)\s*\(\s+',                  r'\1('          ],
-    [ r'\s*;\s*$',                              r''             ], # leftover ";"
-    [ r'^\s*;\s*',                              r''             ],
+    [ r'(\("[^"]*\')[$@%](\w+)(\'[^"]*")',  r'\1" + \2 + "\3' ],
+    [ r';\s*}:\s*$',                        r''            ], # ???
+    [ r'^(\s*)(if\s*\(.*\))\s*{\s*(}\s*)$', r'\1\2:'       ], # if ()
+    [ r'^(\s*)(if\b.*:)\s*(\S)',        r'\1\2:\n\1    \3' ],
+    [ r'@\{(.*?)\}',                    r'\1'           ],
+    [ r'@\[(.*?)\]',                    r'\1'           ],
+    [ r'[$@%]([A-Za-z]+)',              r'\1'           ], # var names
+    # r';\s*(#.*)$',                    r' \1'          ], ###
+    # r'([^#\s])\s\s+',                 r'\1 '          ], ###
+    [ r'\)\s+:\s*$',                    r'):'           ],
+    # r'[\(\[\{]\s+',                   r'('            ], ###
+    [ r'\.\[',                          r'['            ],
+    # r'\.\{',                          r'['            ], ###
+    [ r'^(\s*def .*)\s*\(\s+',          r'\1('          ],
+    [ r'\s*;\s*$',                      r''             ], # leftover ";"
+    [ r'^\s*;\s*',                      r''             ],
 
     # Even up margins to multiple of 4
     #
-    [ r'(\S)  +=',                              r'\1 ='         ],
-    [ r'^ (\S)',                                r'\1'           ],
-    [ r'^     (\S)',                            r'    \1'       ],
-    [ r'^         (\S)',                        r'        \1'   ],
-    [ r'\(\s+',                                 r'('            ],
-    [ r'\bif  +',                               r'if '          ],
-    [ r'\bnot  +',                              r'not '         ],
+    [ r'(\S)  +=',                      r'\1 ='         ],
+    [ r'^ (\S)',                        r'\1'           ],
+    [ r'^     (\S)',                    r'    \1'       ],
+    [ r'^         (\S)',                r'        \1'   ],
+    [ r'\(\s+',                         r'('            ],
+    [ r'\bif  +',                       r'if '          ],
+    [ r'\bnot  +',                      r'not '         ],
 
 
     ] # END OF CHANGE LIST
@@ -810,36 +833,37 @@ changes = [
 ###############################################################################
 # Not used yet
 #
+TODO = "#TOTO "
 specialVarChanges = [
-    [ r'$|\b',     r'#FIX \\1#' ], # If set to nonzero, forces flushes
-    [ r'$%\b',     r'#FIX \\1#' ], # Current page number
-    [ r'$=\b',     r'#FIX \\1#' ], # Current page length
-    [ r'$-\b',     r'#FIX \\1#' ], # Number of lines left on the page
-    [ r'$~\b',     r'#FIX \\1#' ], # Name of the current report format
-    [ r'$^\b',     r'#FIX \\1#' ], # Name of the current top-of-page format
+    [ r'$|\b',     TODO+r'\\1#' ], # If set to nonzero, forces flushes
+    [ r'$%\b',     TODO+r'\\1#' ], # Current page number
+    [ r'$=\b',     TODO+r'\\1#' ], # Current page length
+    [ r'$-\b',     TODO+r'\\1#' ], # Number of lines left on the page
+    [ r'$~\b',     TODO+r'\\1#' ], # Name of the current report format
+    [ r'$^\b',     TODO+r'\\1#' ], # Name of the current top-of-page format
 
-    # [ r'$\d\b',  r'#FIX \\1#' ], # Subpattern from last match. I<Renamed to `mat.group(n)`
-    [ r'$&\b',     r'#FIX \\1#' ], # String matched by the last pattern match
-    [ r'$`\b',     r'#FIX \\1#' ], # String preceding whatever was matched
-    [ r"$'\b",     r'#FIX \\1#' ], # String following whatever was matched
-    [ r'$+\b',     r'#FIX \\1#' ], # Last bracket matched by last pattern
+    # [ r'$\d\b',  TODO+r'\\1#' ], # Subpattern from last match. I<Renamed to `mat.group(n)`
+    [ r'$&\b',     TODO+r'\\1#' ], # String matched by the last pattern match
+    [ r'$`\b',     TODO+r'\\1#' ], # String preceding whatever was matched
+    [ r"$'\b",     TODO+r'\\1#' ], # String following whatever was matched
+    [ r'$+\b',     TODO+r'\\1#' ], # Last bracket matched by last pattern
 
-    [ r'$_\b',     r'#FIX \\1#' ], # Default input and pattern space. '''Renamed to dftVar'''
-    [ r'$.\b',     r'#FIX \\1#' ], # Current line number of the last filehandle read
-    [ r'$/\b',     r'#FIX \\1#' ], # Input record separator
-    [ r'$\\b',     r'#FIX \\1#' ], # Output record separator for print
-    [ r'$,\b',     r'#FIX \\1#' ], # Output field separator for print
-    [ r'$"\b',     r'#FIX \\1#' ], # Similar to $, except for array values in a "string"
-    [ r'$#\b',     r'#FIX \\1#' ], # Output format for numbers via print.
-    [ r'$$\b',     r'#FIX \\1#' ], # Process number of the Perl running this script
-    [ r'$?\b',     r'#FIX \\1#' ], # Status of last pipe close, backtick(``) or system.
-    [ r'$*\b',     r'#FIX \\1#' ], # 1 for multi-line matching within a string
-    [ r'$0\b',     r'#FIX \\1#' ], # Name of the Perl script being executed
-    [ r'$[\b',     r'#FIX \\1#' ], # Index of first element in array; character in string
-    [ r'$]\b',     r'#FIX \\1#' ], # First part of perl -v
-    [ r'$;\b',     r'#FIX \\1#' ], # Subscript separator for array emulation.
-    [ r'$!\b',     r'#FIX \\1#' ], # In numeric context, current value of errno
-    [ r'$@\b',     r'#FIX \\1#' ], # Error message from last eval, do-FILE, or require
+    [ r'$_\b',     TODO+r'\\1#' ], # Default input and pattern space. '''Renamed to dftVar'''
+    [ r'$.\b',     TODO+r'\\1#' ], # Current line number of the last filehandle read
+    [ r'$/\b',     TODO+r'\\1#' ], # Input record separator
+    [ r'$\\b',     TODO+r'\\1#' ], # Output record separator for print
+    [ r'$,\b',     TODO+r'\\1#' ], # Output field separator for print
+    [ r'$"\b',     TODO+r'\\1#' ], # Similar to $, except for array values in a "string"
+    [ r'$#\b',     TODO+r'\\1#' ], # Output format for numbers via print.
+    [ r'$$\b',     TODO+r'\\1#' ], # Process number of the Perl running this script
+    [ r'$?\b',     TODO+r'\\1#' ], # Status of last pipe close, backtick(``) or system.
+    [ r'$*\b',     TODO+r'\\1#' ], # 1 for multi-line matching within a string
+    [ r'$0\b',     TODO+r'\\1#' ], # Name of the Perl script being executed
+    [ r'$[\b',     TODO+r'\\1#' ], # Index of first element in array; character in string
+    [ r'$]\b',     TODO+r'\\1#' ], # First part of perl -v
+    [ r'$;\b',     TODO+r'\\1#' ], # Subscript separator for array emulation.
+    [ r'$!\b',     TODO+r'\\1#' ], # In numeric context, current value of errno
+    [ r'$@\b',     TODO+r'\\1#' ], # Error message from last eval, do-FILE, or require
 ]
 
 
@@ -1355,9 +1379,9 @@ while(rec0):
             except re.error as X:
                 if (str(X) != "unmatched group"):
                     print("#### Exception at line " + str(recnum) + "\n" +
-                          "    " + rec0 + "\n" |
-                          "    lhs: " + changes[i0][0] + "\n" |
-                          "    rhs: " + changes[i0][1] + "\n" |
+                          "    record: " + rec0 + "\n" +
+                          "    lhs: " + changes[i0][0] + "\n" +
+                          "    rhs: " + changes[i0][1] + "\n" +
                           "    Exception is: " + str(X))
                     sys.exit()
             if (rec0 != rec2):
