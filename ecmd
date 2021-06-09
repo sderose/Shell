@@ -486,7 +486,13 @@ sub reportType {
 BEGIN {
     my $profile = "$ENV{HOME}/.bash_profile";
 
+    # Test current shell first?
+    #
     my @profilePaths = (
+        "$ENV{HOME}/.zshenv",
+        "$ENV{HOME}/.zzprofile",
+        "$ENV{HOME}/.zshenv",
+
         # For bash (
         # INTERACTIVE NON-LOGIN (or non-interactive with --login):
         "/etc/profile",                # 1: system-wide startup
@@ -498,6 +504,7 @@ BEGIN {
         "/etc/bash.bashrc",            # system-wide init
         "$ENV{HOME}/.bashrc",          # personal init
         "$ENV{HOME}/bin/bash_profile", # I keep stuff here so not invisible.
+
     );
 
     # NON-INTERACTIVE (must be expanded; don't use $PATH)
@@ -524,6 +531,12 @@ BEGIN {
             join("\n    ", @profilePaths) . "\n";
     }
 
+    if ($ENV{"sjdUtilsDir"}) {
+        my $bset = $ENV{"sjdUtilsDir"} . "/Public/BashSetup";
+        push @allPaths, $bset;
+    }
+
+
     ###############################################################################
     # Functions to find specific definitions within a file (just use grep).
     # (switching over to generic %functionRegexes)
@@ -539,18 +552,8 @@ BEGIN {
         my ($cmd, $lg) = @_;
         my $regex = $functionRegexes{$lg};
         ($verbose) && print "Searching for definition in:\n";
-        for my $path (@allPaths) {
-            ($verbose) && print "    $path\n";
-            my $rc = findLine($path, $regex);
-            if ($rc) { return($path, $rc); }
-        }
-        for my $path (@profilePaths) {
-            my @sourceLines = getAllLines($path, "^\\s*source ");
-            for my $subpath (@sourceLines) {
-                warn "*** Should also check $subpath (sourced from $path)\n";
-            }
-        }
-        return(0); # not found
+        my $pairsRef = findAll($regex, \@allPaths, \@profilePaths);
+        return $pairsRef;
     }
 
 
@@ -558,48 +561,26 @@ BEGIN {
         my ($cmd) = @_;
         my $regex = "^ *$cmd()\\s{";
         ($verbose) && print "Searching for shell function definition in:\n";
-        for my $path (@allPaths) {
-            ($verbose) && print "    $path\n";
-            my $rc = findLine($path, $regex);
-            if ($rc) { return($path, $rc); }
-        }
-        for my $path (@profilePaths) {
-            my @sourceLines = getAllLines($path, "^\\s*source ");
-            for my $subpath (@sourceLines) {
-                warn "*** Should also check $subpath (sourced from $path)\n";
-            }
-        }
-        return(0); # not found
+        my $pairsRef = findAll($regex, \@allPaths, \@profilePaths);
+        return $pairsRef;
     }
 
     sub findAliasDef {  # Soon to be obsolete
         my ($cmd) = @_;
         my $regex = "^ *alias *$cmd=";
         ($verbose) && print "Searching for alias definition in:\n";
-        for my $path (@allPaths) {
-            ($verbose) && print "    $path\n";
-            my $rc = findLine($path, $regex);
-            if ($rc) { return($path, $rc); }
-        }
-        for my $path (@profilePaths) {
-            my @sourceLines = getAllLines($path, "^\\s*source ");
-            for my $subpath (@sourceLines) {
-                warn "*** Should also check $subpath (sourced from $path)\n";
+        my $pairsRef = findAll($regex, \@allPaths, \@profilePaths);
+        return $pairsRef;
+
+    sub findAll {
+        my ($regex, $allPathsRef, $profilePathsRef) = @_;
+        for my $area ( ($allPathsRef, $profilePathsRef) ) {
+            for my $path (@{$area}) {
+                my $pairsRef = getAllLines($path, $regex);
+                if (scalar @pairs { return($pairsRef); }
             }
         }
         return(0); # not found
-        }
-
-    # Return the line number of the first line matching the regex (else 0).
-    #
-    sub findLine {
-        my ($file, $regex) = @_;
-        (-r $file) || return(0);
-        my $rc = `grep -m 1 -n '$regex' $file`;
-        if ($rc =~ m/^(\d+):/) {
-            return($1);
-        }
-        return(0);
     }
 
     # Return the text of all lines matching the regex.
@@ -607,7 +588,14 @@ BEGIN {
     sub getAllLines {
         my ($file, $regex) = @_;
         (-r $file) || return("");
-        my $rc = `grep -n '$regex' $file`;
-        return($rc);
+        ($verbose) && warn "getAllLines: grepping in '$file'.\n";
+        my $rc = `grep -r -n '$regex' $file`;
+        my @pairs = ()
+        if ($rc =~ m/^(\d+):/) {
+            for my $line (split(/\n/, $rc)) {
+                push @pairs, $line =~ s/(^[^:]*:[^:]*):.*/$1/;
+            return($rc);
+        }
+         return(\@pairs);
     }
 } # END

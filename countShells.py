@@ -146,7 +146,7 @@ args = processOptions()
 ### But etime does not seem to work on Linux, though man says it should.
 ###
 fieldList = [ 'user', 'start', 'etimes', 'stat', 'comm' ]
-PSInfo = namedtuple('PSInfo', fieldList, verbose=False)
+PSInfo = namedtuple('PSInfo', fieldList)
 
 #if (args.verbose):
 #    print("$OSTYPE appears to be: '%s'." % (os.environ['OSTYPE']))

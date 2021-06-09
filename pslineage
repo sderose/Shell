@@ -13,14 +13,14 @@ DC_license="https://creativecommons.org/licenses/by-sa/3.0/"
 #
 # https://superuser.com/questions/150117/
 #
-if [ "$1" == "-h" ]; then
+if [[ "$1" == "-h" ]]; then
     echo "Shell function ${FUNCNAME[0]}, from $me: "
     echo "    Show the chain of parent processes, given a pid."
     exit
 fi
 
 bashPID=$$
-if [ "$1" == "" ]; then
+if ! [ "$1" ]; then
     targetPID=$bashPID
 else
     targetPID=$1

@@ -4,7 +4,7 @@
 
 tgt="/home/deroses/bin/"
 
-if [ "$1" = "-h" ]; then
+if [[ "$1" = "-h" ]]; then
 	echo "Usage: assign [category] [files...]"
 	echo "    Moves each file to a subdirectory of '$tgt', selected by [category]"
 	echo "    (from shell, text, or xml), and then makes a symbolic link"

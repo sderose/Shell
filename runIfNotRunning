@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-if [ "$1" == "-h" ]; then
+if [[ "$1" == "-h" ]]; then
     echo "runonce PROG: Start up PROG unless already running."
     exit
 fi;
@@ -8,13 +8,13 @@ fi;
 # ('isrunning' is a related shell function)
 
 ps -e | grep -i --color=auto -qP " $*$"
-if [ "$?" == "0" ]; then # it's already running
+if [[ "$?" == "0" ]]; then # it's already running
     echo "Already running $*"
     exit 0
 fi
 
 echo "Starting $*"
 $* &
-if [ "$?" != "0" ]; then 
+if [ "$?" ]; then 
     echo "runonce: '$*' failed."
 fi

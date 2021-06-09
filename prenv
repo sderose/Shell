@@ -8,7 +8,7 @@
 # To do:
 #
 
-if [ "$1" = "-h" ]; then
+if [[ "$1" = "-h" ]]; then
     echo "Usage: prenv [variable]"
     echo "   Display the 'printenv' information much more readably."
     echo "   Like printenv, if no [variable] is given it prints them all."

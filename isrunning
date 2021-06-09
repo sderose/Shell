@@ -1,13 +1,13 @@
 #!/bin/bash
 
-if [ "$1" == "-h" ]; then
+if [[ "$1" == "-h" ]]; then
     echo "isrunning PROG: check whether 'ps -e' shows PROG running."
     echo "    See also 'runonce' and 'ps -C [cmd]'."
     exit
 fi
 
 ps -e | grep -i --color=auto --exclude-dir='.svn' -qP " $*\.?\$" 2> /dev/null
-if [ "$?" == "0" ]; then
+if [[ "$?" == "0" ]]; then
     echo "$* IS running."
     exit 1
 fi
