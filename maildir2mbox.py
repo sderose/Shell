@@ -27,31 +27,72 @@ descr = """
 
 Convert a MacOSX email directory, to `mbox` files.
 
+
 =History=
 
 * 2013-05-06: Adapted by Steven J. DeRose, from maildir2mbox.py by
 Frédéric Grosshans, 19 January 2012 and
 Nathan R. Yergler, 6 June 2010. See
 [http://yergler.net/blog/2010/06/06/batteries-included-or-maildir-to-mbox-again].
-
 * 2015-09-19: Cleanup, sjdUtils, MarkupHelpFormatter, etc.
-
 * 2018-11-07: Update to Python 3.
-
 * 2020-03-01: Layout and lint.
+
 
 =To do=
 
 * Add other Python-supported mail formats (MH, Babyl, MMDF)
-
 * Maybe add Mac Mail format? (@10.4, changed from mbox to "emix").
-http://en.wikipedia.org/wiki/Comparison_of_email_clients#Database.2C_folders_and_customization
+http://en.wikipedia.org/wiki
+Comparison_of_email_clients#Database.2C_folders_and_customization
 http://email.about.com/od/macosxmailaddons/gr/emlx_to_mbox.htm
+* Or just "Save As" "Raw Message Source".
 
-*     Or just "Save As" "Raw Message Source".
+
+=Doc from original version=
+
+maildir2mbox.py: Find and convert
+all the Evolution mailboxes to Thurderbird.
+Note: Evolution's mail data is mostly in hidden directories,
+commonly under ~/.local/share/evolution/mail/local/.Sent/{cur|new|tmp}/*.
+This script should find all that are under the starting point.
+See also https://freeshell.de//~kaosmos/mboximport-en.html
+
+=Background=
+
+    Frédéric Grosshans, 19 January 2012
+    Nathan R. Yergler, 6 June 2010
+
+This file does not contain sufficient creative expression to invoke
+assertion of copyright. No warranty is expressed or implied; use at
+your own risk.
+
+---
+
+Uses Python's included mailbox library to convert mail archives from
+maildir [http://en.wikipedia.org/wiki/Maildir] to
+mbox [http://en.wikipedia.org/wiki/Mbox] format, including subfolders.
+
+See http://docs.python.org/library/mailbox.html#mailbox.Mailbox for
+full documentation on this library.
+
+---
+
+To run, save as md2mb.py and run:
+
+$ python md2mb.py [maildir_path] [mbox_filename]
+
+[maildir_path] should be the the path to the actual maildir (containing new,
+cur, tmp, and the subfolders, which are hidden directories with names like
+.subfolde.subsubfolder.subsubsbfolder);
+
+[mbox_filename] will be newly created, as well as a [mbox_filename].sbd the
+directory.
+
 
 =Options=
 """
+
 
 ###############################################################################
 #
@@ -65,7 +106,6 @@ def warn(msg):
 def maildir2mailbox(maildirname, mboxfilename):
     """Convert a MacOSX email directory, to `mbox` files.
     """
-
     # open the existing maildir and the target mbox file
     maildir = mailbox.Maildir(maildirname, email.message_from_file)
     if (not maildir):
@@ -105,49 +145,6 @@ def maildir2mailbox(maildirname, mboxfilename):
 ###############################################################################
 # Process options
 #
-descr="""
-maildir2mbox.py: Find and convert
-all the Evolution mailboxes to Thurderbird.
-Note: Evolution's mail data is mostly in hidden directories,
-commonly under ~/.local/share/evolution/mail/local/.Sent/{cur|new|tmp}/*.
-This script should find all that are under the starting point.
-See also https://freeshell.de//~kaosmos/mboximport-en.html
-
-=head1 Background
-
-    Frédéric Grosshans, 19 January 2012
-    Nathan R. Yergler, 6 June 2010
-
-This file does not contain sufficient creative expression to invoke
-assertion of copyright. No warranty is expressed or implied; use at
-your own risk.
-
----
-
-Uses Python's included mailbox library to convert mail archives from
-maildir [http://en.wikipedia.org/wiki/Maildir] to
-mbox [http://en.wikipedia.org/wiki/Mbox] format, including subfolders.
-
-See http://docs.python.org/library/mailbox.html#mailbox.Mailbox for
-full documentation on this library.
-
----
-
-To run, save as md2mb.py and run:
-
-$ python md2mb.py [maildir_path] [mbox_filename]
-
-[maildir_path] should be the the path to the actual maildir (containing new,
-cur, tmp, and the subfolders, which are hidden directories with names like
-.subfolde.subsubfolder.subsubsbfolder);
-
-[mbox_filename] will be newly created, as well as a [mbox_filename].sbd the
-directory.
-
-    (By Steven J. DeRose based on code by Frédéric Grosshans and
-Nathan R. Yergler)
-"""
-
 try:
     from BlockFormatter import BlockFormatter
     parser = argparse.ArgumentParser(
@@ -201,8 +198,12 @@ if not os.path.exists(mboxdirname):
     os.makedirs(mboxdirname)
 maildir2mailbox(dirname, mboxname)
 
-listofdirs=[dn for dn in os.walk(dirname).next()[1]
-            if dn not in ['new', 'cur', 'tmp']]
+listofdirs = []
+for dirpath, dirnames, filenames in os.walk(dirname):
+    dn = os.path.basename(dirpath)
+    if dn in ['new', 'cur', 'tmp']: continue  # TODO: not aggressive enough
+    listofdirs = dirpath
+
 if (args.text):
     for curDir in listofdirs:
         warn("Would do " + curDir)
@@ -220,4 +221,3 @@ if (not args.quiet):
     warn("Done.")
 
 sys.exit(0)
-

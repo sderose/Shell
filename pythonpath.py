@@ -23,7 +23,7 @@ __metadata__ = {
     "type"         : "http://purl.org/dc/dcmitype/Software",
     "language"     : "Python 3.7",
     "created"      : "2014-06-12",
-    "modified"     : "2020-11-06",
+    "modified"     : "2021-06-16",
     "publisher"    : "http://github.com/sderose",
     "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -34,8 +34,29 @@ descr = """
 =Usage=
 
 Display `$PYTHONPATH`, and check that all the mentioned directories exist.
-Also can check correspondence to sys.path, and warn for duplicate mentions
-of the same directory or class name.
+Also can check correspondence to sys.path, warn for duplicate mentions
+of the same directory or class name, and find code that references or
+modifies sys.path.
+
+To search for a specific class(es), see ``--where`.
+
+
+=Related Commands=
+
+My `tracePythonPackage.py` checks sys.path directories and the lists
+for various installers and package managers, to find who has a Python library.
+
+My `showEnv` list everybody installed by a wide range of managers (Python
+and other).
+
+
+=To do=
+
+* Option to find specific package.
+* CATCH existing .pyc when there's no .py in same dir.
+* Identify pip, port, brew, easy_install, etc.
+* Hook up getClassDefs2()!!! TODO
+* Check for files or classes defined at more than one place on path
 
 
 =History=
@@ -45,15 +66,7 @@ of the same directory or class name.
 * 2014-09-09: Add --extras, --where, notify() indirection.
 * 2015-08-06: Clean up options. Quieter by default. Finish --find x.
 * 2020-11-06: Fix split().
-
-
-=To do=
-
-* CATCH existing .pyc when there's no .py in same dir.
-* Identify pip, port, brew, easy_install, etc.
-* Hook up getClassDefs2()!!! TODO
-* Check for files or classes, defined at more than one place on path
-* Cf: findExternals.py.
+* 2021-06-16: Fix some 'grep' issues.
 
 
 =Rights=
@@ -106,19 +119,21 @@ def getClassDefs(path, recursive=False):
     For now, do this with "grep". Might be better to have Python actually
     parse the file, and then examine what externals have been defined.
     """
-    cmdTokens = [ "grep", "-H", '"^class "' ]
+    print("Path: " + path)
+    cmdTokens = [ "grep", "-H", "--include", "'*.py'", '"^class "', path ]
     if (recursive): cmdTokens.insert(1, "-r")
-    flist = glob.glob(path+"/*.py")
-    if (len(flist)<1): return("")
-    cmdTokens.extend(flist)
+    #flist = glob.glob(path+"/*.py")
+    #if (len(flist)<1): return("")
+    #cmdTokens.extend(flist)
     lg.vMsg(1, "getClassDefs cmd: %s" % ("\\\n    ".join(cmdTokens)))
+    bufRecs = []
     try:
         buf = check_output(cmdTokens, shell=False, stderr=None)
         if (type(buf) == type("x")):
             bufRecs = buf.split(sep="\n")
     except CalledProcessError as e:
-        sys.stderr.write("Exception: %s" % (e))
-        bufRecs = []
+        if ( e.returncode != 1 ):  # 1 is normal "nothing found"
+            sys.stderr.write("CalledProcessError: %s\n" % (e))
     return(bufRecs)
 
 def getClassDefs2(path):
@@ -197,7 +212,7 @@ def showClasses(curDir):
     for k,v in classesSeen.items():
         if (v.find("\n")>=0):
             print("%s:\n\t%s\n" % (k, v))
-    return()
+    return classesSeen
 
 def checkPYTHONPATH():
     notify(0, "Checking PYTHONPATH:")
@@ -304,11 +319,11 @@ def processOptions():
         "--verbose", "-v", action="count", default=0,
         help="Add more messages (repeatable).")
     parser.add_argument(
-        "--version", action="version", version=__metadata__["__version__"],
+        "--version", action="version", version=__version__,
         help="Display version information, then exit.")
     parser.add_argument(
-        "--where", type=str, default="",
-        help="Search for a specific class or packge and report curDir(s).")
+        "--where", type=str, default="", metavar="REGEX",
+        help="Search for specific class or packge matching this regex.")
 
     args0 = parser.parse_args()
     return(args0)

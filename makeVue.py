@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# makeVue.py
+# makeVue.py: Create a Vue document with many boxes.
 #
 from __future__ import print_function
 import sys, os, argparse
@@ -18,6 +18,7 @@ lg = ALogger(1)
 
 __metadata__ = {
     'title'        : "makeVue.py",
+    'description'  : "Create a Vue document with many boxes.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
@@ -49,6 +50,7 @@ Each arrow will generate an arc.
 
 * before all that, a line can have []-enclosed modifiers (which so far are
 discarded).
+
 
 =Related Commands=
 
@@ -83,12 +85,14 @@ arrowState is 3 for both ends,....
 
 Arrows have point1, point2, ID1, and ID2 sub-elements; not sure why.
 
+
 =History=
 
 * 2016-02-08: Written by Steven J. DeRose.
 * 2017-01-25: Add canvas, box, and gutter geometry options. Wraps
 into rows if there are many boxes.
 * 2-18-10-25: Recover from spare, fix. Rows.
+
 
 =To do=
 
@@ -97,6 +101,7 @@ into rows if there are many boxes.
     textColor, textSize, font
     fillColor
     shape
+
 
 =Rights=
 
@@ -107,6 +112,7 @@ this license, see http://creativecommons.org/licenses/by-sa/3.0/.
 
 For the most recent version, see [http://www.derose.net/steve/utilities] or
 [http://github.com/sderose].
+
 
 =Options=
 """
@@ -132,100 +138,8 @@ arrowStates = {
     3:    "both ends",
 }
 
-###############################################################################
-#
-def processOptions():
-    try:
-        from BlockFormatter import BlockFormatter
-        parser = argparse.ArgumentParser(
-            description=descr, formatter_class=BlockFormatter)
-    except ImportError:
-        parser = argparse.ArgumentParser(description=descr)
 
-    parser.add_argument(
-        "--arrow",            type=str, default=">",
-        help='String to separate nodes/labels in input file lines.')
-    parser.add_argument("--boxwidth",     metavar="W", type=int, default=20,
-        help='Width of boxes.')
-    parser.add_argument("--boxheight",    metavar="H", type=int, default=20,
-        help='Height of boxes.')
-    parser.add_argument(
-        "--fillColor",        type=str, default="#A6A6A6", metavar="RGB",
-        help='#RRGGBB')
-    parser.add_argument(
-        "--fixids",           action='store_true',
-        help='Make IDs be not just numbers..')
-    parser.add_argument(
-        "--font",             type=str, default="Arial-plain-12",
-        help='')
-    parser.add_argument(
-        "--force", "-f",      action='store_true',
-        help='Include non-well-formed Vue header comment.')
-    parser.add_argument(
-        "--idstart",          type=int, default=1,
-        help='Value to use for first generated ID.')
-    parser.add_argument(
-        "--iencoding",        type=str, metavar='E', default="utf-8",
-        help='Character set for input files. Default: utf-8.')
-    parser.add_argument(
-        "--oencoding",        type=str, metavar='E',
-        help='Use this character set for output files.')
-    parser.add_argument(
-        "--quiet", "-q",      action='store_true',
-        help='Suppress most messages.')
-    parser.add_argument(
-        "--shape",            type=str, choices=shapes, default="roundRect",
-        help='Shape to use for boxes')
-    parser.add_argument(
-        "--strokeColor",      type=str, default="#FFFFFF", metavar="RGB",
-        help='#RRGGBB')
-    parser.add_argument(
-        "--strokeStyle",      type=int, default=1, metavar="S",
-        help='')
-    parser.add_argument(
-        "--strokeWith",       type=int, default=1, metavar="W",
-        help='')
-    parser.add_argument(
-        "--textColor",        type=str, default="#000000", metavar="RGB",
-        help='#RRGGBB')
-    parser.add_argument(
-        "--unicode",          action='store_const',  dest='iencoding',
-        const='utf8', help='Assume utf-8 for input files.')
-    parser.add_argument(
-        "--verbose", "-v",    action='count',       default=0,
-        help='Add more messages (repeatable).')
-    parser.add_argument(
-        "--version", action='version', version=__version__,
-        help='Display version information, then exit.')
-
-    parser.add_argument(
-        "--left", type=int, default=20,
-        help='Left side of area to draw in.')
-    parser.add_argument(
-        "--top", type=int, default=20,
-        help='Top side of area to draw in.')
-    parser.add_argument(
-        "--width", type=int, default=500,
-        help='Width of area to draw in.')
-    parser.add_argument(
-        "--height", type=int, default=500,
-        help='Height of area to draw in.')
-
-    parser.add_argument("--gutterwidth",  metavar="W", type=int, default=20,
-        help='Width of gutters between boxes.')
-    parser.add_argument("--gutterheight", metavar="H", type=int, default=20,
-        help='Height of inter-row spacing.')
-
-    parser.add_argument(
-        'files',             type=str,
-        nargs=argparse.REMAINDER,
-        help='Path(s) to input file(s)')
-
-    args0 = parser.parse_args()
-    return(args0)
-
-
-###############################################################################
+##############################################################################
 #
 def makeVueTop(path):
     fname = os.path.basename(path)
@@ -270,16 +184,16 @@ def makeNode(someID, label, x, y, w, h, shape):
     ch += "\t</child>"
     return(ch)
 
-def makeArc(someID, label, fromID, toID, width=1):
+def makeArc(someID, _label, fromID, toID):
     """Generate a single arc.
     Does it go by node IDs or by point1/point2?
     """
     arc = ("""
-    <child ID="20" layerID="13" created="%020x"
+    <child ID="%s" layerID="13" created="%020x"
         x="118.0" y="49.0" width="24.0" height="4.0"
         strokeWidth="%d" strokeStyle="%d" autoSized="false" controlCount="0"
         arrowState="%d" xsi:type="link">
-    """ % (time.time(), args.strokeWidth, args.strokeStyle, 1))
+    """ % (someID, time.time(), args.strokeWidth, args.strokeStyle, 1))
     arc += (
         colorSet(fill="", stroke="#33A8F5", text="#404040", font="Arial-plain-11") +
         makeURI())
@@ -388,15 +302,105 @@ def makeURI():
         ("http://vue.tufts.edu/rdf/resource/%020x" % int(time.time())) +
         "</URIString>\n")
 
-def makeShape(shape):
-    return("""\t\t<shape arcwidth="20.0" archeight="20.0" xsi:type="%s"/>\n""" % (
-        "roundRect"))
+def makeShape(shape="roundRect"):
+    return("""\t\t<shape arcwidth="20.0" archeight="20.0" xsi:type="%s"/>\n""" %
+        (shape))
 
 
-###############################################################################
 ###############################################################################
 # Main
 #
+def processOptions():
+    try:
+        from BlockFormatter import BlockFormatter
+        parser = argparse.ArgumentParser(
+            description=descr, formatter_class=BlockFormatter)
+    except ImportError:
+        parser = argparse.ArgumentParser(description=descr)
+
+    parser.add_argument(
+        "--arrow",            type=str, default=">",
+        help='String to separate nodes/labels in input file lines.')
+    parser.add_argument("--boxwidth",     metavar="W", type=int, default=20,
+        help='Width of boxes.')
+    parser.add_argument("--boxheight",    metavar="H", type=int, default=20,
+        help='Height of boxes.')
+    parser.add_argument(
+        "--fillColor",        type=str, default="#A6A6A6", metavar="RGB",
+        help='#RRGGBB')
+    parser.add_argument(
+        "--fixids",           action='store_true',
+        help='Make IDs be not just numbers..')
+    parser.add_argument(
+        "--font",             type=str, default="Arial-plain-12",
+        help='')
+    parser.add_argument(
+        "--force", "-f",      action='store_true',
+        help='Include non-well-formed Vue header comment.')
+    parser.add_argument(
+        "--idstart",          type=int, default=1,
+        help='Value to use for first generated ID.')
+    parser.add_argument(
+        "--iencoding",        type=str, metavar='E', default="utf-8",
+        help='Character set for input files. Default: utf-8.')
+    parser.add_argument(
+        "--oencoding",        type=str, metavar='E',
+        help='Use this character set for output files.')
+    parser.add_argument(
+        "--quiet", "-q",      action='store_true',
+        help='Suppress most messages.')
+    parser.add_argument(
+        "--shape",            type=str, choices=shapes, default="roundRect",
+        help='Shape to use for boxes')
+    parser.add_argument(
+        "--strokeColor",      type=str, default="#FFFFFF", metavar="RGB",
+        help='#RRGGBB')
+    parser.add_argument(
+        "--strokeStyle",      type=int, default=1, metavar="S",
+        help='')
+    parser.add_argument(
+        "--strokeWith",       type=int, default=1, metavar="W",
+        help='')
+    parser.add_argument(
+        "--textColor",        type=str, default="#000000", metavar="RGB",
+        help='#RRGGBB')
+    parser.add_argument(
+        "--unicode",          action='store_const',  dest='iencoding',
+        const='utf8', help='Assume utf-8 for input files.')
+    parser.add_argument(
+        "--verbose", "-v",    action='count',       default=0,
+        help='Add more messages (repeatable).')
+    parser.add_argument(
+        "--version", action='version', version=__version__,
+        help='Display version information, then exit.')
+
+    parser.add_argument(
+        "--left", type=int, default=20,
+        help='Left side of area to draw in.')
+    parser.add_argument(
+        "--top", type=int, default=20,
+        help='Top side of area to draw in.')
+    parser.add_argument(
+        "--width", type=int, default=500,
+        help='Width of area to draw in.')
+    parser.add_argument(
+        "--height", type=int, default=500,
+        help='Height of area to draw in.')
+
+    parser.add_argument("--gutterwidth",  metavar="W", type=int, default=20,
+        help='Width of gutters between boxes.')
+    parser.add_argument("--gutterheight", metavar="H", type=int, default=20,
+        help='Height of inter-row spacing.')
+
+    parser.add_argument(
+        'files',             type=str,
+        nargs=argparse.REMAINDER,
+        help='Path(s) to input file(s)')
+
+    args0 = parser.parse_args()
+    return(args0)
+
+
 args = processOptions()
 
 if (len(args.files) == 0):

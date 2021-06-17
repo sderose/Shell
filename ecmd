@@ -556,7 +556,6 @@ BEGIN {
         return $pairsRef;
     }
 
-
     sub findFunctionDef {  # Soon to be obsolete
         my ($cmd) = @_;
         my $regex = "^ *$cmd()\\s{";
@@ -571,13 +570,14 @@ BEGIN {
         ($verbose) && print "Searching for alias definition in:\n";
         my $pairsRef = findAll($regex, \@allPaths, \@profilePaths);
         return $pairsRef;
+    }
 
     sub findAll {
         my ($regex, $allPathsRef, $profilePathsRef) = @_;
         for my $area ( ($allPathsRef, $profilePathsRef) ) {
             for my $path (@{$area}) {
                 my $pairsRef = getAllLines($path, $regex);
-                if (scalar @pairs { return($pairsRef); }
+                if (scalar @{$pairsRef}) { return($pairsRef); }
             }
         }
         return(0); # not found
@@ -590,12 +590,13 @@ BEGIN {
         (-r $file) || return("");
         ($verbose) && warn "getAllLines: grepping in '$file'.\n";
         my $rc = `grep -r -n '$regex' $file`;
-        my @pairs = ()
+        my @pairs = ();
         if ($rc =~ m/^(\d+):/) {
             for my $line (split(/\n/, $rc)) {
                 push @pairs, $line =~ s/(^[^:]*:[^:]*):.*/$1/;
+            }
             return($rc);
         }
-         return(\@pairs);
+        return(\@pairs);
     }
 } # END

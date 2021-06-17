@@ -10,9 +10,6 @@ import re
 import subprocess
 from subprocess import check_output
 
-PY2 = sys.version_info[0] == 2
-PY3 = sys.version_info[0] == 3
-
 __metadata__ = {
     'title'        : "tracePythonPackage.py",
     'description'  : "Find where a Python package is installed.",
@@ -135,41 +132,6 @@ def usualWay(mgr, packageName):
             pass  # Normal grep 'not found'
         else:
             print("*** Failed: %s:\n    %s" % (cmd, e))
-
-
-###############################################################################
-#
-def processOptions():
-    try:
-        from BlockFormatter import BlockFormatter
-        parser = argparse.ArgumentParser(
-            description=descr, formatter_class=BlockFormatter)
-    except ImportError:
-        parser = argparse.ArgumentParser(description=descr)
-
-    parser.add_argument(
-        "--quiet", "-q",      action='store_true',
-        help='Suppress most messages.')
-    parser.add_argument(
-        "--pythonpath",       action='store_true',
-        help='Check along PYTHONPATH, not just sys.path.')
-    parser.add_argument(
-        "--showPython",       action='store_true', default=True,
-        help='Also show info about which Python will run.')
-    parser.add_argument(
-        "--verbose", "-v",    action='count',       default=0,
-        help='Add more messages (repeatable).')
-    parser.add_argument(
-        "--version", action='version', version=__version__,
-        help='Display version information, then exit.')
-
-    parser.add_argument(
-        'packages',           type=str,
-        nargs=argparse.REMAINDER,
-        help='Package nam(s)')
-
-    args0 = parser.parse_args()
-    return(args0)
 
 
 ###############################################################################
