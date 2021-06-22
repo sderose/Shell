@@ -299,6 +299,228 @@ Getopt::Long::Configure ("ignore_case");
 
 
 ###############################################################################
+# Globals
+#
+my @allPaths;
+my @profilePaths;
+
+my %lineSeekPrefix = (  # lookups are via lowercased name
+    'emacs'  		=> '+',
+    'vi'	    	=> '+',
+    'pico'		    => '+',
+    'gedit'         => '+',
+    'bbedit'        => '+',
+    'xedit'         => '+',
+    'sublimetext'   => ':',
+    'kompozer'      => '',  # not supported?
+);
+
+sub lineSeekOption {
+    my ($editorName, $fndLine) = @_;
+    (!$fndLine) && return '';
+    (defined $lineSeekPrefix{lc($editorName)}) || return '';
+    return $lineSeekPrefix{lc($editorName)} . $fndLine;
+}
+
+
+###############################################################################
+#
+# See what 'type' says about the command.
+# Force it to run via an interactive shell, so profiles are in effect.
+# Have 'type' output go to a temp file, in case .bash_profile etc. do any output.
+#
+sub findType {
+    my ($login, $interactive, $cmd) = @_;
+
+    my $typ = "";
+    if (0) {
+        print "***BROKEN*** XXX V: $verbose\n";
+        my $bashCmd = 'bash ' .
+            ($login ? " -l": "") .
+            ($interactive ? " -i" : "") .
+            " -s type $cmd";
+        #print "X\n";
+        if ($verbose) { print "Running: $bashCmd\n"; }
+        die "Eh?\n";
+        $typ = `$bashCmd`;
+        if ($@) {
+            die "Error from command: $@\n";
+        }
+        ($verbose > 1) && print "Response:\n$typ\n";
+        ($typ) || die "No '$cmd' command found by '$bashCmd'.\n";
+        $typ =~ s/.*\W*($cmd is )/$1/s;
+    }
+    else {
+        my $toRun = "echo 'type $cmd >/tmp/typeOutput' | bash";
+        if ($login) { $toRun .= " -l"; }
+        if ($interactive) { $toRun .= " -i"; }
+        $toRun .= " -s >/dev/null";
+        if ($verbose) { print "Running: $toRun\n"; }
+        my $cruft = `$toRun`;
+        $typ = `cat /tmp/typeOutput`;
+        ($verbose > 1) && print "Response:\n$typ\n";
+        ($typ) || die "No '$cmd' command found by '$toRun'.\n";
+        $typ =~ s/\n.*//s;
+    }
+    #($verbose) && print "Trimmed response:\n$typ\n";
+    return $typ;
+}
+
+sub reportType {
+    my ($theCmdName, $typ, $file) = @_;
+    if ($quiet) { return; }
+    my $msg = "'$theCmdName' is a" .
+        (($typ =~ m/^[aeiouh]/) ? "n ":" ") .
+        $typ .
+        ($file ? ". Opening '$file'..." : ".") .
+        "\n";
+    print $msg;
+}
+
+
+###############################################################################
+# Places to look for startup/profile files
+#
+# The bash sequence depends on:
+#     Bash options --login, --noprofile, --rcfile, --norc, -c, -i
+#     Whether the shell is interactive and/or login
+#     Whether the shell was invoked as 'bash' or 'sh'
+#     Environment variable $BASH_ENV or $ENV
+#     Whether effective user/group id != real user/group id AND -p not set.
+# Of course, the environment could depend on arbitrary logic in profiles....
+#
+sub getProfilePaths {
+    my $profile = "$ENV{HOME}/.bash_profile";
+
+    # Test current shell first?
+    #
+    my @profilePaths = (
+        "$ENV{HOME}/.zshenv",
+        "$ENV{HOME}/.zzprofile",
+        "$ENV{HOME}/.zshenv",
+
+        # For bash (
+        # INTERACTIVE NON-LOGIN (or non-interactive with --login):
+        "/etc/profile",                # 1: system-wide startup
+        "$ENV{HOME}/.bash_profile",    # 2a: personal init
+        "$ENV{HOME}/.bash_login",      # 2b: personal init
+        "$ENV{HOME}/.profile",         # 2c: personal init
+        #"$ENV{HOME}/bin/bash_profile", # 2d: Author's convention
+        # INTERACTIVE NON-LOGIN:
+        "/etc/bash.bashrc",            # system-wide init
+        "$ENV{HOME}/.bashrc",          # personal init
+        "$ENV{HOME}/bin/bash_profile", # I keep stuff here so not invisible.
+
+    );
+    ($verbose || 1) && warn("Initial paths:\n    " . join("\n    ", @profilePaths) . "\n");
+
+    # NON-INTERACTIVE (must be expanded; don't use $PATH)
+    if (defined $ENV{BASH_ENV}) {
+        ($verbose || 1) && warn "Adding path: '$ENV{BASH_ENV}'\n";
+        push @profilePaths, $ENV{BASH_ENV};
+    }
+    if (defined $ENV{ENV}) { # only if 'sh'
+        push @profilePaths, $ENV{ENV};
+    }
+    if (@addProfile) {
+        push @profilePaths, @addProfile;
+    }
+}
+
+# Fill in @profilePaths and @allPAths.
+#
+sub setupPaths {
+    @profilePaths = getProfilePaths();
+
+    my $ep = $ENV{"ECMDPATH"};
+    my @ecmdPaths = ();
+    if ($ep) {
+        @ecmdPaths = split /:/, $ENV{"ECMDPATH"};
+    }
+    ($verbose) && warn ("\nECMDPATH gives: [\n    " . join("\n    ", @ecmdPaths) . "]\n");
+
+    @allPaths = (@profilePaths, @ecmdPaths);
+
+    if ($verbose) {
+        ($verbose) && warn "\nFiles to be checked for alias/function definitions:\n    " .
+            join("\n    ", @profilePaths) . "\n";
+    }
+
+    my $sjdDir = $ENV{"sjdUtilsDir"};
+    if ($sjdDir && -d "$sjdDir/Public") {
+        ($verbose) && warn "Adding sjd Utils from '$sjdDir/Public'.\n";
+        my $bset = $sjdDir . "/Public/*";
+        push @allPaths, $bset;
+    }
+}
+
+
+###############################################################################
+# Functions to find specific definitions within a file (just use grep).
+# (switching over to generic %functionRegexes)
+#
+my %functionRegexes = (
+    "Python" =>     "^\\s*def\\s+\\w+\\s*\(",
+    "Perl" =>       "^\\s*sub\\s+\\w+\\s*{",
+    "BashFunct" =>  "^\\s*\\w+\(\)\\s*{",
+    "Alias" =>      "^\\s*alias\\s+\\w+=",
+);
+
+sub findSomeDef {
+    my ($cmd, $lg) = @_;
+    my $regex = $functionRegexes{$lg};
+    ($verbose) && print "Searching for definition in:\n";
+    my @pairs = findAll($regex, \@allPaths, \@profilePaths);
+    return @pairs;
+}
+
+sub findFunctionDef {  # Soon to be obsolete
+    my ($cmd) = @_;
+    my $regex = "^ *$cmd()\\s{";
+    ($verbose) && print "Searching for shell function definition in:\n";
+    my @pairs = findAll($regex, \@allPaths, \@profilePaths);
+    return @pairs;
+}
+
+sub findAliasDef {  # Soon to be obsolete
+    my ($cmd) = @_;
+    my $regex = "^ *alias *$cmd=";
+    ($verbose) && print "Searching for alias definition in:\n";
+    my @pairs = findAll($regex, \@allPaths, \@profilePaths);
+    return @pairs;
+}
+
+sub findAll {
+    my ($regex, $allPathsRef, $profilePathsRef) = @_;
+    for my $area ( ($allPathsRef, $profilePathsRef) ) {
+        for my $path (@{$area}) {
+            #($verbose) && print "    $path\n";
+            my @pairs = getAllLines($path, $regex);
+            if (scalar @pairs) { return(@pairs); }
+        }
+    }
+    return(0); # not found
+}
+
+# Return array of lines matching the regex.
+#
+sub getAllLines {
+    my ($file, $regex) = @_;
+    (-r $file) || return("");
+    ($verbose) && warn "getAllLines: grepping in '$file'.\n";
+    my @pairs = ();
+    my $buf = `grep -r -n '$regex' $file`;
+    ($verbose) && warn "$file:\n    ++>$buf\n";
+    if ($buf =~ m/^(\d+):/) {
+        for my $line (split(/\n/, $buf)) {
+            push @pairs, $line =~ s/(^[^:]*:[^:]*):.*/$1/;
+        }
+    }
+    return(@pairs);
+}
+
+
+###############################################################################
 # Main
 #
 my $cmd     = $ARGV[0];
@@ -314,7 +536,9 @@ if ($shell ne "/bin/bash") {
         "Your shell is $ENV{SHELL}, not /bin/bash. This may not work...\n";
 }
 
-my $typ = findType($login, $interactive);
+setupPaths();
+
+my $typ = findType($login, $interactive, $cmd);
 
 # Check for alias/shell function first, in case they overrode a name.
 #
@@ -392,211 +616,7 @@ if ($tgtFile ne "") {
         "  Last modified %3.1f days ago.\n", -M($tgtFile));
     my $cmd = "$ENV{EDITOR} " . lineSeekOption($fndLine) . " $tgtFile";
     ($verbose) && warn "Running: $cmd\n";
-    system($cmd) || warn("Failed.\n");
+    system($cmd) && warn("Failed.\n");
 }
 
 exit;
-
-
-my %lineSeekPrefix = (  # lookups are via lowercased name
-    'emacs'  		=> '+',
-    'vi'	    	=> '+',
-    'pico'		    => '+',
-    'gedit'         => '+',
-    'bbedit'        => '+',
-    'xedit'         => '+',
-    'sublimetext'   => ':',
-    'kompozer'      => '',  # not supported?
-);
-
-sub lineSeekOption {
-    my ($editorName, $fndLine) = @_;
-    (!$fndLine) && return '';
-    (defined $lineSeekPrefix{lc($editorName)}) || return '';
-    return $lineSeekPrefix{lc($editorName)} . $fndLine;
-}
-
-
-###############################################################################
-#
-# See what 'type' says about the command.
-# Force it to run via an interactive shell, so profiles are in effect.
-# Have 'type' output go to a temp file, in case .bash_profile etc. do any output.
-#
-sub findType {
-    my ($login, $interactive) = @_;
-
-    my $typ = "";
-    if (0) {
-        print "***BROKEN*** XXX V: $verbose\n";
-        my $bashCmd = 'bash ' .
-            ($login ? " -l": "") .
-            ($interactive ? " -i" : "") .
-            " -s type $cmd";
-        #print "X\n";
-        if ($verbose) { print "Running: $bashCmd\n"; }
-        die "Eh?\n";
-        $typ = `$bashCmd`;
-        if ($@) {
-            die "Error from command: $@\n";
-        }
-        ($verbose) && print "Response:\n$typ\n";
-        ($typ) || die "No '$cmd' command found by '$bashCmd'.\n";
-        $typ =~ s/.*\W*($cmd is )/$1/s;
-    }
-    else {
-        my $toRun = "echo 'type $cmd >/tmp/typeOutput' | bash";
-        if ($login) { $toRun .= " -l"; }
-        if ($interactive) { $toRun .= " -i"; }
-        $toRun .= " -s >/dev/null";
-        if ($verbose) { print "Running: $toRun\n"; }
-        my $cruft = `$toRun`;
-        $typ = `cat /tmp/typeOutput`;
-        ($verbose) && print "Response:\n$typ\n";
-        ($typ) || die "No '$cmd' command found by '$toRun'.\n";
-        $typ =~ s/\n.*//s;
-    }
-    #($verbose) && print "Trimmed response:\n$typ\n";
-    return $typ;
-}
-
-sub reportType {
-    my ($theCmdName, $typ, $file) = @_;
-    if ($quiet) { return; }
-    my $msg = "'$theCmdName' is a" .
-        (($typ =~ m/^[aeiouh]/) ? "n ":" ") .
-        $typ .
-        ($file ? ". Opening '$file'..." : ".") .
-        "\n";
-    print $msg;
-}
-
-
-###############################################################################
-# Places to look for startup/profile files
-#
-# The bash sequence depends on:
-#     Bash options --login, --noprofile, --rcfile, --norc, -c, -i
-#     Whether the shell is interactive and/or login
-#     Whether the shell was invoked as 'bash' or 'sh'
-#     Environment variable $BASH_ENV or $ENV
-#     Whether effective user/group id != real user/group id AND -p not set.
-# Of course, the environment could depend on arbitrary logic in profiles....
-#
-BEGIN {
-    my $profile = "$ENV{HOME}/.bash_profile";
-
-    # Test current shell first?
-    #
-    my @profilePaths = (
-        "$ENV{HOME}/.zshenv",
-        "$ENV{HOME}/.zzprofile",
-        "$ENV{HOME}/.zshenv",
-
-        # For bash (
-        # INTERACTIVE NON-LOGIN (or non-interactive with --login):
-        "/etc/profile",                # 1: system-wide startup
-        "$ENV{HOME}/.bash_profile",    # 2a: personal init
-        "$ENV{HOME}/.bash_login",      # 2b: personal init
-        "$ENV{HOME}/.profile",         # 2c: personal init
-        #"$ENV{HOME}/bin/bash_profile", # 2d: Author's convention
-        # INTERACTIVE NON-LOGIN:
-        "/etc/bash.bashrc",            # system-wide init
-        "$ENV{HOME}/.bashrc",          # personal init
-        "$ENV{HOME}/bin/bash_profile", # I keep stuff here so not invisible.
-
-    );
-
-    # NON-INTERACTIVE (must be expanded; don't use $PATH)
-    if (defined $ENV{BASH_ENV}) {
-        push @profilePaths, $ENV{BASH_ENV};
-    }
-    if (defined $ENV{ENV}) { # only if 'sh'
-        push @profilePaths, $ENV{ENV};
-    }
-    if (@addProfile) {
-        push @profilePaths, @addProfile;
-    }
-
-    my $ep = $ENV{"ECMDPATH"};
-    my @ecmdPaths = ();
-    if ($ep) {
-        @ecmdPaths = split /:/, $ENV{"ECMDPATH"};
-    }
-    ($verbose) && warn ("ECMDPATH gives: [" . join(' ', @ecmdPaths) . "]");
-    my @allPaths = (@profilePaths, @ecmdPaths);
-
-    if ($verbose) {
-        warn "\nFiles to be checked for alias/function definitions:\n    " .
-            join("\n    ", @profilePaths) . "\n";
-    }
-
-    if ($ENV{"sjdUtilsDir"}) {
-        my $bset = $ENV{"sjdUtilsDir"} . "/Public/BashSetup";
-        push @allPaths, $bset;
-    }
-
-
-    ###############################################################################
-    # Functions to find specific definitions within a file (just use grep).
-    # (switching over to generic %functionRegexes)
-    #
-    my %functionRegexes = (
-        "Python" =>     "^\\s*def\\s+\\w+\\s*\(",
-        "Perl" =>       "^\\s*sub\\s+\\w+\\s*{",
-        "BashFunct" =>  "^\\s*\\w+\(\)\\s*{",
-        "Alias" =>      "^\\s*alias\\s+\\w+=",
-    );
-
-    sub findSomeDef {
-        my ($cmd, $lg) = @_;
-        my $regex = $functionRegexes{$lg};
-        ($verbose) && print "Searching for definition in:\n";
-        my $pairsRef = findAll($regex, \@allPaths, \@profilePaths);
-        return $pairsRef;
-    }
-
-    sub findFunctionDef {  # Soon to be obsolete
-        my ($cmd) = @_;
-        my $regex = "^ *$cmd()\\s{";
-        ($verbose) && print "Searching for shell function definition in:\n";
-        my $pairsRef = findAll($regex, \@allPaths, \@profilePaths);
-        return $pairsRef;
-    }
-
-    sub findAliasDef {  # Soon to be obsolete
-        my ($cmd) = @_;
-        my $regex = "^ *alias *$cmd=";
-        ($verbose) && print "Searching for alias definition in:\n";
-        my $pairsRef = findAll($regex, \@allPaths, \@profilePaths);
-        return $pairsRef;
-    }
-
-    sub findAll {
-        my ($regex, $allPathsRef, $profilePathsRef) = @_;
-        for my $area ( ($allPathsRef, $profilePathsRef) ) {
-            for my $path (@{$area}) {
-                my $pairsRef = getAllLines($path, $regex);
-                if (scalar @{$pairsRef}) { return($pairsRef); }
-            }
-        }
-        return(0); # not found
-    }
-
-    # Return the text of all lines matching the regex.
-    #
-    sub getAllLines {
-        my ($file, $regex) = @_;
-        (-r $file) || return("");
-        ($verbose) && warn "getAllLines: grepping in '$file'.\n";
-        my $rc = `grep -r -n '$regex' $file`;
-        my @pairs = ();
-        if ($rc =~ m/^(\d+):/) {
-            for my $line (split(/\n/, $rc)) {
-                push @pairs, $line =~ s/(^[^:]*:[^:]*):.*/$1/;
-            }
-            return($rc);
-        }
-        return(\@pairs);
-    }
-} # END

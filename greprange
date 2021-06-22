@@ -165,6 +165,7 @@ L<https://github.com/sderose>.
 =cut
 
 
+###############################################################################
 # Options
 #
 my $count            = 0;
@@ -182,7 +183,6 @@ my $suppress         = 0;
 my $end              = "";
 my $verbose          = 0;
 my $withFilename     = 0;
-
 
 Getopt::Long::Configure ("ignore_case");
 my $result = GetOptions(
@@ -207,10 +207,9 @@ my $result = GetOptions(
         die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
     },
     "y"                 => sub { $ignoreCase = 1; }
-    );
+);
 
 ($result) || die "Bad options.\n";
-
 
 # Validate and default options
 #
@@ -248,7 +247,7 @@ sub doOneFile {
         $fh = *STDIN;
     }
     elsif (-f $path) {
-        $fh = open("<$path");
+        open(my $fh, "<", "$path");
     }
     else {
         ($suppress) || warn "Could not find file '$path'.\n";
