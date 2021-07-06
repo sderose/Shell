@@ -121,7 +121,7 @@ See L<https://stackoverflow.com/questions/38972736/how-to-print-lines-between-tw
 For example:
     awk '/PAT1/{flag=1} flag; /PAT2/{flag=0}' myFile
 
-C<head>, C<tail>, and my C<grepData> and C<body> scripts do other extractions.
+My C<grepData> and C<body --iterate> scripts do other extractions.
 
 
 =head1 Known bugs and limitations
@@ -147,7 +147,7 @@ Start multi-file support, -h -H -o.
 
 =head1 To do
 
-    Maybe just integrate into C<body> or C<grepData>?
+    Integrate into C<body> or C<grepData>.
     -b (byte-offset), -u (unix-byte-offsets) (strips CR).
 
 
@@ -247,7 +247,7 @@ sub doOneFile {
         $fh = *STDIN;
     }
     elsif (-f $path) {
-        open(my $fh, "<", "$path");
+        open($fh, "<", "$path");
     }
     else {
         ($suppress) || warn "Could not find file '$path'.\n";
@@ -305,10 +305,10 @@ if (scalar @ARGV == 0) {
 }
 
 while (my $f = shift) {
+    ($verbose) && warn "Starting file '$f'.\n";
     doOneFile($f);
     $nFiles++;
 } # per file
 
 ($quiet) || warn
     "Done, $nFound hits found, $totLines records searched, $nFiles files.\n";
-exit;

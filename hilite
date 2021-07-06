@@ -1,34 +1,7 @@
 #!/usr/bin/perl -w
 #
-# hilite: colorize multiple regex matches in a stream.
-#
+# hilite: Colorize multiple regex matches in a stream.
 # 2006-11-03: Written by Steven J. DeRose.
-# 2008-03-23 sjd: Rewrite.
-# 2008-04-03 sjd: Add --aname, --avalue, --file options.
-# 2008-04-11 sjd: Fix doc.
-# 2010-11-29 sjd: Cleanup. Finish --file.
-# 2011-12-14 sjd: Integrate sjdUtils.pm.
-# 2013-08-25: Add --useHtml: Insert HTML highlighting.
-# 2014-08-14: Break out setup methods.
-# 2014-09-01: Add --nonascii, --changeColor, --listColors.
-# 2016-04-08: Switch from *nix 'expand' to Perl Text::Tabs::expand
-#     (which helps portability, and supports Unicode). Drop --tabInterval
-#     in favor of value for --untabify. Add --expand synonym. Fix STDIN.
-# 2016-10-25: Hook to ColorManager via hColor, eliminating colorHash.
-#     Drop --useHtml. Redo --changeColor locally.
-# 2017-06-02: Start making options like --color "sticky".
-# 2018-09-17: Fix accidentally hard-coded 'red'.
-#
-# To do:
-#    Fix problem with --diff setup
-#    Finish --columns feature
-#    Finish --useHtml, esp. to map names right
-#    Postscript output so you can color-print? Linux 'enscript' supports
-#    Option for filename-containing or filename-with-extension
-#    --aname and --avalue should use lookbehind so only match target portion
-#    Option to hilite all occurrences of any words from file F (-f enough?)
-#    hilite given fields by name or number
-#    Add support for svn and git status?
 #
 use strict;
 use Getopt::Long;
@@ -37,572 +10,20 @@ use sjdUtils;
 use alogging;
 use ColorManager;
 
-our $VERSION_DATE = "2018-09-17";
+ur %metadata = (
+    'title'        => " hilite.pl",
+    'description'  => "Colorize multiple regex matches in a stream.",
+    'rightsHolder' => "Steven J. DeRose",
+    'creator'      => "http://viaf.org/viaf/50334488",
+    'type'         => "http://purl.org/dc/dcmitype/Software",
+    'language'     => "Perl 5.18",
+    'created'      => "%DATE%",
+    'modified'     => "2020-08-24",
+    'publisher'    => "http://github.com/sderose",
+    'license'      => "https://creativecommons.org/licenses/by-sa/3.0/"
+);
+our $VERSION_DATE = $metadata{'modified'};
 
-# Options
-#
-my @changeColor = ();        # Color-name remapping.
-my @columns     = ();        # Array of [ color, colspec ] pairs.
-my $curColor 	= "red";
-my %exprs 		= ();        # expressions to hilite => color esc for each
-my $file 		= "";        # load expressions from a file
-my $fixBars 	= 0;         # try harder to detect real diff change-lines
-my $ignorecase 	= 1;         # ignore case for all -e exprs.
-my $listColors  = 0;
-my $only 		= 0;
-my $quiet 		= 0;
-my $test 		= 0;
-my $untabify    = 0;
-my $useHtml     = 0;
-my $verbose 	= 0;
-my $waitfor 	= "";
-my $wholelines 	= 0;
-
-# Option flags for pre-defined expression sets
-#
-my $predefined_cvsstatus = 0;
-my $predefined_diff 	 = 0;
-my $predefined_entities  = 0;
-my $predefined_err 		 = 0;
-my $predefined_gi 		 = 0;
-my $predefined_htmlstyle = 0;
-my $predefined_man 		 = 0;
-my $predefined_ns 		 = 0;
-my $predefined_nonascii  = 0;
-my $predefined_pylint    = 0;
-my $predefined_regex 	 = 0;
-my $predefined_tag 		 = 0;
-my $predefined_uri 		 = 0;
-my $predefined_xml 		 = 0;
-my $predefined_css 		 = 0;
-my @predefined_aname 	 = ();
-my @predefined_avalue 	 = ();
-
-#alogging::vMsg(1, "hilite calling sjdUtils::setColors().");
-sjdUtils::setColors(1);
-
-ColorManager::setColors(1);
-my %hColorOverrides = ();
-
-sub hColor {
-    my ($name) = @_;
-    if ($hColorOverrides{$name}) {
-        alogging::vMsg(2, "Using override for '$name'.\n");
-        return $hColorOverrides{$name};
-    }
-    my $cstr = ColorManager::getColorString($name); # undef on fail
-    #vMsg(2, "Setting up color '$name', got " . sjdUtils::showInvisibles($cstr) . ".\n");
-    return $cstr;
-}
-
-# Set up color table before handling options, so we can error-check "-c".
-#
-
-my $testColor = "blue";
-my $cStart = my $testStart = hColor($testColor);
-my $cEnd   = hColor("default");
-($cStart && $cEnd) || die "Unable to set up starting colors.\n";
-
-
-###############################################################################
-# Process options
-#
-Getopt::Long::Configure ("ignore_case");
-my $result = GetOptions(
-    # Predefined target expressions
-    "aname=s"              => \@predefined_aname,
-    "avalue=s"             => \@predefined_avalue,
-    "cvsstatus!"           => \$predefined_cvsstatus,
-    "diff!"                => \$predefined_diff,
-    "entities!"            => \$predefined_entities,
-    "err|error!"           => \$predefined_err,
-    "gi!"                  => \$predefined_gi,
-    "htmlstyle!"           => \$predefined_htmlstyle,
-    "man!"                 => \$predefined_man,
-    "nonascii!"            => \$predefined_nonascii,
-    "ns=s"                 => \$predefined_ns,
-    "pylint!"              => \$predefined_pylint,
-    "regex!"               => \$predefined_regex,
-    "tag=s"                => \$predefined_tag,
-    "uri!"                 => \$predefined_uri,
-    "xml!"                 => \$predefined_xml,
-    "css!"                 => \$predefined_css,
-
-    # Other options
-    "c|color=s"            => sub {
-        $curColor = $_[1];
-        my $try = hColor($curColor);
-        if (!$try) {
-            warn "Unknown color '$curColor'..\n";
-        }
-        else {
-            $cStart = $try;
-        }
-    },
-    #"changeColor=s"        => \@changeColor,
-    "cols|columns=s"       => sub { push(@columns, [ $curColor, $_[1] ]); },
-    "e|expr=s"             => sub { $exprs{$_[1]} = $cStart; },
-    "file=s"               => sub {
-        (-f $_[1]) || die "Can't find file for -f $_[1].\n";
-        open F, "<$_[1]";
-        my $nf = 0;
-        while (my $rec = <F>) {
-            $nf++;
-            $exprs{$rec} = $cStart;
-        }
-        close F;
-        ($verbose) && warn "Loaded $nf expressions from file '$_[1]'.\n";
-    },
-    "fixBars!"             => \$fixBars,
-    "h|help|?"             => sub { system "perldoc $0"; exit; },
-    "i|ignoreCase!"        => \$ignorecase,
-    "l|lines|wholeLines!"  => \$wholelines,
-    "listColors!"          => \$listColors,
-    "only!"                => \$only,
-    "q|quiet!"             => \$quiet,
-    "test|dry-run|dryrun!" => \$test,
-    "u|untabify|expand=o"  => \$untabify,
-    #"useHtml!"             => \$useHtml,
-    "v|verbose+"           => \$verbose,
-    "version"              => sub {
-        die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
-    },
-	"waitfor=s"            => \$waitfor,
-    );
-
-($verbose) && warn $testStart . "TEST $testColor" . $cEnd . "\n";
-
-
-###############################################################################
-# Validate and default options
-#
-
-#if ($untabify) {
-#    ($untabify > 1) ||
-#        die "hilite: Bad --untabify interval '$untabify'.\n";
-#    $Text::Tabs::tabstop = $untabify;  # For Text::Tabs
-#}
-
-($result) || die "hilite: Bad options.\n";
-
-my @files = ();
-if ($ARGV[0]) {
-    @files = @ARGV;
-}
-else {
-    $files[0] = "--stdin--";
-}
-
-for (my $i=0; $i<scalar(@changeColor); $i++) {
-    $hColorOverrides{$1} = hColor($2);
-}
-
-if ($listColors) {
-    print "Known color names are:\n";
-    system "colorstring --list";
-    exit;
-}
-setup_predefined();
-
-# Read regexes from a file
-#
-if ($file) {
-    open(XLIST, "<$file") || die "Could not open expression file '$file'.\n";
-    binmode(XLIST, ":encoding(utf8)");
-    my $c = hColor("red");
-    while (my $x = <XLIST>) { # Could 'or' together instead...
-        chomp $x;
-        $exprs{$x} = $c;
-    }
-    close XLIST;
-    ($verbose) && warn
-        "Expressions loaded from '$file': " . scalar(keys %exprs) . ".\n";
-}
-
-
-
-###############################################################################
-###############################################################################
-# Main
-#
-if (!$quiet) { showSetup(); }
-
-($verbose) && warn "Files to do: " . scalar(@files) . ".\n";
-my $tfile = "/tmp/hilite.txt_" . int(rand(100000));
-
-my $doneWaitingFor = 0;
-while (my $line = <>) {
-    my $gotit = 0;
-    if (0 && $untabify) {
-        $line = Text::Tabs::expand($line);
-    }
-
-    if ($wholelines) { # stop at first match per line
-        foreach my $e (keys %exprs) {
-            if (($ignorecase  && $line =~ m/$e/i) ||
-                (!$ignorecase && $line =~ m/$e/)) {
-                $gotit = 1;
-                if (!defined $exprs{$e}) {
-                    alogging::eMsg(0, "Undefined expr '" . $exprs{$e} . "'. Known:");
-                    alogging::eMsg(-1, join("\n", sort keys %exprs));
-                }
-                $line = $exprs{$e} . $line . $cEnd;
-                last;
-            }
-        }
-    }
-    elsif (scalar(@columns)>0) {
-        $line = colorColumns($line, \@columns);
-    }
-    else { # find all matches per line
-        foreach my $e (keys %exprs) {
-            # screwy case is where match contains $cEnd already....
-            $gotit ||= ($line =~ m/$e/);
-            my $cOn = $exprs{$e};  # Use the right color
-            if ($ignorecase) { $line =~ s/($e)/$cOn$1$cEnd/gi; }
-            else             { $line =~ s/($e)/$cOn$1$cEnd/g;  }
-        }
-    }
-    if (!$doneWaitingFor) {
-        if ($waitfor eq "*") {
-            if ($gotit) { $doneWaitingFor = 1; }
-        }
-        elsif ((!$ignorecase && $line =~ m/$waitfor/) ||
-               ( $ignorecase && $line =~ m/$waitfor/i)) {
-            $doneWaitingFor = 1;
-        }
-        else { next; }
-    }
-    if ($only == 0 || $gotit) {
-        print $line;
-    }
-} # while
-
-system "rm $tfile 2>/dev/null";
-
-exit;
-
-
-
-###############################################################################
-###############################################################################
-# Report the setup (*** fix to show colors, too ***)
-#
-sub showSetup {
-    ((scalar keys %exprs) > 0) || ($test) ||
-        die "hilite: No regexes specified.\n";
-
-    if ($verbose || $test) {
-        my @ekeys = keys %exprs;
-        my $nexprs = scalar @ekeys;
-        warn "hilite: The $nexprs expression(s) to match:\n";
-        my $i = 1;
-        for my $e (@ekeys) {
-            if ($i < 10) { $i = " $i"; }
-            warn "    $i:\t /$e/\n";
-            $i++;
-        }
-        warn "hilite:     Case will be " .
-            (($ignorecase) ? "ignored":"regarded") . ".\n";
-        ($test) && exit;
-    }
-}
-
-###############################################################################
-#
-sub colorColumns {
-    my ($line, $columns) = @_;
-    for (my $i=0; $i<scalar(@{$columns}); $i++) {
-        my $color = $columns->[$i]->[0];
-        my $cols  = $columns->[$i]->[1];
-        my $fr = 0; my $to = 0;
-        if ($cols =~ m/^-(\d+)$/) {
-            $fr = 0; $to = int($1);
-        }
-        elsif ($cols =~ m/^(\d+)-$/) {
-            $fr = int($1); $to = 0;
-        }
-        elsif ($cols =~ m/^(\d+)-(\d+)$/) {
-            $fr = int($1); $to = int($2);
-        }
-        elsif ($cols =~ m/^(\d+)$/) {
-            $fr = int($1); $to = int($1);
-        }
-        # Colorize from right to left so col numbers don't break.
-    }
-}
-
-
-###############################################################################
-# Implement predefined target expressions
-#
-sub setup_predefined {
-    my $e = "";
-
-    if (scalar @predefined_aname > 0) {
-        foreach my $a (@predefined_aname) {
-        $e = "<\\w[-_:.\\w\\d]*[^>]*\\s*(" . $a . ")\\s*=\\s*\"[^\"]*\"";
-        $exprs{$e} = hColor("red");
-        $e = "<\\w[-_:.\\w\\d]*[^>]*\\s*(" . $a . ")\\s*=\\s*'[^']*'";
-        $exprs{$e} = hColor("red");
-        }
-    }
-
-    if (scalar @predefined_avalue > 0) {
-        foreach my $a (@predefined_avalue) {
-        $e = "<\\w[-_:.\\w\\d]*[^>]*=\\s*\"(" . $a . ")\"";
-        $exprs{$e} = hColor("red");
-        $e = "<\\w[-_:.\\w\\d]*[^>]*=\\s*\'(" . $a . ")\'";
-        $exprs{$e} = hColor("red");
-        }
-    }
-
-    if ($predefined_cvsstatus) {
-        $wholelines = 1;
-        $exprs{"Up-to-date"}          = hColor("green");
-        $exprs{"Locally Added"}       = hColor("green");
-        $exprs{"Locally Modified"}    = hColor("cyan");
-        $exprs{"Needs Patch"}         = hColor("yellow");
-        $exprs{"Needs Checkout"}      = hColor("yellow");
-        $exprs{"Unknown"}             = hColor("yellow");
-        $exprs{"Needs Merge"}         = hColor("red");
-        $exprs{"had conflicts"}       = hColor("red");
-        $exprs{"Unresolved Conflict"} = hColor("red");
-        $exprs{"Invalid|Error"}       = hColor("/red");
-        # Following is added by ~deroses/bin/mods...
-        $exprs{"but repository has"}  = hColor("/red");
-        $wholelines = 1;
-    }
-
-    # Require 2 spaces before "|" so we don't catch it in content.
-    if ($predefined_diff) {
-        $wholelines = 1;
-        if ($fixBars) {
-            warn "hilite: --fixBars may not work due to tabs.\n";
-            my $w = $ENV{COLUMNS};
-            if ($w eq "") { $w = 80; }
-            my $centerColumn = int(($w+1) / 2.0);
-            my $min = int($w/2) - 2; my $max = $min + 4; # look for "|" here
-            $exprs{"^\\s+>\\s"}  = hColor("green");
-            $exprs{"\\s<\\s+\$"} = hColor("cyan/bold");
-            my $e = "^.{$min,$max}\\|";
-            ($verbose) && warn "***** min $min, max $max, expr '$e'.\n";
-            $exprs{$e}           = hColor("blue");
-        }
-        else {
-            $exprs{"^\\s+>\\s"}     = hColor("green");
-            $exprs{"\\s<\\s+\$"}    = hColor("cyan/bold");
-            $exprs{"\\s\\s\\|\\s"}  = hColor("blue");
-            warn "Consider --fixBars to improve '|' detection.\n";
-            #$exprs{"\\s\\s\\|\\s"}  = hColor("yellow"); # problem
-        }
-    }
-
-    if ($predefined_entities) {
-        $e = "&[^;]*;";
-        $exprs{$e} = $cStart;
-    }
-
-    if ($predefined_err) {
-        $ignorecase = 1;
-        # RED messages
-        $exprs{"(syntax )?ERROR( occurred at|s)?"} =
-        $exprs{"(element|attribute)? *('\\w+')? *(is)? *(INVALID|NOT VALID)"} =
-        $exprs{"CANNOT|CAN'T"}               =
-        $exprs{"MUST NOT|MAY NOT"}           =
-        $exprs{"UNKNOWN( file| command| variable| directory)?(, )?"} =
-        $exprs{"FATAL"}                      =
-        $exprs{"TERMINAT(e|ed|ing)"}         =
-        $exprs{"( \\w+)?EXCEPTION"}          =
-        $exprs{"FAIL(ed)?"}                  = hColor("red");
-        # would be nice to exclude "(0 failed)":
-        # $exprs{"([1-9]+0\s+|[^0]\s+)FAIL(ed)?"}
-
-        # YELLOW messages
-        $exprs{"WARNINGs? *[:=]? *[0-9]*"}   =
-        $exprs{"SHOULD NOT"}                 =
-        $exprs{"<<<= check the source here"} = hColor("yellow");
-
-        # CYAN messages
-        $exprs{"INFO"}                       =
-        $exprs{"(XSLT )?MESSAGE:"}           =
-        $exprs{"processed *(in *[0-9.]+ *sec\\.?)?"} = hColor("cyan");
-
-        # GREEN messages
-        $exprs{"SUCCESS(ful)?(ly)?"}         =
-        $exprs{"SUCCEED(ed|ing)?"}           =
-        $exprs{"START(ed|ing) *(file|document)*"} =
-        $exprs{"RUNNING:? *(file|document)*"} =
-        $exprs{"FINISH(ed|ing)"}             =
-        $exprs{"COMPLET(e|ed|ing)?"}         =
-        $exprs{"DONE"}                       = hColor("green");
-
-        $exprs{"(/[-\\w]*\\.x.l,)? *line [0-9]+((, )(column|offset) [0-9]+)"}
-                                             = hColor("bold");
-    } # --err
-
-    if ($predefined_gi) {
-        $e = "<[-\\w]+\\s";
-        $exprs{$e} = $cStart;
-        $e = "</[-\\w]+";
-        $exprs{$e} = $cStart;
-    }
-
-    if ($predefined_htmlstyle) {
-        my @names = split(/\s+/, htmlStyleAttributeList());
-        push @names, "style";
-        my $nprops = scalar @names;
-        ($quiet) || warn "hilite: Scanning for $nprops HTML style attributes.\n";
-        # ($verbose) && print "Properties: @names.\n";
-        for my $a (@names) {
-            $e = "\\s+$a=(\"[^\"]*\"|'[^']*')";
-            $exprs{$e} = hColor("yellow");
-        }
-    }
-
-    if ($predefined_man) {
-        $e = "\\W-+\\w+";
-        $exprs{$e} = hColor("magenta");
-        $e = "\\(see \\W+[^)]*\)";
-        $exprs{$e} = hColor("green");
-        $e = "^[A-Z ]+\\\$";
-        $exprs{$e} = hColor("blue");
-        $e = "^ {3,4}[A-Z].*";
-        $exprs{$e} = hColor("blue");
-        $e = "^ {14}\\S.*";
-        $exprs{$e} = hColor("magenta/bold");
-    }
-
-    if ($predefined_nonascii) {
-        $e = "[^ -~]+";
-        $exprs{$e} = hColor("blue");
-    }
-
-    if ($predefined_ns) { # fix
-        my $theNS = $predefined_ns;
-        $theNS =~ s/:.*$//;
-        $e = "<\\/?$theNS:" . "[^>]*>";
-        $exprs{$e} = hColor("blue");
-    }
-
-    if ($predefined_pylint) {
-        $e = "^E:";
-        $exprs{$e} = hColor("red");
-        $e = "^W:";
-        $exprs{$e} = hColor("yellow");
-        $wholelines = 1;
-    }
-
-    if ($predefined_tag) {
-        my $t = $predefined_tag;
-        ($t =~ m/^\w[-:\w]*$/) || die "hilite: Invalid --tag type '$t'.\n";
-        $e = "<\\/?$t(\\s[^>]*|\\/)?>";
-        $exprs{$e} = $cStart;
-    }
-
-    if ($predefined_uri) {
-        $e = "http"; # RFC 1738
-        # $e = "https?:[-_\$.+!*,()&a-zA-Z0-9]*"; # RFC 1738
-        $exprs{$e} = $cStart;
-    }
-
-    if ($predefined_xml) {
-        $e = "<[^!][^>]*(>|\$)";
-        $exprs{$e} = hColor("magenta");
-        $e = "<![^>]*(>|\$)";
-        $exprs{$e} = hColor("yellow");
-        $e = "<\\/?xsl:[^>]*(>|\$)";
-        $exprs{$e} = hColor("cyan");
-        $e = "&[^;]*;";
-        $exprs{$e} = hColor("green");
-    }
-
-    if ($predefined_regex) {
-        $e = "[{}]";
-        $exprs{$e} = hColor("magenta");
-        $e = "[^\\\\][()?*+]";
-        $exprs{$e} = hColor("red");
-        $e = "\\\\";
-        $exprs{$e} = hColor("yellow");
-        $e = "[\\[\\]][-^]";
-        $exprs{$e} = hColor("green");
-    }
-
-    if ($predefined_css) {
-        my @names = split(/\s+/, cssPropertyList());
-        my $nprops = scalar @names;
-        ($quiet) || warn "hilite: Scanning for $nprops css property names.\n";
-        # ($verbose) && print "Properties: @names.\n";
-        for my $a (@names) {
-            $e = "[^-\\w]$a" . "[^-\\w]";
-            $exprs{$e} = hColor("yellow");
-        }
-    }
-} # setup_predefined
-
-
-###############################################################################
-#
-sub cssPropertyList {
-    return (
-    "accelerator azimuth background background-attachment background-color
-    background-image background-position background-position-x
-    background-position-y background-repeat behavior border border-bottom
-    border-bottom-color border-bottom-style border-bottom-width
-    border-collapse border-color border-left border-left-color
-    border-left-style border-left-width border-right border-right-color
-    border-right-style border-right-width border-spacing border-style
-    border-top border-top-color border-top-style border-top-width
-    border-width bottom caption-side clear clip color content counter-increment
-    counter-reset cue cue-after cue-before cursor direction display
-    elevation empty-cells filter float font font-family font-size
-    font-size-adjust font-stretch font-style font-variant font-weight
-    height ime-mode include-source
-    layer-background-color layer-background-image
-    layout-flow layout-grid layout-grid-char layout-grid-char-spacing
-    layout-grid-line layout-grid-mode layout-grid-type left letter-spacing
-    line-break line-height list-style list-style-image list-style-position
-    list-style-type margin margin-bottom margin-left margin-right
-    margin-top marker-offset marks max-height max-width min-height
-    min-width orphans outline outline-color outline-style outline-width
-    overflow overflow-X overflow-Y padding padding-bottom padding-left
-    padding-right padding-top page page-break-after page-break-before
-    page-break-inside pause pause-after pause-before pitch pitch-range
-    play-during position quotes richness right ruby-align ruby-overhang
-    ruby-position scrollbar-3d-light-color scrollbar-arrow-color
-    scrollbar-base-color scrollbar-dark-shadow-color scrollbar-face-color
-    scrollbar-highlight-color scrollbar-shadow-color scrollbar-track-color
-    size speak speak-header speak-numeral speak-punctuation speech-rate
-    stress table-layout text-align text-align-last text-autospace
-    text-decoration text-indent text-justify text-kashida-space
-    text-overflow text-shadow text-transform text-underline-position
-    top unicode-bidi vertical-align visibility voice-family volume
-    white-space widows width word-break word-spacing word-wrap
-    writing-mode z-index zoom");
-}
-
-
-###############################################################################
-# Any missing?
-#
-sub htmlStyleAttributeList {
-    return (
-    "align axis background bgcolor
-    border
-    cellpadding cellspacing
-    clear color
-    face frameborder
-    height hspace marginheight marginwidth nowrap rules size
-    style
-    valign vspace width");
-}
-
-
-
-###############################################################################
-###############################################################################
-###############################################################################
-#
 
 =pod
 
@@ -875,6 +296,40 @@ The I<--diff> option highlights some lines with ' | ' in them that aren't diffs.
 This should be integrated with C<TabularFormats.pm> to be able to handle fields.
 
 
+=head1 History
+
+    2006-11-03: Written by Steven J. DeRose.
+    2008-03-23 sjd: Rewrite.
+    2008-04-03 sjd: Add --aname, --avalue, --file options.
+    2008-04-11 sjd: Fix doc.
+    2010-11-29 sjd: Cleanup. Finish --file.
+    2011-12-14 sjd: Integrate sjdUtils.pm.
+    2013-08-25: Add --useHtml: Insert HTML highlighting.
+    2014-08-14: Break out setup methods.
+    2014-09-01: Add --nonascii, --changeColor, --listColors.
+    2016-04-08: Switch from *nix 'expand' to Perl Text::Tabs::expand
+(which helps portability, and supports Unicode). Drop --tabInterval
+in favor of value for --untabify. Add --expand synonym. Fix STDIN.
+    2016-10-25: Hook to ColorManager via hColor, eliminating colorHash.
+Drop --useHtml. Redo --changeColor locally.
+    2017-06-02: Start making options like --color "sticky".
+    2018-09-17: Fix accidentally hard-coded 'red'.
+    2021-06-25: New layout.
+
+
+=head1 To do
+
+     Fix problem with --diff setup
+     Finish --columns feature
+     Finish --useHtml, esp. to map names right
+     Postscript output so you can color-print? Linux 'enscript' supports
+     Option for filename-containing or filename-with-extension
+     --aname and --avalue should use lookbehind so only match target portion
+     Option to hilite all occurrences of any words from file F (-f enough?)
+     hilite given fields by name or number
+     Add support for svn and git status?
+
+
 =head1 Ownership
 
 This work by Steven J. DeRose is licensed under a Creative Commons
@@ -884,3 +339,552 @@ this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
 For the most recent version, see L<http://www.derose.net/steve/utilities/>.
 
 =cut
+
+
+###############################################################################
+# Options
+#
+my @changeColor = ();        # Color-name remapping.
+my @columns     = ();        # Array of [ color, colspec ] pairs.
+my $curColor 	= "red";
+my %exprs 		= ();        # expressions to hilite => color esc for each
+my $file 		= "";        # load expressions from a file
+my $fixBars 	= 0;         # try harder to detect real diff change-lines
+my $ignorecase 	= 1;         # ignore case for all -e exprs.
+my $listColors  = 0;
+my $only 		= 0;
+my $quiet 		= 0;
+my $test 		= 0;
+my $untabify    = 0;
+my $useHtml     = 0;
+my $verbose 	= 0;
+my $waitfor 	= "";
+my $wholelines 	= 0;
+
+# Option flags for pre-defined expression sets
+#
+my $predefined_cvsstatus = 0;
+my $predefined_diff 	 = 0;
+my $predefined_entities  = 0;
+my $predefined_err 		 = 0;
+my $predefined_gi 		 = 0;
+my $predefined_htmlstyle = 0;
+my $predefined_man 		 = 0;
+my $predefined_ns 		 = 0;
+my $predefined_nonascii  = 0;
+my $predefined_pylint    = 0;
+my $predefined_regex 	 = 0;
+my $predefined_tag 		 = 0;
+my $predefined_uri 		 = 0;
+my $predefined_xml 		 = 0;
+my $predefined_css 		 = 0;
+my @predefined_aname 	 = ();
+my @predefined_avalue 	 = ();
+
+#alogging::vMsg(1, "hilite calling sjdUtils::setColors().");
+sjdUtils::setColors(1);
+
+ColorManager::setColors(1);
+my %hColorOverrides = ();
+
+sub hColor {
+    my ($name) = @_;
+    if ($hColorOverrides{$name}) {
+        alogging::vMsg(2, "Using override for '$name'.\n");
+        return $hColorOverrides{$name};
+    }
+    my $cstr = ColorManager::getColorString($name); # undef on fail
+    #vMsg(2, "Setting up color '$name', got " . sjdUtils::showInvisibles($cstr) . ".\n");
+    return $cstr;
+}
+
+# Set up color table before handling options, so we can error-check "-c".
+#
+
+my $testColor = "blue";
+my $cStart = my $testStart = hColor($testColor);
+my $cEnd   = hColor("default");
+($cStart && $cEnd) || die "Unable to set up starting colors.\n";
+
+Getopt::Long::Configure ("ignore_case");
+my $result = GetOptions(
+    # Predefined target expressions
+    "aname=s"              => \@predefined_aname,
+    "avalue=s"             => \@predefined_avalue,
+    "cvsstatus!"           => \$predefined_cvsstatus,
+    "diff!"                => \$predefined_diff,
+    "entities!"            => \$predefined_entities,
+    "err|error!"           => \$predefined_err,
+    "gi!"                  => \$predefined_gi,
+    "htmlstyle!"           => \$predefined_htmlstyle,
+    "man!"                 => \$predefined_man,
+    "nonascii!"            => \$predefined_nonascii,
+    "ns=s"                 => \$predefined_ns,
+    "pylint!"              => \$predefined_pylint,
+    "regex!"               => \$predefined_regex,
+    "tag=s"                => \$predefined_tag,
+    "uri!"                 => \$predefined_uri,
+    "xml!"                 => \$predefined_xml,
+    "css!"                 => \$predefined_css,
+
+    # Other options
+    "c|color=s"            => sub {
+        $curColor = $_[1];
+        my $try = hColor($curColor);
+        if (!$try) {
+            warn "Unknown color '$curColor'..\n";
+        }
+        else {
+            $cStart = $try;
+        }
+    },
+    #"changeColor=s"        => \@changeColor,
+    "cols|columns=s"       => sub { push(@columns, [ $curColor, $_[1] ]); },
+    "e|expr=s"             => sub { $exprs{$_[1]} = $cStart; },
+    "file=s"               => sub {
+        (-f $_[1]) || die "Can't find file for -f $_[1].\n";
+        open F, "<$_[1]";
+        my $nf = 0;
+        while (my $rec = <F>) {
+            $nf++;
+            $exprs{$rec} = $cStart;
+        }
+        close F;
+        ($verbose) && warn "Loaded $nf expressions from file '$_[1]'.\n";
+    },
+    "fixBars!"             => \$fixBars,
+    "h|help|?"             => sub { system "perldoc $0"; exit; },
+    "i|ignoreCase!"        => \$ignorecase,
+    "l|lines|wholeLines!"  => \$wholelines,
+    "listColors!"          => \$listColors,
+    "only!"                => \$only,
+    "q|quiet!"             => \$quiet,
+    "test|dry-run|dryrun!" => \$test,
+    "u|untabify|expand=o"  => \$untabify,
+    #"useHtml!"             => \$useHtml,
+    "v|verbose+"           => \$verbose,
+    "version"              => sub {
+        die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
+    },
+	"waitfor=s"            => \$waitfor,
+    );
+
+
+###############################################################################
+# Main
+#
+($verbose) && warn $testStart . "TEST $testColor" . $cEnd . "\n";
+
+#if ($untabify) {
+#    ($untabify > 1) ||
+#        die "hilite: Bad --untabify interval '$untabify'.\n";
+#    $Text::Tabs::tabstop = $untabify;  # For Text::Tabs
+#}
+
+($result) || die "hilite: Bad options.\n";
+
+my @files = ();
+if ($ARGV[0]) {
+    @files = @ARGV;
+}
+else {
+    $files[0] = "--stdin--";
+}
+
+for (my $i=0; $i<scalar(@changeColor); $i++) {
+    $hColorOverrides{$1} = hColor($2);
+}
+
+if ($listColors) {
+    print "Known color names are:\n";
+    system "colorstring --list";
+    exit;
+}
+setup_predefined();
+
+# Read regexes from a file
+#
+if ($file) {
+    open(XLIST, "<$file") || die "Could not open expression file '$file'.\n";
+    binmode(XLIST, ":encoding(utf8)");
+    my $c = hColor("red");
+    while (my $x = <XLIST>) { # Could 'or' together instead...
+        chomp $x;
+        $exprs{$x} = $c;
+    }
+    close XLIST;
+    ($verbose) && warn
+        "Expressions loaded from '$file': " . scalar(keys %exprs) . ".\n";
+}
+
+if (!$quiet) { showSetup(); }
+
+($verbose) && warn "Files to do: " . scalar(@files) . ".\n";
+my $tfile = "/tmp/hilite.txt_" . int(rand(100000));
+
+my $doneWaitingFor = 0;
+while (my $line = <>) {
+    my $gotit = 0;
+    if (0 && $untabify) {
+        $line = Text::Tabs::expand($line);
+    }
+
+    if ($wholelines) { # stop at first match per line
+        foreach my $e (keys %exprs) {
+            if (($ignorecase  && $line =~ m/$e/i) ||
+                (!$ignorecase && $line =~ m/$e/)) {
+                $gotit = 1;
+                if (!defined $exprs{$e}) {
+                    alogging::eMsg(0, "Undefined expr '" . $exprs{$e} . "'. Known:");
+                    alogging::eMsg(-1, join("\n", sort keys %exprs));
+                }
+                $line = $exprs{$e} . $line . $cEnd;
+                last;
+            }
+        }
+    }
+    elsif (scalar(@columns)>0) {
+        $line = colorColumns($line, \@columns);
+    }
+    else { # find all matches per line
+        foreach my $e (keys %exprs) {
+            # screwy case is where match contains $cEnd already....
+            $gotit ||= ($line =~ m/$e/);
+            my $cOn = $exprs{$e};  # Use the right color
+            if ($ignorecase) { $line =~ s/($e)/$cOn$1$cEnd/gi; }
+            else             { $line =~ s/($e)/$cOn$1$cEnd/g;  }
+        }
+    }
+    if (!$doneWaitingFor) {
+        if ($waitfor eq "*") {
+            if ($gotit) { $doneWaitingFor = 1; }
+        }
+        elsif ((!$ignorecase && $line =~ m/$waitfor/) ||
+               ( $ignorecase && $line =~ m/$waitfor/i)) {
+            $doneWaitingFor = 1;
+        }
+        else { next; }
+    }
+    if ($only == 0 || $gotit) {
+        print $line;
+    }
+} # while
+
+system "rm $tfile 2>/dev/null";
+
+exit;
+
+
+###############################################################################
+# Report the setup (*** fix to show colors, too ***)
+#
+sub showSetup {
+    ((scalar keys %exprs) > 0) || ($test) ||
+        die "hilite: No regexes specified.\n";
+
+    if ($verbose || $test) {
+        my @ekeys = keys %exprs;
+        my $nexprs = scalar @ekeys;
+        warn "hilite: The $nexprs expression(s) to match:\n";
+        my $i = 1;
+        for my $e (@ekeys) {
+            if ($i < 10) { $i = " $i"; }
+            warn "    $i:\t /$e/\n";
+            $i++;
+        }
+        warn "hilite:     Case will be " .
+            (($ignorecase) ? "ignored":"regarded") . ".\n";
+        ($test) && exit;
+    }
+}
+
+
+###############################################################################
+#
+sub colorColumns {
+    my ($line, $columns) = @_;
+    for (my $i=0; $i<scalar(@{$columns}); $i++) {
+        my $color = $columns->[$i]->[0];
+        my $cols  = $columns->[$i]->[1];
+        my $fr = 0; my $to = 0;
+        if ($cols =~ m/^-(\d+)$/) {
+            $fr = 0; $to = int($1);
+        }
+        elsif ($cols =~ m/^(\d+)-$/) {
+            $fr = int($1); $to = 0;
+        }
+        elsif ($cols =~ m/^(\d+)-(\d+)$/) {
+            $fr = int($1); $to = int($2);
+        }
+        elsif ($cols =~ m/^(\d+)$/) {
+            $fr = int($1); $to = int($1);
+        }
+        # Colorize from right to left so col numbers don't break.
+    }
+}
+
+
+###############################################################################
+# Implement predefined target expressions
+#
+sub setup_predefined {
+    my $e = "";
+
+    if (scalar @predefined_aname > 0) {
+        foreach my $a (@predefined_aname) {
+        $e = "<\\w[-_:.\\w\\d]*[^>]*\\s*(" . $a . ")\\s*=\\s*\"[^\"]*\"";
+        $exprs{$e} = hColor("red");
+        $e = "<\\w[-_:.\\w\\d]*[^>]*\\s*(" . $a . ")\\s*=\\s*'[^']*'";
+        $exprs{$e} = hColor("red");
+        }
+    }
+
+    if (scalar @predefined_avalue > 0) {
+        foreach my $a (@predefined_avalue) {
+        $e = "<\\w[-_:.\\w\\d]*[^>]*=\\s*\"(" . $a . ")\"";
+        $exprs{$e} = hColor("red");
+        $e = "<\\w[-_:.\\w\\d]*[^>]*=\\s*\'(" . $a . ")\'";
+        $exprs{$e} = hColor("red");
+        }
+    }
+
+    if ($predefined_cvsstatus) {
+        $wholelines = 1;
+        $exprs{"Up-to-date"}          = hColor("green");
+        $exprs{"Locally Added"}       = hColor("green");
+        $exprs{"Locally Modified"}    = hColor("cyan");
+        $exprs{"Needs Patch"}         = hColor("yellow");
+        $exprs{"Needs Checkout"}      = hColor("yellow");
+        $exprs{"Unknown"}             = hColor("yellow");
+        $exprs{"Needs Merge"}         = hColor("red");
+        $exprs{"had conflicts"}       = hColor("red");
+        $exprs{"Unresolved Conflict"} = hColor("red");
+        $exprs{"Invalid|Error"}       = hColor("/red");
+        # Following is added by ~deroses/bin/mods...
+        $exprs{"but repository has"}  = hColor("/red");
+        $wholelines = 1;
+    }
+
+    # Require 2 spaces before "|" so we don't catch it in content.
+    if ($predefined_diff) {
+        $wholelines = 1;
+        if ($fixBars) {
+            warn "hilite: --fixBars may not work due to tabs.\n";
+            my $w = $ENV{COLUMNS};
+            if ($w eq "") { $w = 80; }
+            my $centerColumn = int(($w+1) / 2.0);
+            my $min = int($w/2) - 2; my $max = $min + 4; # look for "|" here
+            $exprs{"^\\s+>\\s"}  = hColor("green");
+            $exprs{"\\s<\\s+\$"} = hColor("cyan/bold");
+            my $e = "^.{$min,$max}\\|";
+            ($verbose) && warn "***** min $min, max $max, expr '$e'.\n";
+            $exprs{$e}           = hColor("blue");
+        }
+        else {
+            $exprs{"^\\s+>\\s"}     = hColor("green");
+            $exprs{"\\s<\\s+\$"}    = hColor("cyan/bold");
+            $exprs{"\\s\\s\\|\\s"}  = hColor("blue");
+            warn "Consider --fixBars to improve '|' detection.\n";
+            #$exprs{"\\s\\s\\|\\s"}  = hColor("yellow"); # problem
+        }
+    }
+
+    if ($predefined_entities) {
+        $e = "&[^;]*;";
+        $exprs{$e} = $cStart;
+    }
+
+    if ($predefined_err) {
+        $ignorecase = 1;
+        # RED messages
+        $exprs{"(syntax )?ERROR( occurred at|s)?"} =
+        $exprs{"(element|attribute)? *('\\w+')? *(is)? *(INVALID|NOT VALID)"} =
+        $exprs{"CANNOT|CAN'T"}               =
+        $exprs{"MUST NOT|MAY NOT"}           =
+        $exprs{"UNKNOWN( file| command| variable| directory)?(, )?"} =
+        $exprs{"FATAL"}                      =
+        $exprs{"TERMINAT(e|ed|ing)"}         =
+        $exprs{"( \\w+)?EXCEPTION"}          =
+        $exprs{"FAIL(ed)?"}                  = hColor("red");
+        # would be nice to exclude "(0 failed)":
+        # $exprs{"([1-9]+0\s+|[^0]\s+)FAIL(ed)?"}
+
+        # YELLOW messages
+        $exprs{"WARNINGs? *[:=]? *[0-9]*"}   =
+        $exprs{"SHOULD NOT"}                 =
+        $exprs{"<<<= check the source here"} = hColor("yellow");
+
+        # CYAN messages
+        $exprs{"INFO"}                       =
+        $exprs{"(XSLT )?MESSAGE:"}           =
+        $exprs{"processed *(in *[0-9.]+ *sec\\.?)?"} = hColor("cyan");
+
+        # GREEN messages
+        $exprs{"SUCCESS(ful)?(ly)?"}         =
+        $exprs{"SUCCEED(ed|ing)?"}           =
+        $exprs{"START(ed|ing) *(file|document)*"} =
+        $exprs{"RUNNING:? *(file|document)*"} =
+        $exprs{"FINISH(ed|ing)"}             =
+        $exprs{"COMPLET(e|ed|ing)?"}         =
+        $exprs{"DONE"}                       = hColor("green");
+
+        $exprs{"(/[-\\w]*\\.x.l,)? *line [0-9]+((, )(column|offset) [0-9]+)"}
+                                             = hColor("bold");
+    } # --err
+
+    if ($predefined_gi) {
+        $e = "<[-\\w]+\\s";
+        $exprs{$e} = $cStart;
+        $e = "</[-\\w]+";
+        $exprs{$e} = $cStart;
+    }
+
+    if ($predefined_htmlstyle) {
+        my @names = split(/\s+/, htmlStyleAttributeList());
+        push @names, "style";
+        my $nprops = scalar @names;
+        ($quiet) || warn "hilite: Scanning for $nprops HTML style attributes.\n";
+        # ($verbose) && print "Properties: @names.\n";
+        for my $a (@names) {
+            $e = "\\s+$a=(\"[^\"]*\"|'[^']*')";
+            $exprs{$e} = hColor("yellow");
+        }
+    }
+
+    if ($predefined_man) {
+        $e = "\\W-+\\w+";
+        $exprs{$e} = hColor("magenta");
+        $e = "\\(see \\W+[^)]*\)";
+        $exprs{$e} = hColor("green");
+        $e = "^[A-Z ]+\\\$";
+        $exprs{$e} = hColor("blue");
+        $e = "^ {3,4}[A-Z].*";
+        $exprs{$e} = hColor("blue");
+        $e = "^ {14}\\S.*";
+        $exprs{$e} = hColor("magenta/bold");
+    }
+
+    if ($predefined_nonascii) {
+        $e = "[^ -~]+";
+        $exprs{$e} = hColor("blue");
+    }
+
+    if ($predefined_ns) { # fix
+        my $theNS = $predefined_ns;
+        $theNS =~ s/:.*$//;
+        $e = "<\\/?$theNS:" . "[^>]*>";
+        $exprs{$e} = hColor("blue");
+    }
+
+    if ($predefined_pylint) {
+        $e = "^E:";
+        $exprs{$e} = hColor("red");
+        $e = "^W:";
+        $exprs{$e} = hColor("yellow");
+        $wholelines = 1;
+    }
+
+    if ($predefined_tag) {
+        my $t = $predefined_tag;
+        ($t =~ m/^\w[-:\w]*$/) || die "hilite: Invalid --tag type '$t'.\n";
+        $e = "<\\/?$t(\\s[^>]*|\\/)?>";
+        $exprs{$e} = $cStart;
+    }
+
+    if ($predefined_uri) {
+        $e = "http"; # RFC 1738
+        # $e = "https?:[-_\$.+!*,()&a-zA-Z0-9]*"; # RFC 1738
+        $exprs{$e} = $cStart;
+    }
+
+    if ($predefined_xml) {
+        $e = "<[^!][^>]*(>|\$)";
+        $exprs{$e} = hColor("magenta");
+        $e = "<![^>]*(>|\$)";
+        $exprs{$e} = hColor("yellow");
+        $e = "<\\/?xsl:[^>]*(>|\$)";
+        $exprs{$e} = hColor("cyan");
+        $e = "&[^;]*;";
+        $exprs{$e} = hColor("green");
+    }
+
+    if ($predefined_regex) {
+        $e = "[{}]";
+        $exprs{$e} = hColor("magenta");
+        $e = "[^\\\\][()?*+]";
+        $exprs{$e} = hColor("red");
+        $e = "\\\\";
+        $exprs{$e} = hColor("yellow");
+        $e = "[\\[\\]][-^]";
+        $exprs{$e} = hColor("green");
+    }
+
+    if ($predefined_css) {
+        my @names = split(/\s+/, cssPropertyList());
+        my $nprops = scalar @names;
+        ($quiet) || warn "hilite: Scanning for $nprops css property names.\n";
+        # ($verbose) && print "Properties: @names.\n";
+        for my $a (@names) {
+            $e = "[^-\\w]$a" . "[^-\\w]";
+            $exprs{$e} = hColor("yellow");
+        }
+    }
+} # setup_predefined
+
+
+###############################################################################
+# CSS property name so we can colorize them.
+#
+sub cssPropertyList {
+    return (
+    "accelerator azimuth background background-attachment background-color
+    background-image background-position background-position-x
+    background-position-y background-repeat behavior border border-bottom
+    border-bottom-color border-bottom-style border-bottom-width
+    border-collapse border-color border-left border-left-color
+    border-left-style border-left-width border-right border-right-color
+    border-right-style border-right-width border-spacing border-style
+    border-top border-top-color border-top-style border-top-width
+    border-width bottom caption-side clear clip color content counter-increment
+    counter-reset cue cue-after cue-before cursor direction display
+    elevation empty-cells filter float font font-family font-size
+    font-size-adjust font-stretch font-style font-variant font-weight
+    height ime-mode include-source
+    layer-background-color layer-background-image
+    layout-flow layout-grid layout-grid-char layout-grid-char-spacing
+    layout-grid-line layout-grid-mode layout-grid-type left letter-spacing
+    line-break line-height list-style list-style-image list-style-position
+    list-style-type margin margin-bottom margin-left margin-right
+    margin-top marker-offset marks max-height max-width min-height
+    min-width orphans outline outline-color outline-style outline-width
+    overflow overflow-X overflow-Y padding padding-bottom padding-left
+    padding-right padding-top page page-break-after page-break-before
+    page-break-inside pause pause-after pause-before pitch pitch-range
+    play-during position quotes richness right ruby-align ruby-overhang
+    ruby-position scrollbar-3d-light-color scrollbar-arrow-color
+    scrollbar-base-color scrollbar-dark-shadow-color scrollbar-face-color
+    scrollbar-highlight-color scrollbar-shadow-color scrollbar-track-color
+    size speak speak-header speak-numeral speak-punctuation speech-rate
+    stress table-layout text-align text-align-last text-autospace
+    text-decoration text-indent text-justify text-kashida-space
+    text-overflow text-shadow text-transform text-underline-position
+    top unicode-bidi vertical-align visibility voice-family volume
+    white-space widows width word-break word-spacing word-wrap
+    writing-mode z-index zoom");
+}
+
+
+###############################################################################
+# Any missing?
+#
+sub htmlStyleAttributeList {
+    return (
+    "align axis background bgcolor
+    border
+    cellpadding cellspacing
+    clear color
+    face frameborder
+    height hspace marginheight marginwidth nowrap rules size
+    style
+    valign vspace width");
+}
