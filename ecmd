@@ -614,9 +614,14 @@ else {
 if ($tgtFile ne "") {
     ($quiet) || printf(
         "  Last modified %3.1f days ago.\n", -M($tgtFile));
-    my $cmd = "$ENV{EDITOR} " . lineSeekOption($fndLine) . " $tgtFile";
-    ($verbose) && warn "Running: $cmd\n";
-    system($cmd) && warn("Failed.\n");
+    if (defined $ENV{EDITOR}) {
+        my $cmd = "$ENV{EDITOR} " . lineSeekOption($fndLine) . " $tgtFile";
+        ($verbose) && warn "Running: $cmd\n";
+        system($cmd) && warn("Failed.\n");
+    }
+    else {
+        warn "Environmnet variable 'EDITOR' not set. But file is:\n    $tgtFile\n";
+    }
 }
 
 exit;
