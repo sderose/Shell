@@ -412,11 +412,11 @@ sub getProfilePaths {
         "$ENV{HOME}/bin/bash_profile", # I keep stuff here so not invisible.
 
     );
-    ($verbose || 1) && warn("Initial paths:\n    " . join("\n    ", @profilePaths) . "\n");
+    ($verbose) && warn("Initial paths:\n    " . join("\n    ", @profilePaths) . "\n");
 
     # NON-INTERACTIVE (must be expanded; don't use $PATH)
     if (defined $ENV{BASH_ENV}) {
-        ($verbose || 1) && warn "Adding path: '$ENV{BASH_ENV}'\n";
+        ($verbose) && warn "Adding path: '$ENV{BASH_ENV}'\n";
         push @profilePaths, $ENV{BASH_ENV};
     }
     if (defined $ENV{ENV}) { # only if 'sh'
