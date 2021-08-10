@@ -301,8 +301,8 @@ Getopt::Long::Configure ("ignore_case");
 ###############################################################################
 # Globals
 #
-my @allPaths;
-my @profilePaths;
+my @allPaths;      # Paths to other scripts, from $ECMD_PATH and --addProfile
+my @profilePaths;  # Paths to standard bash and zsh .-files
 
 my %lineSeekPrefix = (  # lookups are via lowercased name
     'emacs'  		=> '+',
@@ -366,15 +366,18 @@ sub findType {
     return $typ;
 }
 
+# Display the command, what it was found to be, and if the definition was found,
+# the file and optional line number (latter for shell functions and aliases).
+#
 sub reportType {
-    my ($theCmdName, $typ, $file) = @_;
+    my ($theCmdName, $typ, $file, $line) = @_;
     if ($quiet) { return; }
     my $msg = "'$theCmdName' is a" .
         (($typ =~ m/^[aeiouh]/) ? "n ":" ") .
         $typ .
-        ($file ? ". Opening '$file'..." : ".") .
-        "\n";
-    print $msg;
+        ($file ? ". Opening '$file'..." : ".");
+    if ($line) { $msg .= ", line $line"; }
+    print "$msg.\n";
 }
 
 
@@ -389,6 +392,33 @@ sub reportType {
 #     Whether effective user/group id != real user/group id AND -p not set.
 # Of course, the environment could depend on arbitrary logic in profiles....
 #
+# Fill in @profilePaths and @allPAths.
+#
+sub setupPaths {
+    @profilePaths = getProfilePaths();
+
+    my $ep = $ENV{"ECMDPATH"};
+    my @ecmdPaths = ();
+    if ($ep) {
+        @ecmdPaths = split /:/, $ENV{"ECMDPATH"};
+    }
+    ($verbose) && warn ("\nECMDPATH gives: [\n    " . join("\n    ", @ecmdPaths) . "]\n");
+
+    @allPaths = (@profilePaths, @ecmdPaths);
+
+    if ($verbose) {
+        ($verbose) && warn "\nFiles to be checked for alias/function definitions:\n    " .
+            join("\n    ", @profilePaths) . "\n";
+    }
+
+    my $sjdDir = $ENV{"sjdUtilsDir"};
+    if ($sjdDir && -d "$sjdDir/Public") {
+        ($verbose) && warn "Adding sjd Utils from '$sjdDir/Public'.\n";
+        my $bset = $sjdDir . "/Public/*";
+        push @allPaths, $bset;
+    }
+}
+
 sub getProfilePaths {
     my $profile = "$ENV{HOME}/.bash_profile";
 
@@ -424,33 +454,6 @@ sub getProfilePaths {
     }
     if (@addProfile) {
         push @profilePaths, @addProfile;
-    }
-}
-
-# Fill in @profilePaths and @allPAths.
-#
-sub setupPaths {
-    @profilePaths = getProfilePaths();
-
-    my $ep = $ENV{"ECMDPATH"};
-    my @ecmdPaths = ();
-    if ($ep) {
-        @ecmdPaths = split /:/, $ENV{"ECMDPATH"};
-    }
-    ($verbose) && warn ("\nECMDPATH gives: [\n    " . join("\n    ", @ecmdPaths) . "]\n");
-
-    @allPaths = (@profilePaths, @ecmdPaths);
-
-    if ($verbose) {
-        ($verbose) && warn "\nFiles to be checked for alias/function definitions:\n    " .
-            join("\n    ", @profilePaths) . "\n";
-    }
-
-    my $sjdDir = $ENV{"sjdUtilsDir"};
-    if ($sjdDir && -d "$sjdDir/Public") {
-        ($verbose) && warn "Adding sjd Utils from '$sjdDir/Public'.\n";
-        my $bset = $sjdDir . "/Public/*";
-        push @allPaths, $bset;
     }
 }
 
@@ -519,6 +522,12 @@ sub getAllLines {
     return(@pairs);
 }
 
+sub notFoundMsg {
+    my ($cmdName, $type) = @_;
+    reportType($cmdName, $type, sprintf(
+        ", not found in any of %d profiles, %d other files (see \$ECMD_PATH).",
+        scalar @profilePaths, scalar @allPaths));
+}
 
 ###############################################################################
 # Main
@@ -550,7 +559,7 @@ if ($typ =~ m/a function/) {
         $tgtFile = $fndFile;
     }
     else {
-        reportType($cmd, "function, but not found in any profile");
+        notFoundMsg($cmd, "function");
     }
 }
 elsif ($typ =~ m/aliased to `(.*)'/) {
@@ -561,7 +570,7 @@ elsif ($typ =~ m/aliased to `(.*)'/) {
         $tgtFile = $fndFile;
     }
     else {
-        reportType($cmd, "alias", "(not found in any profile)");
+        notFoundMsg($cmd, "alias");
         $tgtFile = $fndFile;
     }
 }
