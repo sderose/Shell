@@ -10,8 +10,8 @@ use sjdUtils;
 use alogging;
 use ColorManager;
 
-ur %metadata = (
-    'title'        => " hilite.pl",
+our %metadata = (
+    'title'        => "hilite.pl",
     'description'  => "Colorize multiple regex matches in a stream.",
     'rightsHolder' => "Steven J. DeRose",
     'creator'      => "http://viaf.org/viaf/50334488",
@@ -833,7 +833,7 @@ sub setup_predefined {
 
 
 ###############################################################################
-# CSS property name so we can colorize them.
+# CSS property names so we can colorize them.
 #
 sub cssPropertyList {
     return (
