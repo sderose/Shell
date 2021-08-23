@@ -14,7 +14,7 @@ our %metadata = (
     'type'         => "http://purl.org/dc/dcmitype/Software",
     'language'     => "Perl 5.18",
     'created'      => "2006-11",
-    'modified'     => "2020-12-18",
+    'modified'     => "2021-08-23",
     'publisher'    => "http://github.com/sderose",
     'license'      => "https://creativecommons.org/licenses/by-sa/3.0/"
 );
@@ -72,6 +72,14 @@ Use color.
 Turn the line into a syntactic comment as befits the specified extension
 (don't include the dot),
 such as by prefixing '//' or '#', or surrounding with '<!--' and '-->'.
+
+=item * B<--hex>
+
+Shorthand for I<--base 16>.
+
+=item * B<--octal>
+
+Shorthand for I<--base 8>.
 
 =item * B<--separator>
 
@@ -133,7 +141,7 @@ Finish makeVerticalLine() option to draw a vertical line at a given column(s).
   2018-10-22: Add --zero. Fix 'colorstring' call.
   2020-09-08: New layout. Add --char, doc --separator.
   2020-12-18: Clean up. Start --extension.
-
+  2021-08-23: Add --hex and --octal synonyms.
 
 =head1 Rights
 
@@ -222,6 +230,8 @@ my $result = GetOptions(
     "c|color!"          => \$color,
     "comment!"          => \$comment,
     "h|help|?"          => sub { system "perldoc $0"; exit; },
+    "hex"               => sub { $base = 16; },
+    "octal"             => sub { $base = 8; },
     "q|quiet!"          => \$quiet,
     "rule=s"            => \$rule,
     "separator!"        => \$separator,
