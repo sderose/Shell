@@ -125,12 +125,12 @@ your F<.bashrc> or similar file must do that explicitly.
 =head1 To do
 
 Provide comment delimiters for various languages by extension.
-See L<https://gist.github.com/ppisarczyk].
+See L<https://gist.github.com/ppisarczyk]>.
 
 Finish makeVerticalLine() option to draw a vertical line at a given column(s).
 
 
-=History
+=head1 History
 
   2006-11-??: Written by Steven J. DeRose.
   2008-01-17 sjd: Getopt.
