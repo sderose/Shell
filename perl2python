@@ -855,35 +855,35 @@ changes = [
 #
 TODO = "#TOTO "
 specialVarChanges = [
-    [ r"$|\b",     TODO+r"\1#" ], # If set to nonzero, forces flushes
-    [ r"$%\b",     TODO+r"\1#" ], # Current page number
-    [ r"$=\b",     TODO+r"\1#" ], # Current page length
-    [ r"$-\b",     TODO+r"\1#" ], # Number of lines left on the page
-    [ r"$~\b",     TODO+r"\1#" ], # Name of the current report format
-    [ r"$^\b",     TODO+r"\1#" ], # Name of the current top-of-page format
+    [ r"\$\|\b",    TODO+r"\1#" ], # If set to nonzero, forces flushes
+    [ r"\$%\b",     TODO+r"\1#" ], # Current page number
+    [ r"\$=\b",     TODO+r"\1#" ], # Current page length
+    [ r"\$-\b",     TODO+r"\1#" ], # Number of lines left on the page
+    [ r"\$~\b",     TODO+r"\1#" ], # Name of the current report format
+    [ r"\$\^\b",    TODO+r"\1#" ], # Name of the current top-of-page format
 
-    # [ r"$\d\b",  TODO+r"\1#" ], # Subpattern from last match. I<Renamed to `mat.group(n)`
-    [ r"$&\b",     TODO+r"\1#" ], # String matched by the last pattern match
-    [ r"$`\b",     TODO+r"\1#" ], # String preceding whatever was matched
-    [ r"$'\b",     TODO+r"\1#" ], # String following whatever was matched
-    [ r"$+\b",     TODO+r"\1#" ], # Last bracket matched by last pattern
+    # [ r"\$\d\b",  TODO+r"\1#" ], # Subpattern from last match. I<Renamed to `mat.group(n)`
+    [ r"\$&\b",     TODO+r"\1#" ], # String matched by the last pattern match
+    [ r"\$`\b",     TODO+r"\1#" ], # String preceding whatever was matched
+    [ r"\$'\b",     TODO+r"\1#" ], # String following whatever was matched
+    [ r"\$\+\b",    TODO+r"\1#" ], # Last bracket matched by last pattern
 
-    [ r"$_\b",     TODO+r"\1#" ], # Default input and pattern space. '''Renamed to dftVar'''
-    [ r"$.\b",     TODO+r"\1#" ], # Current line number of the last filehandle read
-    [ r"$/\b",     TODO+r"\1#" ], # Input record separator
-    [ r"$\b",     TODO+r"\1#" ], # Output record separator for print
-    [ r"$,\b",     TODO+r"\1#" ], # Output field separator for print
-    [ r'$"\b",     TODO+r"\1#' ], # Similar to $, except for array values in a "string"
-    [ r"$#\b",     TODO+r"\1#" ], # Output format for numbers via print.
-    [ r"$$\b",     TODO+r"\1#" ], # Process number of the Perl running this script
-    [ r"$?\b",     TODO+r"\1#" ], # Status of last pipe close, backtick(``) or system.
-    [ r"$*\b",     TODO+r"\1#" ], # 1 for multi-line matching within a string
-    [ r"$0\b",     TODO+r"\1#" ], # Name of the Perl script being executed
-    [ r"$[\b",     TODO+r"\1#" ], # Index of first element in array; character in string
-    [ r"$]\b",     TODO+r"\1#" ], # First part of perl -v
-    [ r"$;\b",     TODO+r"\1#" ], # Subscript separator for array emulation.
-    [ r"$!\b",     TODO+r"\1#" ], # In numeric context, current value of errno
-    [ r"$@\b",     TODO+r"\1#" ], # Error message from last eval, do-FILE, or require
+    [ r"\$_\b",     TODO+r"\1#" ], # Default input and pattern space. '''Renamed to dftVar'''
+    [ r"\$\.\b",    TODO+r"\1#" ], # Current line number of the last filehandle read
+    [ r"\$/\b",     TODO+r"\1#" ], # Input record separator
+    [ r"\$\b",      TODO+r"\1#" ], # Output record separator for print
+    [ r"\$,\b",     TODO+r"\1#" ], # Output field separator for print
+    [ r'\$"\b',     TODO+r"\1#" ], # Similar to $, except for array values in a "string"
+    [ r"\$#\b",     TODO+r"\1#" ], # Output format for numbers via print.
+    [ r"\$\$\b",    TODO+r"\1#" ], # Process number of the Perl running this script
+    [ r"\$\?\b",    TODO+r"\1#" ], # Status of last pipe close, backtick(``) or system.
+    [ r"\$\*\b",    TODO+r"\1#" ], # 1 for multi-line matching within a string
+    [ r"\$0\b",     TODO+r"\1#" ], # Name of the Perl script being executed
+    [ r"\$\[\b",    TODO+r"\1#" ], # Index of first element in array; character in string
+    [ r"\$\]\b",    TODO+r"\1#" ], # First part of perl -v
+    [ r"\$;\b",     TODO+r"\1#" ], # Subscript separator for array emulation.
+    [ r"\$!\b",     TODO+r"\1#" ], # In numeric context, current value of errno
+    [ r"\$@\b",     TODO+r"\1#" ], # Error message from last eval, do-FILE, or require
 ]
 
 
@@ -910,8 +910,10 @@ podChanges = [
 
 def compileRegexes() -> None:
     for i, c in enumerate(changes):
-        if (args.trace): info("change %3d: s/%s/%s/" % (i, c[0], [c[1]]))
-        assert len(c) == 2
+        if (args.trace):
+            info("change %3d: s/%s/%s/" % (i, c[0], [c[1]]))
+        if (len(c) != 2):
+            raise ValueError("changes %3d is len %d, not 2." % (i, len(c)))
         try:
             c.append(re.compile(c[0]))
         except re.error:
@@ -919,65 +921,59 @@ def compileRegexes() -> None:
 
     for i, c in enumerate(specialVarChanges):
         try:
-            if (args.trace): info("specialVarChanges %3d: s/%s/%s/" % (i, c[0], [c[1]]))
-            assert len(c) == 2
+            if (args.trace):
+                info("specialVarChanges %3d: s/%s/%s/" % (i, c[0], [c[1]]))
+            if (len(c) != 2):
+                raise ValueError("specialVarChanges %3d is len %d, not 2." % (i, len(c)))
             re.compile(c[0])
         except re.error:
-            fatal("Can't compile podChanges regex #%d: LHS: /%s/" % (i, c[0]))
+            fatal("Can't compile specialVarChanges regex #%d: LHS: /%s/" % (i, c[0]))
 
 
     for i, c in enumerate(podChanges):
         try:
-            if (args.trace): info("podChange %3d: s/%s/%s/" % (i, c[0], [c[1]]))
-            assert len(c) == 2
+            if (args.trace):
+                info("podChanges %3d: s/%s/%s/" % (i, c[0], [c[1]]))
+            if (len(c) != 2):
+                raise ValueError("podChange %3d is len %d, not 2." % (i, len(c)))
             re.compile(c[0])
         except re.error:
             fatal("Can't compile podChanges regex #%d: LHS: /%s/" % (i, c[0]))
 
 
 ###############################################################################
-# Expand variable references inside a Perl double-quoted string
-# (may come in with ';' and/or comment at end)
-# (perhaps should also drop a final "\\n"?)
-#
-# ### See replacement following....
 #
 def varsInString(s:str) -> str:
+    """Expand variable references inside a Perl double-quoted string
+    (may come in with ';' and/or comment at end)
+    (perhaps should also drop a final "\\n"?)
+    """
     if (args.oldVarsInString): return varsInString1(s)
     else: return varsInString2(s)
 
 def varsInString1(s:str) -> str:
-    # Strip comment if any (breaks for '#' inside quotes)
+    # Strip comment if any (imperfect))
+    s = s.rstrip(" ;")
     com = ""
-    comloc = s.find("#")
-    if (comloc>=0):
-        com = s[comloc:]
-        if (com[0:1] != "#"):
-            error("## Bad comment: " + s)
-        s = s[0:comloc]
-    s = re.sub(r"\s+$","",s)
-    semi = 0
-    if (s[-1:] == ";"):
-        semi = 1
-        s = s[0:-1]
+    mat = re.search(r"\s*#[^'\"]*$", s)
+    if (mat):
+        com = s[mat.start():]
+        s = s[0:mat.start()]
 
-    parts = re.split(r'(".*?")',s)
     buf = ""
-    for x in parts:
-        if (x == ""):
-            continue
-        if (x[0] == '"'):
-            #print "    q: " + x
-            x = re.sub(r"\$(\w+)\{(.*?)\}",   r'" + str(\1[\2]) + "', x)
-            x = re.sub(r"\$(\w+)\[(.*?)\]",   r'" + str(\1[\2]) + "', x)
-            x = re.sub(r"\$(\w+)",            r'" + str(\1) + "'    , x)
-        buf = buf + x
+    re.sub(r'"(.*?(?<!\\))"', varSubFunc, s)
+    s = re.sub(r'\\n"$', "\"", s)
+    return s+com
 
-    buf = re.sub(r'\\n"$', "\"",buf)
-    if (semi):
-        buf = buf + ")"
-    buf = buf.rstrip() + " " + com + "\n"
-    return(buf)
+def varSubFunc(mat):
+    """Split the string at each $x{}, $x[], or $x, and make it a concat
+    instead. Could instead switch to .format(), but it doesn't seem any easier.
+    """
+    x = mat.group(1)
+    x = re.sub(r"\$(\w+)\{(.*?)\}",   r'" + str(\1[\2]) + "', x)
+    x = re.sub(r"\$(\w+)\[(.*?)\]",   r'" + str(\1[\2]) + "', x)
+    x = re.sub(r"\$(\w+)",            r'" + str(\1) + "'    , x)
+    return x
 
 
 ###############################################################################
@@ -1012,8 +1008,9 @@ def varsInString2(s:str) -> str:
          handle s/tr/y 2nd argument (must 1st and 2nd use same delim?
 
     """
+    if (args.varsInString):
+        warn("===>%s<===" % (s))
     buf = ""              # Build up the result here
-    pos = 0               # Current offset in source string
     inQuote = ""          # What kind of Perl quote are we in ("" = none)
     outQuote = ""         # String we expect in Perl, to end the quote
     delim = ""            # What char after inQuote, as delimiter?
@@ -1022,7 +1019,15 @@ def varsInString2(s:str) -> str:
 
     indent = re.sub(r"\S.*$", "", s) # Leading whitespace in case of new '\n'
 
+    # NO 'continue', please, pos is incremented at the dn
+    lastPos = -1
+    pos = 0               # Current offset in source string
     while (pos < len(s)):
+        if (pos == lastPos):
+            fatal("pos not incemented from %d in '%s^^^%s'." %
+                (lastPos, s[0:lastPos], s[lastPos:]))
+        lastPos = pos
+
         c = s[pos]
 
         if (inQuote == ""):                 # OUTSIDE QUOTES
@@ -1030,92 +1035,83 @@ def varsInString2(s:str) -> str:
                 buf += s[pos:]
                 pos = len(s)
                 toMakeClose = c
-                continue
-            if (c == '"'):                                  # start double
+            elif (c == '"'):                                  # start double
                 buf += c
                 inQuote = c
                 interpolate = 1
                 outQuote = c
                 toMakeClose = c
-                continue
-            if (c == "'"):                                  # start single
+            elif (c == "'"):                                  # start single
                 buf += c
                 inQuote = c
                 interpolate = 0
                 outQuote = c
                 toMakeClose = c
-                continue
-            if (c == "`"):                                  # start back
+            elif (c == "`"):                                  # start back
                 buf += 'exec_command("""',
                 inQuote = c
                 interpolate = 1
                 outQuote = c
                 toMakeClose = '""")'
-                continue
-            if (c == ";"):
+            elif (c == ";"):
                 buf += "\n" + indent
-                continue
-            if (c == "<" and re.match(r'<<EOF',s[pos:])):   # start 'here'
+            elif (c == "<" and re.match(r'<<EOF',s[pos:])):   # start 'here'
                 buf += '"""'
                 pos += 4
                 inQuote = "<<EOF"
                 interpolate = 1
                 outQuote = "EOF"
                 toMakeClose = '"""'
-                continue
-            mat = re.match(r"(q|qq|qx|qw|m|qr|s|tr|y)(#|\s*[\W)",pos) # others
-            if (mat):
-                inQuote = mat.group(1)
-                interpolate = 0
-                if (re.match("qq|qx|m|qr|s",mat.group(1))):
-                    interpolate = 1
-                twoArgs = 0
-                if (re.match("s|tr|y",mat.group(1))):
-                    twoArgs = 1
-                pos += len(inQuote)
-                delim = mat.group(2)
-                delim = re.sub(r"^\s+","",delim)
-                if (delim == "("):
-                    delim = ")"
-                elif (delim == "["):
-                    delim = "]"
-                elif (delim == "{"):
-                    delim = "}"
-                elif (delim == "'"):
+            else:
+                mat = re.match(r"(q|qq|qx|qw|m|qr|s|tr|y)(#|\s*\W)", s[pos:]) # others
+                if (mat):
+                    inQuote = mat.group(1)
                     interpolate = 0
-                outQuote = delim
-                buf += '"""'
-                toMakeClose = '"""'
-                continue
-            buf += c                                        # just copy
+                    if (re.match("qq|qx|m|qr|s",mat.group(1))):
+                        interpolate = 1
+                    twoArgs = 0
+                    if (re.match("s|tr|y",mat.group(1))):
+                        twoArgs = 1
+                    pos += len(inQuote)
+                    delim = mat.group(2)
+                    delim = re.sub(r"^\s+","",delim)
+                    if (delim == "("):
+                        delim = ")"
+                    elif (delim == "["):
+                        delim = "]"
+                    elif (delim == "{"):
+                        delim = "}"
+                    elif (delim == "'"):
+                        interpolate = 0
+                    outQuote = delim
+                    buf += '"""'
+                    toMakeClose = '"""'
+                else:
+                    buf += c                                  # just copy
 
         else:                               # INSIDE QUOTES
-            if (c == "\\"):                                 # \-char
-                pos += 1
+            if (c == "\\"):                                   # \-char
                 buf += c + s[pos]
-                continue
-            if (re.match(outQuote,s[pos:])):                # close quote
+            elif (re.match(outQuote,s[pos:])):                # close quote
                 buf += toMakeClose
                 toMakeClose = ""
                 inQuote = ""
-                continue
-            if (interpolate and c in [ "$", "@" ]):         # variable
+            elif (interpolate and c in [ "$", "@" ]):         # variable
                 mat = re.match(r".\w+",s[pos:])
-                if (mat.group):
-                    buf += outQuote + " + str(" + mat.group + ") + " + inQuote
-                    pos = mat.end
+                if (mat):
+                    buf += outQuote + " + str(" + mat.group() + ") + " + inQuote
+                    pos = mat.end()
                 else:
                     buf += '"\n## PROBLEM: syntax within quote\n"'
-                continue
-            if (inQuote == "qw"):                           # quote words
+            elif (inQuote == "qw"):                           # quote words
                 mat = re.match(r"\s+", s[pos:])
                 if (mat):
                     buf += '", "'
-                    pos += len(mat.group)
+                    pos += len(mat.group())
                 else:
                     buf += c
-                continue
-            buf += c                                        # just copy
+            else:
+                buf += c                                      # just copy
 
         pos += 1                            # ALWAYS INCREMENT
     # while some s left
@@ -1329,7 +1325,7 @@ def processOptions():
 
     parser.add_argument("--getOptVar", type=str,
         help="Assume this variable is where getOptLong arguments are built.")
-    parser.add_argument("--oldVarsInString", action="store_true",
+    parser.add_argument("--oldVarsInString", action="store_true", default=True,
         help="Use old version of variable interpolation for strings.")
     parser.add_argument("--singleQuoteOptions", action="store_true",
         help='Prefix "-" instead of "--" for long option names.')
@@ -1339,8 +1335,11 @@ def processOptions():
         help="Assume tab stops this far apart.")
     parser.add_argument("--trace", action="store_true",
         help="Display regexes while compiling and running.")
-    parser.add_argument("--verbose", "-v", action="count",
+    parser.add_argument("--varsInString", action="store_true",
+        help="Display each string before doing substitutions in it.")
+    parser.add_argument("--verbose", "-v", action="count", default=0,
         help="Provide more tracing information.")
+
     parser.add_argument("files",
         type=argparse.FileType("r"), nargs=argparse.REMAINDER,
         help="Path to a Perl file to (partly) convert to Python.")
@@ -1360,7 +1359,7 @@ seenPackage = 0   # Has there been a 'package' line yet?
 
 # Compile the regexes.
 #
-expected = 161
+expected = 162
 nChanges = len(changes)
 if (nChanges != expected):
     sys.stderr.write(

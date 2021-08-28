@@ -254,7 +254,7 @@ sub doOneFile {
         return 0;
     }
 
-    ($quiet) || warn("******* Starting file $path\n");
+    ($quiet) || warn("********************* Starting file $path\n");
     my $inRange = 0;
     my $lnum = 0;
     while(my $rec = <$fh>) {
@@ -292,7 +292,7 @@ sub doOneFile {
             }
         }
     } # EOF
-    ($path eq "-") || $fh.close();
+    #($path eq "-") || ($fh eq *STDIN) || ($fh eq *STDOUT) || $fh.close();
 }
 
 
