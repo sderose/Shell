@@ -1,11 +1,7 @@
 #!/usr/bin/perl -w
 #
-# macFilenameSort
-#
-# 2007-09-007: Written by Steven J. DeRose.
-# 2012-09-12: Clean up.
-# 2015-03-27: Fix pod. Use sjdUtils. Add -i. Separate comparison.
-#    Change from padding numerics to fixed-width, to true multi-key sort.
+# macFilenameSort: Sort filenames considering numeric parts.
+# 2007-09-07: Written by Steven J. DeRose.
 #
 use strict;
 use Getopt::Long;
@@ -13,90 +9,20 @@ use Getopt::Long;
 use sjdUtils;
 use alogging;
 
-our $VERSION_DATE = "2015-03-27";
+our %metadata = (
+    "title"        => "macFilenameSort",
+    "description"  => "Sort filenames considering numeric parts.",
+    "rightsHolder" => "Steven J. DeRose",
+    "creator"      => "http://viaf.org/viaf/50334488",
+    "type"         => "http://purl.org/dc/dcmitype/Software",
+    "language"     => "Perl 5.18",
+    "created"      => "2007-09-07",
+    "modified"     => "2021-08-31",
+    "publisher"    => "http://github.com/sderose",
+    "license"      => "https://creativecommons.org/licenses/by-sa/3.0/"
+);
+our $VERSION_DATE = $metadata{"modified"};
 
-my $ignoreCase = 1;
-my $maxFields  = 255;
-my $quiet      = 0;
-my $verbose    = 0;
-
-# Process options
-Getopt::Long::Configure ("ignore_case");
-my $result = GetOptions(
-	"h|help|?"          => sub { system "perldoc $0"; exit; },
-	"i|ignoreCase!"     => \$ignoreCase,
-	"maxFields=i"       => \$maxFields,
-	"q|quiet!"          => \$quiet,
-	"v|verbose+"        => \$verbose,
-    "version"           => sub {
-		die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
-	}
-	);
-
-($result) || die "Bad options.\n";
-
-
-sub compareByType {
-    my ($a, $b) = @_;
-    if (sjdUtils::isInteger($a)) {
-        if (sjdUtils::isInteger($b)) { return($a<=>$b); }
-        return(-1);
-    }
-    else {
-        if (sjdUtils::isInteger($b)) { return(1); }
-        if ($ignoreCase) { return( lc($a) cmp lc($b)); }
-        return($a cmp $b);
-    }
-}
-
-# Sorter for an array of (refs to) [ record, [keyfields] ] pairs.
-#
-sub compareArrays {
-    if (ref($a) ne "ARRAY" || ref($b) ne "ARRAY") {
-        die "compareArrays didn't get 2 refs to arrays: " . ref($a) .
-            ", " . ref($b) . ".\n";
-    }
-    my $keya = $a->[1];
-    my $keyb = $b->[1];
-    my $kfa = my $kfb = my $rc = undef;
-    for (my $i=0; $i<$maxFields; $i++) {
-        $kfa = $keya->[$i];
-        $kfb = $keyb->[$i];
-        if (!defined $kfa) { return( (defined $kfb) ? -1:0 ); }
-        $rc = compareByType($kfa, $kfb);
-        if ($rc != 0) { return($rc); }
-    }
-    die "compareArrays: Too many fields in key!\n";
-}
-
-
-###############################################################################
-# Main
-#
-my @records = ();          # Array of [ record, key ] pairs
-my %nRecsByNFields = ();
-
-# Read all the input, extract first token of each line, parse at digit-groups.
-while (my $rec = <>) {
-	chomp $rec;
-	my @fields = split(/(\d+)/, $rec);
-    $nRecsByNFields{scalar @fields} ++;
-	push @records, [ $rec, \@fields ];
-}
-
-my @srecords = sort compareArrays @records;
-
-for (my $r=0; $r<scalar @srecords; $r++) {
-    print $srecords[$r][0] . "\n";
-}
-
-exit;
-
-
-
-###############################################################################
-###############################################################################
-#
 
 =pod
 
@@ -104,13 +30,35 @@ exit;
 
 macFilenameSort
 
-Sort a series of lines, like the way Mac OS X sorts filenames.
+Sort a series of lines from stdin, like the way Mac OS X sorts filenames.
 This amounts to separating numeric and non-numeric portions, and treating
 them as a series of separate fields, sorted appropriately for each one's type
-(numeric or alphabetic).
+(numeric or alphabetic). 
 
-You could pipe C<ls> into this, and pipe onward to C<wrap> to
-get back into multiple columns.
+Only decimal integers are recognized, and they are considered to precede other characters.
+
+For example,
+    file_9
+    file_10
+    dir_13
+    dir_10000
+    
+sorts to:
+    dir_13
+    dir_10000
+    file_9
+    file_10
+
+whereas as regular *nix C<ls -1> produces:
+    dir_10000
+    dir_13
+    file_10
+    file_9
+
+To apply this to C<ls>, do:
+    ls | macFilenameSort
+    
+You can pipe onward to C<wrap> to get back into multiple columns if desired.
 
 
 =head1 Options
@@ -150,6 +98,14 @@ Dies if a line has more than I<--maxFields> (numeric and string) portions.
 Is this stable or not?
 
 
+=head1 History
+
+  2007-09-07: Written by Steven J. DeRose.
+  2012-09-12: Clean up.
+  2015-03-27: Fix pod. Use sjdUtils. Add -i. Separate comparison.
+Change from padding numerics to fixed-width, to true multi-key sort.
+  2021-08-31: New layout.
+
 
 =head1 Ownership
 
@@ -159,4 +115,103 @@ this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
 
 For the most recent version, see L<http://www.derose.net/steve/utilities/>.
 
+
 =cut
+
+
+###############################################################################
+#
+my $ignoreCase = 1;
+my $maxFields  = 255;
+my $quiet      = 0;
+my $verbose    = 0;
+
+# Process options
+Getopt::Long::Configure ("ignore_case");
+my $result = GetOptions(
+	"h|help|?"          => sub { system "perldoc $0"; exit; },
+	"i|ignoreCase!"     => \$ignoreCase,
+	"maxFields=i"       => \$maxFields,
+	"q|quiet!"          => \$quiet,
+	"v|verbose+"        => \$verbose,
+    "version"           => sub {
+		die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
+	}
+	);
+
+($result) || die "Bad options.\n";
+
+
+###############################################################################
+#Split a string into numeric vs. alphabetic parts
+#
+sub splitFields {
+    my ($rec) = @_;
+    my @fields = split(/(\d+)/, $rec);
+    return \@fields, scalar(@fields);
+}
+
+# Sort an array, with each entry containing [ record, [keyFields], nKeyFields ].
+# The 'keyfields' is a list of (typically alternating) numeric and alphabetic parts.
+#
+sub compareArrays {
+    if (ref($a) ne "ARRAY" || ref($b) ne "ARRAY") {
+        die "compareArrays didn't get 2 refs to arrays: " . ref($a) .
+            ", " . ref($b) . ".\n";
+    }
+    my $keysa = $a->[1];
+    my $nkeysa = $a->[2];
+    my $keysb = $b->[1];
+    my $nkeysb = $b->[2];
+    my $maxFound = ($nkeysa > $nkeysb) ? $nkeysa : $nkeysb;
+    
+    my $kfa = my $kfb = my $rc = undef;
+    for (my $i=0; $i<$maxFields && $i<$maxFound; $i++) {
+        $kfa = ($i < scalar $keysa) ? $keysa->[$i] : undef;
+        $kfb = ($i < scalar $keysb) ? $keysb->[$i] : undef;
+        if (!defined $kfa) { return( (defined $kfb) ? -1:0 ); }
+        $rc = compareByType($kfa, $kfb);
+        if ($rc != 0) { return($rc); }
+    }
+    die "compareArrays: Too many fields in key!\n";
+}
+
+# See whether we're looking at ints, strings, or one of each, and sort accordingly.
+#
+sub compareByType {
+    my ($a, $b) = @_;
+    if (sjdUtils::isInteger($a)) {
+        if (sjdUtils::isInteger($b)) { return($a<=>$b); }
+        return(-1);
+    }
+    else {
+        if (sjdUtils::isInteger($b)) { return(1); }
+        if ($ignoreCase) { return( lc($a) cmp lc($b)); }
+        return($a cmp $b);
+    }
+}
+
+
+###############################################################################
+# Main
+#
+my @records = ();          # Array of [ record, key ] pairs
+my %nRecsByNFields = ();
+
+# Read all the input, extract first token of each line, parse at digit-groups.
+#
+while (my $rec = <>) {
+	chomp $rec;
+	# Split into numeric vs. alphabetic parts
+	my ($fieldsRef, $nFields) = splitFields($rec);
+    $nRecsByNFields{$nFields} ++;
+	push @records, [ $rec, $fieldsRef, $nFields ];
+}
+
+my @srecords = sort compareArrays @records;
+
+for (my $r=0; $r<scalar @srecords; $r++) {
+    print $srecords[$r][0] . "\n";
+}
+
+exit;
