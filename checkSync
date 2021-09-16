@@ -3,7 +3,8 @@
 # checkSync: compare files that ought to be the same, and report.
 #
 from __future__ import print_function
-import sys, os, argparse
+import sys
+import os
 import re
 import subprocess
 import codecs
@@ -100,17 +101,19 @@ svnStats = {
     '~':  'versioned item obstructed by some item of a different kind',
 }
 
+
 ###############################################################################
 #
 def processOptions():
-    "Parse command-line options and arguments."
-    from MarkupHelpFormatter import MarkupHelpFormatter
+    import argparse
+    
+    try:
+        from BlockFormatter import BlockFormatter
+        parser = argparse.ArgumentParser(
+            description=descr, formatter_class=BlockFormatter)
+    except ImportError:
+        parser = argparse.ArgumentParser(description=descr)
 
-    x = sys.argv[0]
-    parser = argparse.ArgumentParser(
-        description=descr,
-        formatter_class=MarkupHelpFormatter
-    )
     parser.add_argument(
         "--fieldSep",         type=str, default=":",
         help='Paths listed in the --filelist file are separated by this (:).')
@@ -134,7 +137,6 @@ def processOptions():
 
     args0 = parser.parse_args()
     lg.setVerbose(args0.verbose)
-    sys.argv = [x] + args0.files
     return(args0)
 
 
@@ -219,7 +221,6 @@ def varSub(s):
     return(s)
 
 
-###############################################################################
 ###############################################################################
 # Main
 #

@@ -3,7 +3,9 @@
 # makeVue.py: Create a Vue document with many boxes.
 #
 from __future__ import print_function
-import sys, os, argparse
+import sys
+import os
+import argparse
 import re
 import time
 
@@ -29,6 +31,7 @@ __metadata__ = {
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__['modified']
+
 
 descr="""
 =Description=
@@ -86,14 +89,6 @@ arrowState is 3 for both ends,....
 Arrows have point1, point2, ID1, and ID2 sub-elements; not sure why.
 
 
-=History=
-
-* 2016-02-08: Written by Steven J. DeRose.
-* 2017-01-25: Add canvas, box, and gutter geometry options. Wraps
-into rows if there are many boxes.
-* 2-18-10-25: Recover from spare, fix. Rows.
-
-
 =To do=
 
 * Do something with the [] prefixes. At least:
@@ -101,6 +96,14 @@ into rows if there are many boxes.
     textColor, textSize, font
     fillColor
     shape
+
+
+=History=
+
+* 2016-02-08: Written by Steven J. DeRose.
+* 2017-01-25: Add canvas, box, and gutter geometry options. Wraps
+into rows if there are many boxes.
+* 2-18-10-25: Recover from spare, fix. Rows.
 
 
 =Rights=
@@ -427,7 +430,7 @@ for label0 in (open(args.files[0],'r').readlines()):
         if (len(part)>1 and part[0]==part[-1] and
             part[0] in '"\''): part = part[1:-2]
         if (part in nodeIndex):
-            lg.eMsg("Duplicate node label0 '%s' at record %d." % (part, recnum))
+            lg.error("Duplicate node label0 '%s' at record %d." % (part, recnum))
         nodeIndex[part] =  ( curID, x0, y0, args.boxwidth, args.boxheight, args.shape )
         print(makeNode(curID, part, x0, y0, args.boxwidth, args.boxheight, args.shape))
         curID += 1

@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 #
 # unescapeURI: Undo %ff or a few other kinds of special-char escaping.
-# 2014-04-22: Written by Steven J. DeRose, sderose@acm.org.
+# 2014-04-22: Written by Steven J. DeRose.
 #
 use strict;
 use Getopt::Long;
@@ -11,7 +11,7 @@ use sjdUtils;
 use alogging;
 
 our %metadata = (
-    'title'        => " %NAME%.pl",
+    'title'        => "unescapeURI",
     'description'  => "Undo %ff or a few other kinds of special-char escaping.",
     'rightsHolder' => "Steven J. DeRose",
     'creator'      => "http://viaf.org/viaf/50334488",
@@ -26,6 +26,7 @@ our $VERSION_DATE = $metadata{'modified'};
 
 
 =pod
+
 
 =head1 Usage
 
@@ -136,19 +137,22 @@ character set but interpreted as another.
 
 =head1 History
 
-  2014-04-22: Written by Steven J. DeRose, sderose@acm.org.
+  2014-04-22: Written by Steven J. DeRoseg.
   2014-08-29: Add --esc to allow other than '%'.
   2014-08-31f: Fix --escape to use right context. Multi-file. i/o encodings.
   2015-09-15: Adding MIME support, fix use of sjdUtils::unescapeURI().
+  2021-09-16: Minor cleanup.
+  
 
+=head1 Rights
 
-=head1 Ownership
+Copyright 2014-04-22 by Steven J. DeRose. This work is licensed under a
+Creative Commons Attribution-Share Alike 3.0 Unported License.
+For further information on this license, see
+L<https://creativecommons.org/licenses/by-sa/3.0>.
 
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
-
-For the most recent version, see L<http://www.derose.net/steve/utilities/>.
+For the most recent version, see L<http://www.derose.net/steve/utilities> or
+L<https://github.com/sderose>.
 
 
 =cut
@@ -179,7 +183,7 @@ my %getoptHash = (
     "version"                 => sub {
         die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
     },
-    );
+);
 Getopt::Long::Configure ("ignore_case");
 GetOptions(%getoptHash) || die "Bad options.\n";
 
@@ -209,6 +213,7 @@ my %MIMEcharsets = (  # Ignore case
     "iso-8859-9"   => "iso-8859-9",
     "shiftjis"     => "shiftjis",
 );
+
 
 ###############################################################################
 #

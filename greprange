@@ -47,7 +47,7 @@ give them as ^...$.
 
 =over
 
-=item * B<--count>
+=item * B<--countOnly>
 
 Just count hits, don't display them.
 
@@ -63,7 +63,7 @@ Prefix filename(s) to matched lines.
 
 Ignore case.
 
-=item * B<--iend>
+=item * B<--includeEnd>
 
 Include the matching end line itself.
 
@@ -71,7 +71,7 @@ Include the matching end line itself.
 
 Print lines *outside* of matched ranges.
 
-=item * B<--istart>
+=item * B<--includeStart>
 
 Include the matching start line itself.
 
@@ -82,6 +82,14 @@ Display I<l> as the 'filename' for hits on STDIN.
 =item * B<--line-number> (or -n)
 
 Prefix displayed lines with line numbers.
+
+=item * B<--maxRanges> I<n>
+
+Stop after I<n> matching ranges have been found.
+
+=item * B<--sep> I<s>
+
+Print this after each matched range. Default: none ("").
 
 =item * B<--start> I<expr>
 
@@ -117,11 +125,11 @@ Display version info and exit.
 =head1 Related commands
 
 You can do this with a bit of C<awk> if you remember how.
-See L<https://stackoverflow.com/questions/38972736/how-to-print-lines-between-two-patterns-inclusive-or-exclusive-in-sed-awk-or>.
+See L<https://stackoverflow.com/questions/38972736>.
 For example:
     awk '/PAT1/{flag=1} flag; /PAT2/{flag=0}' myFile
 
-My C<grepData> and C<body --iterate> scripts do other extractions.
+My C<grepData> and C<body --iterate> scripts do related extractions.
 
 
 =head1 Known bugs and limitations
@@ -138,18 +146,22 @@ There are no C<grep>-like options for:
 =head1 History
 
     2008-02-01: Written by Steven J. DeRose.
-    2008-02-11 sjd: Add -c, -i, --iend, --istart, -n, -v(invert-match).
+    2008-02-11 sjd: Add -c, -i, --includeEnd, --includeStart, -n, -v(invert-match).
 Start multi-file support, -h -H -o.
     2015-08-20: Clean up.
     2020-08-31: New layout.
     2021-04-11: Fix file handling. Implement --only-matching. Show awk alternative.
+    2021-09-10: Rename --istart and --iend to --includeStart and --includeEnd.
+Add --fpat and --lpat as synonyms for --start and --end (to match `body` script).
+Fix several major logic bugs, clean up code.  Add --sep.
 
 
 =head1 To do
 
+    Add --maxLines to make sure first and last lines are close enough.
     Integrate into C<body> or C<grepData>.
     -b (byte-offset), -u (unix-byte-offsets) (strips CR).
-
+    Port to Pythong and integrate PowerWalk.
 
 =head1 Rights
 
@@ -168,16 +180,18 @@ L<https://github.com/sderose>.
 ###############################################################################
 # Options
 #
-my $count            = 0;
-my $iEnd             = 0;
+my $countOnly        = 0;
+my $includeEnd       = 0;
 my $ignoreCase       = 0;
 my $invert           = 0;
-my $iStart           = 0;
+my $includeStart     = 0;
 my $label            = "";
 my $lineNumber       = 0;
 my $maxRanges        = 0;
+my $maxLinesPerRange = 0;
 my $onlyMatching     = 0;
 my $quiet            = 0;
+my $sep              = "";
 my $start            = "";
 my $suppress         = 0;
 my $end              = "";
@@ -186,60 +200,61 @@ my $withFilename     = 0;
 
 Getopt::Long::Configure ("ignore_case");
 my $result = GetOptions(
-    "count!"            => \$count,
-    "end=s"             => \$end,
-    "h|help|?"          => sub { system "perldoc $0"; exit; },
-    "with-filename!"    => \$withFilename,
-    "no-filename"       => sub { $withFilename = 0; },
-    "i|ignore-case!"    => \$ignoreCase,
-    "iend!"             => \$iEnd,
-    "istart!"           => \$iStart,
-    "label=s"           => \$label,
-    "n|line-number!"    => \$lineNumber,
-    "max=i"             => \$maxRanges,
-    "o|only-matching!"  => \$onlyMatching,
-    "q|quiet!"          => \$quiet,
-    "start=s"           => \$start,
-    "suppress!"         => \$suppress,
-    "verbose+"          => \$verbose,
-    "v|invert-match!"   => \$invert,
-    "version"           => sub {
+    "countOnly!"          => \$countOnly,
+    "end|lpat=s"          => \$end,
+    "h|help|?"            => sub { system "perldoc $0"; exit; },
+    "with-filename!"      => \$withFilename,
+    "no-filename"         => sub { $withFilename = 0; },
+    "i|ignore-case!"      => \$ignoreCase,
+    "includeEnd!"         => \$includeEnd,
+    "includeStart!"       => \$includeStart,
+    "label=s"             => \$label,
+    "n|line-number!"      => \$lineNumber,
+    "maxLinesPerRange=i"  => \$maxLinesPerRange,
+    "maxRanges=i"         => \$maxRanges,
+    "o|only-matching!"    => \$onlyMatching,
+    "q|quiet!"            => \$quiet,
+    "sep=s"               => \$sep,
+    "start|fpat=s"        => \$start,
+    "suppress!"           => \$suppress,
+    "verbose+"            => \$verbose,
+    "v|invert-match!"     => \$invert,
+    "version"             => sub {
         die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
     },
-    "y"                 => sub { $ignoreCase = 1; }
+    "y"                   => sub { $ignoreCase = 1; }
 );
 
 ($result) || die "Bad options.\n";
 
 # Validate and default options
 #
-my $fh;
-my $file = shift;
-if ($file) {
-    (-f $file) || die "Couldn't find file '$file'.\n";
-    ($verbose) && warn "Opening '$file'.\n";
-    (open $fh, "<$file") || die "Failed to open '$file'.\n";
-}
-else {
-    ($verbose) && warn "Opening STDIN...\n";
-    (open $fh, "<&STDIN") || die "Failed to open STDIN.\n";
-}
-
 ($start) || ($end) ||
     die "Must specify at least --start or --end expression.\n";
 
-(@ARGV > 1) &&
-    warn "Only set up for one file at a time so far.\n";
 
-my $ignoreFlag = ($ignoreCase) ? "i":"";
+###############################################################################
+# Main
+#
+my $nFiles = 0;
+my $totLines = 0;
+my $totFound = 0;
+while (my $file = shift) {
+    if (!-f $file) {
+        warn "Couldn't find file '$file'.\n";
+        next;
+    }
+    ($verbose) && warn "Starting file '$file'.\n";
+    $nFiles++;
+    $totFound += doOneFile($file);
+}
+($quiet) || warn
+    "Done, $nFiles files, $totLines records searched. $totFound range matches.\n";
+exit;
 
 
 ###############################################################################
 #
-my $nFiles = 0;
-my $nFound = 0;
-my $totLines = 0;
-
 sub doOneFile {
     my ($path) = @_;
     my $fh;
@@ -255,60 +270,68 @@ sub doOneFile {
     }
 
     ($quiet) || warn("********************* Starting file $path\n");
-    my $inRange = 0;
     my $lnum = 0;
-    while(my $rec = <$fh>) {
+    my $matchesStart = 0;
+    my $matchesEnd = 0;
+    my $inRange = 0;
+    my @pendingLines = ();
+    my $nFound = 0;
+    while (my $rec = <$fh>) {
         $lnum++;
         $totLines++;
-        if ($inRange) {
-            if ($rec =~ m/$end/ ||
-                ($ignoreFlag && $rec =~ m/$end/i)) {
-                if (!$count && !$iEnd) {
-                    print "" . ($lineNumber ? "$lnum:":"") . $rec;
-                }
-                elsif ($onlyMatching) {
-                    $rec =~ s/$end.*//;
-                    print $rec;
-                }
-                $inRange = 0;
-                if ($maxRanges > 0 && $nFound >= $maxRanges) { last; }
-            }
-            else {
-                if (!$count) { print "" . ($lineNumber ? "$lnum:":"") . $rec; }
-            }
+        $matchesStart = matches($rec, $start);
+        $matchesEnd = matches($rec, $end);
+        
+        if ($maxLinesPerRange and scalar @pendingLines > $maxLinesPerRange) {  # Too far, cancel
+            $inRange = 0;
+            @pendingLines = ();
         }
-        else {
-            if ($rec =~ m/$start/ ||
-                ($ignoreFlag && $rec =~ m/$start/i)) {
+        if (!$inRange) {                                        # Seeking range-start
+            if ($matchesStart) {
                  $inRange = 1;
-                 $nFound++;
-                 if (!$count && !$iStart) {
-                     print "" . ($lineNumber ? "$lnum:":"") . $rec;
+                 if ($includeStart) {
+                     push(@pendingLines, ($lineNumber ? "$lnum:":"") . $rec);
                  }
                  elsif ($onlyMatching) {
                     $rec =~ s/.*$start//;
-                    print $rec;
+                    push(@pendingLines,  $rec);
                  }
             }
         }
+        else {                                                  # In range, seeking end
+            if ($matchesEnd) {
+                if ($includeEnd) {
+                    push(@pendingLines, ($lineNumber ? "$lnum:":"") . $rec);
+                }
+                elsif ($onlyMatching) {
+                    $rec =~ s/$end.*//;
+                    push(@pendingLines, $rec);
+                }
+                $nFound += 1;
+                if (!$countOnly) { print join("", @pendingLines) . "\n" . $sep; }
+                $inRange = 0;
+                @pendingLines = ();
+                if ($maxRanges > 0 && $nFound >= $maxRanges) { last; }
+            }
+            else {
+                push(@pendingLines, ($lineNumber ? "$lnum:":"") . $rec);
+            }
+        }
     } # EOF
+    $inRange = 0;
+    @pendingLines = ();
     #($path eq "-") || ($fh eq *STDIN) || ($fh eq *STDOUT) || $fh.close();
+    return $nFound;
 }
 
-
-###############################################################################
-# Main
-#
-if (scalar @ARGV == 0) {
-    warn "Waiting on STDIN...\n";
-    push @ARGV, "-";
+sub matches {
+    my ($s, $regex) = @_;
+    if ($ignoreCase) {
+        if ($s =~ m/$regex/i) { return 1; }
+        return 0;
+    }
+    else {
+        if ($s =~ m/$regex/) { return 1; }
+        return 0;
+    }
 }
-
-while (my $f = shift) {
-    ($verbose) && warn "Starting file '$f'.\n";
-    doOneFile($f);
-    $nFiles++;
-} # per file
-
-($quiet) || warn
-    "Done, $nFound hits found, $totLines records searched, $nFiles files.\n";

@@ -1,10 +1,7 @@
 #!/usr/bin/perl -w
 #
-# 2013-03-16: Written by Steven J. DeRose, sderose@acm.org.
-# 2014-02-35: Clean up.
-#
-# To do:
-#     Only do rename if name =~ m/^[-_ \d]+\.\w*$/
+# whereFrom
+# 2013-03-16: Written by Steven J. DeRose.
 #
 use strict;
 use Getopt::Long;
@@ -12,8 +9,149 @@ use Getopt::Long;
 use sjdUtils;
 use alogging;
 
-my $version = "2014-02-25";
+our %metadata = (
+    'title'        => "whereFrom",
+    'description'  => "",
+    'rightsHolder' => "Steven J. DeRose",
+    'creator'      => "http://viaf.org/viaf/50334488",
+    'type'         => "http://purl.org/dc/dcmitype/Software",
+    'language'     => "Perl 5.18",
+    'created'      => "2013-03-16",
+    'modified'     => "2021-09-15",
+    'publisher'    => "http://github.com/sderose",
+    'license'      => "https://creativecommons.org/licenses/by-sa/3.0/"
+);
+our $VERSION_DATE = $metadata{'modified'};
 
+
+=pod
+
+
+=head1 Usage
+
+whereFrom [options] files
+
+Diplay the extended attribute with the source URI for a file
+on MacOSX, and optionally rename to include some of it.
+
+With I<--pull n>, rename the files to include the last I<n>+1
+components of the source URI. For example, I<--pull 2> would rename a file
+called F<8-1.txt> (presumably the "-1" was added by Finder to avoid
+a name conflict), that was downloaded from
+
+    http://www.example.com/pics/friends/john/8.jpg
+
+to
+
+    friends_john_8.jpg
+
+With I<--webdir>, instead of path components from the URI
+being incorporated directly into the filename, they are used as a local
+path that the file is moved to (directories are created if needed). So the
+file in the previous example would end up in
+
+    ./friends/john/8.jpg
+
+B<Note>: The source is extracted via:
+
+    xattr -p com.apple.metadata:kMDItemWhereFroms [file]
+
+
+=head1 Options
+
+(prefix 'no' to negate where applicable)
+
+=over
+
+=item * B<--pull> I<n>
+
+Rename the file(s) by pulling down I<n> of the containing directory names
+from the source URI (see under Usage). The directories will be separated
+by "~" instead of "/" so as not to confuse the file system ("~" is not
+allowed in URIs, so should not cause conflicts).
+See also I<--test> and I<--separator>.
+
+=item * B<--quiet> OR B<-q>
+Suppress most messages.
+
+=item * B<--recursive>
+
+Do the whole directory subtree of each arg.
+
+=item * B<--separator> I<s>
+
+Use I<s> instead of the default "~", to separate ancestor directory names
+when using I<--pull>.
+
+=item * B<--test>
+
+Don't actually do the renaming with I<--pull>. Just show what it would do.
+
+=item * B<--verbose> OR B<-v>
+Add more messages (repeatable).
+
+=item * B<--version>
+
+Show version info and exit.
+
+=item * B<--webdir> I<path>
+
+After retrieving the source URI (when available), move the file into a
+directory mirroring the path described in the URI. The I<path> given for
+this option is treated as the starting point, and will contain a
+subdirectory for each domain, which in turn will contain the directories
+and files indicated in the URIs for the files from there. For example, with
+I<--webdir '/webStuff'>,
+
+    http://www.example.com/pics/friends/john/8.jpg
+
+would end up in:
+
+    /webStuff/www.example.com/pics/friends/john/8.jpg
+
+=back
+
+
+=head1 Known Bugs and Limitations
+
+With I<--pull>, moves files to current directory too, which may not be
+what you want.
+
+Doesn't know about non-"/" directory separators.
+
+"~" may not be the best default separator.
+
+
+=head1 Related commands
+
+C<renameFiles> does general file renaming. It has a I<--pullURI> option which
+works like the I<--pull> option here.
+
+
+=head1 To do
+
+  Only do rename if name =~ m/^[-_ \d]+\.\w*$/
+
+
+=head1 History
+
+  2013-03-16: Written by Steven J. DeRose.
+  2014-02-35: Clean up.
+  2021-09-16: New layout.
+  
+
+=head1 Ownership
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see http://creativecommons.org/licenses/by-sa/3.0/.
+
+For the most recent version, see http://www.derose.net/steve/utilities/.
+
+=cut
+
+
+###############################################################################
 # Options
 #
 my $pull          = 0;
@@ -25,9 +163,6 @@ my $verbose       = 0;
 my $webdir        = "";
 my $xattrName     = 'com.apple.metadata:kMDItemWhereFroms';
 
-
-###############################################################################
-#
 my %getoptHash = (
     "h|help"                  => sub { system "perldoc $0"; exit; },
     "pull=i"                  => \$pull,
@@ -37,7 +172,7 @@ my %getoptHash = (
     "test!"                   => \$test,
     "v+"                      => \$verbose,
     "version"                 => sub {
-        die "Version of $version, by Steven J. DeRose.\n";
+        die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
     },
     "webdir=s"                => \$webdir,
     );
@@ -48,7 +183,6 @@ GetOptions(%getoptHash) || die "Bad options.\n";
     "Can't use -pull and -webdir together.\n";
 
 
-###############################################################################
 ###############################################################################
 # Main
 #
@@ -79,7 +213,6 @@ if (!$quiet) {
 exit;
 
 
-###############################################################################
 ###############################################################################
 #
 sub doOneItem {
@@ -198,127 +331,3 @@ sub x2int {
     my ($s) = @_;
     return(hex("0x".$s));
 }
-
-
-
-###############################################################################
-###############################################################################
-###############################################################################
-#
-
-=pod
-
-=head1 Usage
-
-whereFrom [options] files
-
-Diplay the extended attribute with the source URI for a file
-on MacOSX, and optionally rename to include some of it.
-
-With I<--pull n>, rename the files to include the last I<n>+1
-components of the source URI. For example, I<--pull 2> would rename a file
-called F<8-1.txt> (presumably the "-1" was added by Finder to avoid
-a name conflict), that was downloaded from
-
-    http://www.example.com/pics/friends/john/8.jpg
-
-to
-
-    friends_john_8.jpg
-
-With I<--webdir>, instead of path components from the URI
-being incorporated directly into the filename, they are used as a local
-path that the file is moved to (directories are created if needed). So the
-file in the previous example would end up in
-
-    ./friends/john/8.jpg
-
-B<Note>: The source is extracted via:
-
-    xattr -p com.apple.metadata:kMDItemWhereFroms [file]
-
-
-
-=head1 Options
-
-(prefix 'no' to negate where applicable)
-
-=over
-
-=item * B<--pull> I<n>
-
-Rename the file(s) by pulling down I<n> of the containing directory names
-from the source URI (see under Usage). The directories will be separated
-by "~" instead of "/" so as not to confuse the file system ("~" is not
-allowed in URIs, so should not cause conflicts).
-See also I<--test> and I<--separator>.
-
-=item * B<--quiet> OR B<-q>
-Suppress most messages.
-
-=item * B<--recursive>
-
-Do the whole directory subtree of each arg.
-
-=item * B<--separator> I<s>
-
-Use I<s> instead of the default "~", to separate ancestor directory names
-when using I<--pull>.
-
-=item * B<--test>
-
-Don't actually do the renaming with I<--pull>. Just show what it would do.
-
-=item * B<--verbose> OR B<-v>
-Add more messages (repeatable).
-
-=item * B<--version>
-
-Show version info and exit.
-
-=item * B<--webdir> I<path>
-
-After retrieving the source URI (when available), move the file into a
-directory mirroring the path described in the URI. The I<path> given for
-this option is treated as the starting point, and will contain a
-subdirectory for each domain, which in turn will contain the directories
-and files indicated in the URIs for the files from there. For example, with
-I<--webdir '/webStuff'>,
-
-    http://www.example.com/pics/friends/john/8.jpg
-
-would end up in:
-
-    /webStuff/www.example.com/pics/friends/john/8.jpg
-
-=back
-
-
-
-=head1 Known Bugs and Limitations
-
-With I<--pull>, moves files to current directory too, which may not be
-what you want.
-
-Doesn't know about non-"/" directory separators.
-
-"~" may not be the best default separator.
-
-
-
-=head1 Related commands
-
-C<renameFiles> does general file renaming. It has a I<--pullURI> option which
-works like the I<--pull> option here.
-
-
-
-=head1 Ownership
-
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see http://creativecommons.org/licenses/by-sa/3.0/.
-
-For the most recent version, see http://www.derose.net/steve/utilities/.
-
-=cut

@@ -29,12 +29,24 @@ our $VERSION_DATE = $metadata{'modified'};
 
 =head1 Usage
 
-hilite [options] [files]
-
 Prints the file(s), or STDIN if no files are specified,
-colorizing matches to any regex(es) specified (see I<-e> and I<-c>)
+colorizing matches to any regex(es) specified,
 using the normal ANSI terminal escapes for color.
 
+For example:
+
+    hilite -c red/black/bold -e "foo\w*" myFile.txt
+    
+highlights all matches to the `-e` regex in bold red on a black background.
+
+Similarly, you can colorize XML tags pretty accurately with the following command
+(or just use the `--xml` option):
+
+    hilite -c blue -e "</?\w.*?>" myFile.txt -c green -e "<\!--.*?-->" 
+        -c red -e "<\?.*?\?>" -c white/black -e "&.*?;"
+
+See my `colorNames.pod` for details on my naming conventions for colors and effects
+([https://github.com/sderose/Color.git/blob/master/colorNames.md]).
 Can instead insert HTML colorizing markup (see I<--useHtml>).
 
 Terminal colors are discussed under C<sjdUtils.pm> and C<terminfo>.
@@ -53,12 +65,12 @@ See also the following section, L<Predefined regex sets>.
 
 =item * B<--color> I<colorName> OR B<-c> I<colorName>
 
-A color name to use for following matches. Default: red.
+A color name to use for following match expressions (I<-e>). Default: red.
 The specified color remains in effect for following I<-e> expressions,
 unless/until reset by another use of I<--color>.
 See also I<--useHtml> and I<--listColors>.
 
-The basic colors are as provide by the I<ColorManage> package (q.v.):
+The basic colors are as provided by the I<ColorManage> package (q.v.):
 'black', 'red', 'green', 'yellow', 'blue',
 'magenta', 'cyan', 'white' (typically, this is light gray), and 'default'.
 These are ANSI terminal codes 30 to 37 and 0, respectively.
@@ -76,6 +88,7 @@ The known effect names are:
 "inverse" (fg and bg swapped),
 "invisible", "italic", "plain" (the default, which need not be specified),
 "strike", and "ul" (underscore or underline).
+
 The effect names may be prefixed by "!" to turn the effect off.
 Terminal programs vary wildly in what effects they support, and
 in the appearance of some combinations (such as setting fg and bg the same).
@@ -89,7 +102,7 @@ what colors and effects your terminal program supports.
 
 B<Experimental>.
 Remap the color named I<color1>, to show as I<color2> instead. For example,
-with I<--changeColor red=blue>, any requests for red will show up as blue instead.
+with I<--changeColor red=blue>, any requests for red show up as blue instead.
 Repeatable.
 
 =item * B<--columns> I<colspec>
@@ -266,6 +279,9 @@ it displays a short list of test swatches, or with I<-h> for help.
 C<ColorManager.pm>: does much the same for Python.
 
 C<colorstring>: provides terminal color control strings, etc.
+
+C<mathAlphanumerics.py>: Provides access to many Unicode "Mathematical" and other
+variations on Latin and Greek letters and Arabic digits.
 
 C<sjdUtils.pm>: provides access to the same color escapes for Perl code.
 
