@@ -15,7 +15,7 @@ our %metadata = (
     'type'         => "http://purl.org/dc/dcmitype/Software",
     'language'     => "Perl 5.18",
     'created'      => "2008-02-01",
-    'modified'     => "2021-04-11",
+    'modified'     => "2021-09-22",
     'publisher'    => "http://github.com/sderose",
     'license'      => "https://creativecommons.org/licenses/by-sa/3.0/"
 );
@@ -38,7 +38,8 @@ For example:
 would pull out all the lines tagged as an XML 'abstract' element(s).
 
 The regexes do not have to exhause the lines they match on; if you want that,
-give them as ^...$.
+give them as ^...$. There are options to control whether the boundary lines are
+included entirely, excluded entirely, or included only up to the matched part.
 
 
 =head1 Options
@@ -55,7 +56,7 @@ Just count hits, don't display them.
 
 Expression to end at.
 
-=item * B<--headings>
+=item * B<--filename>
 
 Prefix filename(s) to matched lines.
 
@@ -83,21 +84,16 @@ Display I<l> as the 'filename' for hits on STDIN.
 
 Prefix displayed lines with line numbers.
 
+=item * B<--maxLinesPerRange> I<n>
+
+Don't find ranges where the start and end are separated by more than this many lines.
+Warning: It's not yet defined what happens if there are additional starts found, within
+a pending range -- probably it should find the shortest range, or the longest one under
+the max length, but I haven't addressed that case yet.
+
 =item * B<--maxRanges> I<n>
 
 Stop after I<n> matching ranges have been found.
-
-=item * B<--sep> I<s>
-
-Print this after each matched range. Default: none ("").
-
-=item * B<--start> I<expr>
-
-Expression to start at.
-
-=item * B<--max> I<n>
-
-Only find this many ranges.
 
 =item * B<--only-matching> or B<-o>
 
@@ -106,6 +102,14 @@ Include only the inward part of the start/end lines.
 =item * B<-q> or B<--quiet>
 
 Suppress most messages.
+
+=item * B<--sep> I<s>
+
+Print this after each matched range. Default: none ("").
+
+=item * B<--start> I<expr>
+
+Expression to start at.
 
 =item * B<-s>
 
@@ -134,7 +138,7 @@ My C<grepData> and C<body --iterate> scripts do related extractions.
 
 =head1 Known bugs and limitations
 
-I<-h> and I<-o> are not finished.
+I<-h> and I<-o> and I<--color> are not finished.
 
 There are no C<grep>-like options for:
     context: I<-A> I<-B> I<-C>;
@@ -154,14 +158,20 @@ Start multi-file support, -h -H -o.
     2021-09-10: Rename --istart and --iend to --includeStart and --includeEnd.
 Add --fpat and --lpat as synonyms for --start and --end (to match `body` script).
 Fix several major logic bugs, clean up code.  Add --sep.
+    2021-09-22: Clean up doc. Add --filename and unify prefix-handling.
 
 
 =head1 To do
 
-    Add --maxLines to make sure first and last lines are close enough.
     Integrate into C<body> or C<grepData>.
     -b (byte-offset), -u (unix-byte-offsets) (strips CR).
     Port to Pythong and integrate PowerWalk.
+    grep-like options? Port and switch to PowerWalk for most. files-with[out], --null,
+        --only-matching, -x/--line-regexp, -w/--word-regexp
+    Finish --color (incl. responding to $GREP_COLOR)
+    Integrate with grepData, esp. for PowerWalk and context args.
+    Grab options from $GREP_OPTIONS or maybe $GREPRANGE_OPTIONS.
+    Generate return code: 0: something found; 1: none found; >1: error.
 
 =head1 Rights
 
@@ -180,7 +190,9 @@ L<https://github.com/sderose>.
 ###############################################################################
 # Options
 #
+my $color            = 0;
 my $countOnly        = 0;
+my $filename         = 0;
 my $includeEnd       = 0;
 my $ignoreCase       = 0;
 my $invert           = 0;
@@ -200,8 +212,10 @@ my $withFilename     = 0;
 
 Getopt::Long::Configure ("ignore_case");
 my $result = GetOptions(
+    "color|colour!"       => \$color,
     "countOnly!"          => \$countOnly,
     "end|lpat=s"          => \$end,
+    "filename|H!"         => \$filename,
     "h|help|?"            => sub { system "perldoc $0"; exit; },
     "with-filename!"      => \$withFilename,
     "no-filename"         => sub { $withFilename = 0; },
@@ -213,7 +227,7 @@ my $result = GetOptions(
     "maxLinesPerRange=i"  => \$maxLinesPerRange,
     "maxRanges=i"         => \$maxRanges,
     "o|only-matching!"    => \$onlyMatching,
-    "q|quiet!"            => \$quiet,
+    "q|quiet|silent!"     => \$quiet,
     "sep=s"               => \$sep,
     "start|fpat=s"        => \$start,
     "suppress!"           => \$suppress,
@@ -290,18 +304,18 @@ sub doOneFile {
             if ($matchesStart) {
                  $inRange = 1;
                  if ($includeStart) {
-                     push(@pendingLines, ($lineNumber ? "$lnum:":"") . $rec);
+                     push(@pendingLines, assembleOutputLine($path, $lnum, $rec));
                  }
                  elsif ($onlyMatching) {
                     $rec =~ s/.*$start//;
-                    push(@pendingLines,  $rec);
+                    push(@pendingLines,  assembleOutputLine($path, $lnum, $rec));
                  }
             }
         }
         else {                                                  # In range, seeking end
             if ($matchesEnd) {
                 if ($includeEnd) {
-                    push(@pendingLines, ($lineNumber ? "$lnum:":"") . $rec);
+                    push(@pendingLines, assembleOutputLine($path, $lnum, $rec));
                 }
                 elsif ($onlyMatching) {
                     $rec =~ s/$end.*//;
@@ -314,7 +328,7 @@ sub doOneFile {
                 if ($maxRanges > 0 && $nFound >= $maxRanges) { last; }
             }
             else {
-                push(@pendingLines, ($lineNumber ? "$lnum:":"") . $rec);
+                push(@pendingLines, assembleOutputLine($path, $lnum, $rec));
             }
         }
     } # EOF
@@ -324,6 +338,11 @@ sub doOneFile {
     return $nFound;
 }
 
+sub assembleOutputLine {
+    my ($path, $lnum, $rec) = @_;
+    return ($filename ? "$path:":"") . ($lineNumber ? "$lnum:":"") . $rec;
+}
+    
 sub matches {
     my ($s, $regex) = @_;
     if ($ignoreCase) {
