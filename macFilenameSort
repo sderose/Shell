@@ -7,7 +7,7 @@ use strict;
 use Getopt::Long;
 
 use sjdUtils;
-use alogging;
+#use alogging;
 
 our %metadata = (
     "title"        => "macFilenameSort",
@@ -17,7 +17,7 @@ our %metadata = (
     "type"         => "http://purl.org/dc/dcmitype/Software",
     "language"     => "Perl 5.18",
     "created"      => "2007-09-07",
-    "modified"     => "2021-08-31",
+    "modified"     => "2021-11-08",
     "publisher"    => "http://github.com/sderose",
     "license"      => "https://creativecommons.org/licenses/by-sa/3.0/"
 );
@@ -57,8 +57,16 @@ whereas as regular *nix C<ls -1> produces:
 
 To apply this to C<ls>, do:
     ls | macFilenameSort
+
+or
+    macFilenameSort *
     
-You can pipe onward to C<wrap> to get back into multiple columns if desired.
+Using C<ls>, C<find>, etc. is more flexible than just globbing, for example because
+you can choose whether to include hidden ("."-initial) items, etc.
+
+Use I<--foldersFirst> to keep directories at the top.
+
+You can pipe onward to my C<wrap> to format back into multiple columns if desired.
 
 
 =head1 Options
@@ -68,6 +76,15 @@ You can pipe onward to C<wrap> to get back into multiple columns if desired.
 =item * B<--ignorecase> OR B<-i>
 
 Fold non-numeric portions to lower case for comparison.
+
+=item * B<-F>
+
+Like C<ls -F>, append type-flags to names: directories ("/"),
+excutables ("*"), links ("@"), sockets (`='), after each whiteouts (`%'), or  FIFOs (`|').
+
+=item * B<--foldersFirst>
+
+Sort directories/folders to the top.
 
 =item * B<--maxFields> I<n>
 
@@ -97,6 +114,17 @@ Dies if a line has more than I<--maxFields> (numeric and string) portions.
 
 Is this stable or not?
 
+=head1 To do
+
+Perhaps allow Finder-like sort choices: name, kind, dates, size, tags?
+
+
+=head1 Related commands
+
+*nix C<find>, C<ls>, C<sort>, C<msort>,....
+
+My C<PowerWalk.py>.
+
 
 =head1 History
 
@@ -105,6 +133,7 @@ Is this stable or not?
   2015-03-27: Fix pod. Use sjdUtils. Add -i. Separate comparison.
 Change from padding numerics to fixed-width, to true multi-key sort.
   2021-08-31: New layout.
+  2021-11-08: Add --foldersFirst, -F. Allow file-list as args as well as STDIN.
 
 
 =head1 Ownership
@@ -121,14 +150,18 @@ For the most recent version, see L<http://www.derose.net/steve/utilities/>.
 
 ###############################################################################
 #
-my $ignoreCase = 1;
-my $maxFields  = 255;
-my $quiet      = 0;
-my $verbose    = 0;
+my $F            = 0;
+my $foldersFirst = 0;
+my $ignoreCase   = 1;
+my $maxFields    = 255;
+my $quiet        = 0;
+my $verbose      = 0;
 
 # Process options
 Getopt::Long::Configure ("ignore_case");
 my $result = GetOptions(
+    "F!"                => \$F,
+    "foldersFirst!"     => \$foldersFirst,
 	"h|help|?"          => sub { system "perldoc $0"; exit; },
 	"i|ignoreCase!"     => \$ignoreCase,
 	"maxFields=i"       => \$maxFields,
@@ -152,28 +185,30 @@ sub splitFields {
 }
 
 # Sort an array, with each entry containing [ record, [keyFields], nKeyFields ].
-# The 'keyfields' is a list of (typically alternating) numeric and alphabetic parts.
+# The 'keyfields' is a list of (typically alternating) numeric and alphabetic parts,
+# plus an optional first entry for whether the item is a directory.
 #
 sub compareArrays {
     if (ref($a) ne "ARRAY" || ref($b) ne "ARRAY") {
         die "compareArrays didn't get 2 refs to arrays: " . ref($a) .
             ", " . ref($b) . ".\n";
     }
-    my $keysa = $a->[1];
-    my $nkeysa = $a->[2];
-    my $keysb = $b->[1];
-    my $nkeysb = $b->[2];
+    my @keysa = @{$a->[1]};
+    my $nkeysa = scalar @keysa;
+    my @keysb = @{$b->[1]};
+    my $nkeysb = scalar @keysb;
     my $maxFound = ($nkeysa > $nkeysb) ? $nkeysa : $nkeysb;
     
     my $kfa = my $kfb = my $rc = undef;
     for (my $i=0; $i<$maxFields && $i<$maxFound; $i++) {
-        $kfa = ($i < scalar $keysa) ? $keysa->[$i] : undef;
-        $kfb = ($i < scalar $keysb) ? $keysb->[$i] : undef;
+        $kfa = ($i < $nkeysa) ? $keysa[$i] : undef;
+        $kfb = ($i < $nkeysb) ? $keysb[$i] : undef;
         if (!defined $kfa) { return( (defined $kfb) ? -1:0 ); }
         $rc = compareByType($kfa, $kfb);
         if ($rc != 0) { return($rc); }
     }
-    die "compareArrays: Too many fields in key!\n";
+    die sprintf("compareArrays: Too many fields in key: a %d (%s), b %d (%s), max %d.\n",
+        $nkeysa, join(", ", @keysa), $nkeysb, join(", ", @keysb),$maxFound);
 }
 
 # See whether we're looking at ints, strings, or one of each, and sort accordingly.
@@ -191,27 +226,57 @@ sub compareByType {
     }
 }
 
+# Return the flag character that "ls -F" would append to a file (if any).
+#
+sub getFlag {
+    my ($path, $F) = @_;
+    (!$F) && return "";  # Option was not even set
+    (-d $path) && return "/";  # directories ("/"),
+    (-x $path) && return "*";  # excutables ("*"), 
+    (-l $path) && return "@";  # links ("@"),            # aka -h or -L elsewhere
+    (-S $path) && return "=";  # sockets (`='), 
+    (-d $path) && return "%";  # whiteouts (`%'),        # TODO: How to test?
+    (-p $path) && return "|";  # FIFOs (`|').
+    return "";
+}
 
+    
 ###############################################################################
 # Main
 #
-my @records = ();          # Array of [ record, key ] pairs
-my %nRecsByNFields = ();
-
-# Read all the input, extract first token of each line, parse at digit-groups.
+# Read all the input or args.
 #
-while (my $rec = <>) {
-	chomp $rec;
-	# Split into numeric vs. alphabetic parts
-	my ($fieldsRef, $nFields) = splitFields($rec);
+my @items = ();
+if (scalar @ARGV) {
+    @items = @ARGV;
+}
+else {
+    while (my $rec = <>) {
+        chomp $rec;
+        push @items, $rec;
+    }
+}
+
+# Extract first token of each, parse at digit-groups.
+#
+my @records = ();  # Array of [ record, [keys] ] pairs
+my %nRecsByNFields = ();
+foreach my $rec (@items) {
+    # Split into numeric vs. alphabetic parts
+    my ($fieldsRef, $nFields) = splitFields($rec);
+    if ($foldersFirst) {
+        my $isDir = 0;
+        if (-d $rec) { $isDir = 1; }
+        unshift @{$fieldsRef}, 1 - $isDir;
+        $nFields++;
+    }
+    ($verbose) && warn sprintf("|%d] [ %s ]: '%s'\n", $nFields, join(", ", @{$fieldsRef}), $rec);
     $nRecsByNFields{$nFields} ++;
-	push @records, [ $rec, $fieldsRef, $nFields ];
+    push @records, [ $rec, $fieldsRef ];
 }
 
 my @srecords = sort compareArrays @records;
 
 for (my $r=0; $r<scalar @srecords; $r++) {
-    print $srecords[$r][0] . "\n";
+    print ($srecords[$r][0] . getFlag($srecords[$r][0], $F) . "\n");
 }
-
-exit;
