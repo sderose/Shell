@@ -11,6 +11,16 @@ import shutil
 
 from PowerWalk import PowerWalk, PWType
 
+# For oddities like resource forks
+isMac = (sys.platform == "darwin")
+
+try:
+    import rsrcfork
+except ImportError as e:
+    rscfork = None
+    if (isMac): sys.stderr.write(
+        "Warning: Seems to be MacOS, but pip 'rsrcfork' not found. Resource forks will not be handled.")        
+        
 __metadata__ = {
     "title"        : "cpPP.py",
     "description"  : "cp command, but with some additions.",
@@ -19,7 +29,7 @@ __metadata__ = {
     "type"         : "http://purl.org/dc/dcmitype/Software",
     "language"     : "Python 3.7",
     "created"      : "2021-11-09",
-    "modified"     : "2021-11-09",
+    "modified"     : "2021-11-17",
     "publisher"    : "http://github.com/sderose",
     "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -30,11 +40,17 @@ descr = """
 
 [unfinished]
 
-Do file copying pretty much like `cp`, but add some features such as:
+Do file copying pretty much like `cp`, but add a few features such as:
 
-* automatic renaming to avoid conflicts
+* the full capability of `PowerWalk.py` for selecting what to copy
+* automatic renaming to avoid conflicts, including pulling in ancestor directory names
+* limited support for Mac resource forks: they are copied 
+if `--resourceForks` is set; 
+if the pip `rsrcfork` library is found; and
+if a like-named `.rsrc` file does not already exist at the target, or --force is set.
 
-This also has the full capability of `PowerWalk.py` for selecting what to copy.
+Uses Python `copy` by default (which does not preserve metadata other than permissions).
+With `-p`, uses `copy2` (which "Attempts to preserve file metadata").
 
 ==Usage==
 
@@ -50,82 +66,32 @@ Unlike `cp`, -f and -n do not result in the ''last'' one taking effect. -n just 
 
 Not all fine details of the usual `cp` options are (yet) implemented.
 
+Mac resource forks and hidden file-type codes are not copied. See [https://docs.python.org/3/library/shutil.html].
+
 
 =To do=
 
+* Add detection, warning, and copying options for Mac resource forks. 
+See [https://pypi.org/project/rsrcfork/].
 * Option to append instead of overwrite.
 * Option to replace only if newer.
 * Options to skip if identical.
 * Shorten up path printing with -v.
 * -c and -x are not yet supported.
 
-Usual `cp` options are:
+Add remaining `cp` options:
 
-X     -a    Same as -pPR options. Preserves structure and attributes of files but not
-           directory structure.
+* -X    Do not copy Extended Attributes (EAs) or resource forks.
 
-X     -f    If the destination file cannot be opened, remove it and create a new file,
-           without prompting for confirmation regardless of its permissions.  (The -f
-           option overrides any previous -n option.)
-
-           The target file is not unlinked before the copy.  Thus, any existing access
-           rights will be retained.
-
-X     -H    If the -R option is specified, symbolic links on the command line are fol-
-           lowed.  (Symbolic links encountered in the tree traversal are not followed.)
-
-X     -i    Cause cp to write a prompt to the standard error output before copying a
-           file that would overwrite an existing file.  If the response from the stan-
-           dard input begins with the character `y' or `Y', the file copy is attempted.
-           (The -i option overrides any previous -n option.)
-
-X     -L    If the -R option is specified, all symbolic links are followed.
-
-X     -n    Do not overwrite an existing file.  (The -n option overrides any previous -f
-           or -i options.)
-
-X     -P    If the -R option is specified, no symbolic links are followed.  This is the
-           default.
-
-X     -p    Cause cp to preserve the following attributes of each source file in the
-           copy: modification time, access time, file flags, file mode, user ID, and
-           group ID, as allowed by permissions.  Access Control Lists (ACLs) and
-           Extended Attributes (EAs), including resource forks, will also be preserved.
-
-           If the user ID and group ID cannot be preserved, no error message is dis-
-           played and the exit value is not altered.
-
-           If the source file has its set-user-ID bit on and the user ID cannot be pre-
-           served, the set-user-ID bit is not preserved in the copy's permissions.  If
-           the source file has its set-group-ID bit on and the group ID cannot be pre-
-           served, the set-group-ID bit is not preserved in the copy's permissions.  If
-           the source file has both its set-user-ID and set-group-ID bits on, and
-           either the user ID or group ID cannot be preserved, neither the set-user-ID
-           nor set-group-ID bits are preserved in the copy's permissions.
-
-X     -R    If source_file designates a directory, cp copies the directory and the
-           entire subtree connected at that point.  If the source_file ends in a /, the
-           contents of the directory are copied rather than the directory itself.  This
-           option also causes symbolic links to be copied, rather than indirected
-           through, and for cp to create special files rather than copying them as nor-
-           mal files.  Created directories have the same mode as the corresponding
-           source directory, unmodified by the process' umask.
-
-           In -R mode, cp will continue copying even if errors are detected.
-
-           Note that cp copies hard-linked files as separate files.  If you need to
-           preserve hard links, consider using tar(1), cpio(1), or pax(1) instead.
-
-X     -v    Cause cp to be verbose, showing files as they are copied.
-
-     -X    Do not copy Extended Attributes (EAs) or resource forks.
-
-     -c    copy files using clonefile(2)
+* -c    copy files using clonefile(2)
+-- See https://stackoverflow.com/questions/47945481/how-to-clone-files-with-python.
+This doesn't look viable, esp. when you can just use regular `cp -c` if needed.
 
 
 =History=
 
 * 2021-11-09: Written by Steven J. DeRose.
+* 2021-11-17: Rudimentary support for old Mac resource forks. Add `--newer`.
 
 
 =Rights=
@@ -150,6 +116,7 @@ def error(msg:str) -> None: log(0, msg)
 def fatal(msg:str) -> None: log(0, msg); sys.exit()
 
 nDirsSkipped = 0
+
 
 ###############################################################################
 # TODO: At depth>0, shouldn't need to worry about name conflicts.
@@ -178,7 +145,7 @@ def doOneFile(ipath:str, opath:str, depth:int=0) -> str:
         return doTheCopy(ipath, cand)
     if (args.nooverwrite):                              # CONFLICT
         return None
-    if (args.force):
+    if (args.force or (args.newer and isNewer(ipath, cand))):
         return doTheCopy(ipath, cand)
     if (args.inquire):
         print("overwrite %s? (y/n [n])" % (cand), end="")
@@ -195,6 +162,14 @@ def doOneFile(ipath:str, opath:str, depth:int=0) -> str:
         return doTheCopy(ipath, cand)    
     raise IOError("Can't find a place to put '%s' in '%s'." % (ipath, opath))
         
+def isNewer(path1:str, path2:str):
+    """Return True iff path1 is noticeably more recently modified than path2.
+    "Noticeably" means 2 seconds, due to Windows time precision issues.
+    """
+    mtime1 = os.path.getmtime(path1)
+    mtime2 = os.path.getmtime(path2)
+    return (mtime1 > mtime2+2.000)
+    
 def pulls(ipath:str, opath:str, maxPulls:int=3) -> str:
     """Try adding one ancestor dir name at a time to the basename, hoping for
     uniqueness.
@@ -222,12 +197,26 @@ def serials(ipath:str, opath:str) -> str:
         if (not os.path.exists(fullpath)): return fullpath
     return None
 
-def doTheCopy(ipath, opath):
+def doTheCopy(ipath, opath) -> str:
     if (args.preserve):
         shutil.copy2(ipath, opath)  # follow_symlinks=True ??
     else:
         shutil.copy(ipath, opath)  # follow_symlinks=True ??
     if (args.verbose): print("%s -> %s" % (ipath, opath))
+    
+    if (args.resourceForks):
+        orpath = os.path.join(opath, ".rsrc")
+        if (os.path.exists(orpath) and not args.force):
+            warning0("Skpping copy of resource fork to %s (target exists)." % (orpath))
+            return opath
+        warning1("Copying resource fork to %s." % (orpath))
+        orfh = open(orpath, "wb")
+        irfh = rsrcfork.open(ipath)
+        for buf in irfh.read():
+            orfh.write(buf)
+        irfh.close()
+        orfh.close()
+        
     return opath
 
 
@@ -249,39 +238,48 @@ if __name__ == "__main__":
 
         parser.add_argument(
             "-a", action="store_true",
-            help="Shorthand for -pPRs.")
+            help="Shorthand for -p -P -R -s.")
         parser.add_argument(
-            "--followLinks", "-L", action="store_true",
+            "--followLinks", "--follow-links", "-L", action="store_true",
             help="Follow symbolic links.")
         parser.add_argument(
             "--force", "-f", action="store_true",
             help="Copy even when the output file already exists (overwriting it).")
-        parser.add_argument(
-            "--ignoreCase", action="store_true",
-            help="Disregard case distinctions.")
+        #parser.add_argument(
+        #    "--ignoreCase", "--ignore-case", aaction="store_true",
+        #    help="Disregard case distinctions.")
         parser.add_argument(
             "--inquire", "-i", action="store_true",
-            help="Ask user first, when the output file already exists.")
+            help="Ask user before copying, when the output file already exists.")
         parser.add_argument(
-            "--nooverwrite", "-n", action="store_true",
-            help="Never overwrite (overrides -i and -f, always (unlike `cp`).")
+            "--maxPulls", "--max-pulls", type=int, default=0, metavar="N",
+            help="Pull up to N ancestor directory names into the filename to uniqify.")
+        parser.add_argument(
+            "--newer", action="store_true",
+            help="Overwrite a like-named file at the target, if replacement is newer.")
+        parser.add_argument(
+            "--noOverwrite", "--no-overwrite""-n", action="store_true",
+            help="Never overwrite (supercedes -i and -f, always (unlike `cp`).")
+        parser.add_argument(
+            "--noLinks", "--no-links", "-P", action="store_true",
+            help="Don't follow any links. Overrides -H and -L.")
         parser.add_argument(
             "--preserve", "-p", action="store_true",
-            help="Preserve file attributes.")
-        parser.add_argument(
-            "--noLinks", "-P", action="store_true",
-            help="Don't follow any links. Overrides -H and -L.")
+            help="Preserve file attributes. See also --resourceForks.")
         parser.add_argument(
             "--quiet", "-q", action="store_true",
             help="Suppress most messages.")
         parser.add_argument(
-            "-R", action="store_true",
+            "-R", "--recursive", action="store_true",
             help="Copy recursively.")
+        parser.add_argument(
+            "--resourceForks", "--resource-forks", action="store_true",
+            help="Cheeck for Mac resource forks and copy them to separate .rsrc files.")
         parser.add_argument(
             "--separator", type=str, default="_",
             help="Put this between basename and affix(es).")
         parser.add_argument(
-            "--topLevelLinks", "-H", action="store_true",
+            "--topLevelLinks", "--top-level-links", "-H", action="store_true",
             help="Follow symbolic links, but only at the top level.")
         parser.add_argument(
             "--verbose", "-v", action="count", default=0,
@@ -306,7 +304,12 @@ if __name__ == "__main__":
             args0.preserve = args0.noLinks = args0.recursive = True
         if (args.noLinks):
             args0.followLinks = args0.topLevelLinks = False
+        if (args.resourceForks and rsrcfork is None):
+            fatal("--resourceForks requested, but pip rsrcfork library not available.")
+        if (args.force and args.newer):
+            fatal("--force and --newer both specified. Please pick just one of them.")
         return(args0)
+
 
     ###########################################################################
     #

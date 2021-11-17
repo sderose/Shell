@@ -14,12 +14,11 @@ our %metadata = (
     'type'         => "http://purl.org/dc/dcmitype/Software",
     'language'     => "Perl 5.18",
     'created'      => "2012-05-08",
-    'modified'     => "2021-03-10",
+    'modified'     => "2021-11-17",
     'publisher'    => "http://github.com/sderose",
     'license'      => "https://creativecommons.org/licenses/by-sa/3.0/"
 );
 our $VERSION_DATE = $metadata{'modified'};
-
 
 =pod
 
@@ -99,18 +98,15 @@ Show version info and exit.
 
 =head1 Known Bugs and Limitations
 
-With shells other than C<bash>, all bets are off. I plan to test it at least with
-zsh, but haven't yet.
-
 Does not check all possible places that an alias or shell function
 could be defined. In particular, does not consider files invoked by a
 setup file, or cases where a setup file defines different things in different
 situations. However, you can add such files by setting environment variable
-C<$ECMDPATH> or option C<-->
+C<$ECMDPATH> or option C<--addProfile>.
 
-Does not expand $BASH_ENV or $ENV before trying it as a path.
+Does not expand C<$BASH_ENV> or C<$ENV> before trying it as a path.
 
-Assumes your $EDITOR has a "+n" option to take you to line number I<n>
+Assumes your C<$EDITOR> has a I<+n> option to take you to line number I<n>
 (this is used to get you right to the definition of an alias or shell function).
 C<emacs>, C<vi>, C<pico>, C<gedit>, C<bbedit>, and C<xedit> are all ok.
 C<SublimeText> uses C<:n> instead.
@@ -225,7 +221,7 @@ L<http://wiki.bash-hackers.org/scripting/bashbehaviour>.
 
 =head1 To do
 
-  * Add zsh support
+Finish hooking up C<mapType>() for cleaner separation of C<type> command.
 
 
 =head1 History
@@ -255,6 +251,8 @@ Add --addProfile.
 =item * 2021-01-21: Map 'open to line number' as needed per EDITOR.
 
 =item * 2021-03-10: Only add line arg if >1. Switch '+n' to ':n' for sublimeText.=======
+
+=item * 2021-11-17: Clean up, nuke useless error messages, start C<mapType>().
 
 =back
 
@@ -291,7 +289,7 @@ my %getoptHash = (
     "version"         => sub {
         die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
     },
-    );
+);
 Getopt::Long::Configure ("ignore_case");
 (GetOptions(%getoptHash)) || die "Bad options.\n";
 
@@ -328,42 +326,54 @@ sub lineSeekOption {
 # See what 'type' says about the command.
 # Force it to run via an interactive shell, so profiles are in effect.
 # Have 'type' output go to a temp file, in case .bash_profile etc. do any output.
+# TODO: Make this check expressions and return an enum.
 #
 sub findType {
     my ($login, $interactive, $cmd) = @_;
 
     my $typ = "";
-    if (0) {
-        print "***BROKEN*** XXX V: $verbose\n";
-        my $bashCmd = 'bash ' .
-            ($login ? " -l": "") .
-            ($interactive ? " -i" : "") .
-            " -s type $cmd";
-        #print "X\n";
-        if ($verbose) { print "Running: $bashCmd\n"; }
-        die "Eh?\n";
-        $typ = `$bashCmd`;
-        if ($@) {
-            die "Error from command: $@\n";
-        }
-        ($verbose > 1) && print "Response:\n$typ\n";
-        ($typ) || die "No '$cmd' command found by '$bashCmd'.\n";
-        $typ =~ s/.*\W*($cmd is )/$1/s;
-    }
-    else {
-        my $toRun = "echo 'type $cmd >/tmp/typeOutput' | bash";
-        if ($login) { $toRun .= " -l"; }
-        if ($interactive) { $toRun .= " -i"; }
-        $toRun .= " -s >/dev/null";
-        if ($verbose) { print "Running: $toRun\n"; }
-        my $cruft = `$toRun`;
-        $typ = `cat /tmp/typeOutput`;
-        ($verbose > 1) && print "Response:\n$typ\n";
-        ($typ) || die "No '$cmd' command found by '$toRun'.\n";
-        $typ =~ s/\n.*//s;
-    }
-    #($verbose) && print "Trimmed response:\n$typ\n";
+    my $toRun = "echo 'type $cmd >/tmp/typeOutput | bash";
+    if ($login) { $toRun .= " -l"; }
+    if ($interactive) { $toRun .= " -i"; }
+    $toRun .= " -s >/dev/null 2>/dev/null'";
+    ($verbose) && print "Running: $toRun\n";
+    my $cruft = `$toRun`;
+    $typ = `cat /tmp/typeOutput`;
+    ($verbose > 1) && print "Response:\n$typ\n";
+    ($typ) || die "No '$cmd' command found by '$toRun'.\n";
+    $typ =~ s/\n.*//s;
+    my $typEnum = mapType($typ, $cmd);
+    ($verbose) && print "Enum: '$typEnum'. Trimmed response: '$typ'\n";
     return $typ;
+}
+
+# Scan the result from findType() and identify what this thing *is*.
+# For some cases, though, that needs the path. TODO: Hook this up.
+#
+sub mapType {
+    my ($typ, $cmd) = @_;
+    if ($typ =~ m/a function/) {
+        return "FUNCTION", "";
+    }
+    if ($typ =~ m/aliased to (.*)/) {
+        return "ALIAS", $1;
+    }
+    if ($typ =~ m/hashed \((.*)\)/) {
+        return "HASHED", $1;
+    }
+    if ($typ =~ m/ is (.*)/) {
+        my $fndFile = $cmd;
+        (-B $fndFile) && return "BINARY", $1;
+        (-e $fndFile) && return  "EXECUTABLE", $1;
+        return "NON-EXECUTABLE-FILE", $1;
+    }
+    if ($typ =~ m/a shell keyword/) {
+        return "SHELL-KEYWORD", "";
+    }
+    if ($typ =~ m/ not found/) {
+        return "NOT-FOUND", "";
+    }
+    return "FAIL", "";
 }
 
 # Display the command, what it was found to be, and if the definition was found,
@@ -540,13 +550,12 @@ my $tgtFile = "";
 # Warn about environment issues
 #
 my $shell = $ENV{SHELL} || "";
-if ($shell ne "/bin/bash") {
-    ($quiet) || print
-        "Your shell is $ENV{SHELL}, not /bin/bash. This may not work...\n";
-}
+($shell ne "/bin/bash" && $verbose) && print
+    "Your shell is $ENV{SHELL}, not /bin/bash. This may not work...\n";
 
 setupPaths();
 
+# TODO: Switch over to typEnum, also calculated in findType().
 my $typ = findType($login, $interactive, $cmd);
 
 # Check for alias/shell function first, in case they overrode a name.

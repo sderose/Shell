@@ -1,25 +1,22 @@
 #!/usr/bin/env python
 #
-# addToPath
-#
+# addToPath: Add a dir to a $PATH-like variable and display it.
 # 2020-02-11: Ported from my earlier Perl. Copyright by Steven J. DeRose.
 #
 from __future__ import print_function
 import sys, os
 import argparse
 import re
-#import string
-#import math
-#import subprocess
 
 __metadata__ = {
     'title'        : "addToPath",
+    'description'  : "Add a dir to a $PATH-like variable and display it.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2020-02-11",
-    'modified'     : "2020-02-11",
+    'modified'     : "2021-11-11",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -44,9 +41,11 @@ Thus, you can use ''-p'' (and give no new directories to add)
 just to see the current path, one directory per line.
 Or you can use ''-v -q'' to get the same display while also checking for errors.
 
+
 =Usage=
 
     PATH=`addPath PATH [dir1, dir2, ...]`
+
 
 ==Warning==
 
@@ -54,6 +53,13 @@ To actually get PATH changed you need to do the assignment -- the script can't
 do it itself. The easiest way is probably with `` as shown.
 This is because a script can't change environment variables for the shell from
 which it was invoked -- that's no longer the current environment once it's running.
+
+
+=Related commands=
+
+My `BashSetup/path_utils` defines several shell functions for manipulating
+paths and $PATH-like variables.
+
 
 =Known bugs and Limitations=
 
@@ -66,9 +72,12 @@ file might be a nice addition.
 
 =History=
 
-Ported from earlier Perl version by Steven J. DeRose, 2020-02-11.
+2020-02-11: Ported from earlier Perl version by Steven J. DeRose.
 The prior version did not have ''--recursive'', ''--normalize'',
 ''--absolutize'', ''--delim'', ''--prefix'', etc.
+
+2021-11-11: Fix warnings to actually appear.
+
 
 =Rights=
 
@@ -79,34 +88,34 @@ See http://creativecommons.org/licenses/by-sa/3.0/ for more information.
 For the most recent version, see L<http://www.derose.net/steve/utilities/>
 or L<http://github.com/sderose>.
 
+
 =Options=
 """
 
-def warn(msg):
-    if (args.verbose): sys.stderr.write(msg+"\n")
+def warning(lvl:int, msg:str) -> None:
+    if (args.verbose >= lvl): sys.stderr.write(msg+"\n")
 
 def checkPath(p):
     """Test a directory for bad conditions.
     """
     ok = True
     if (not os.path.isdir(p)):
-        warn("dir does not exist: %s" % (p))
+        warning(0, "dir does not exist: %s" % (p))
         ok = False
     if (p in pathIndex):
-        warn("Duplicate dir: %s" % (p))
+        warning(0, "Duplicate dir: %s" % (p))
         ok = False
 
     # Following can be absolutized away
     if (re.search(r'\.\./', p)):
-        warn("dir contains '../': %s" % (p))
+        warning(0, "dir contains '../': %s" % (p))
         ok = False
     if (re.search(r'\b\./', p)):
-        warn("dir contains './': %s" % (p))
+        warning(0, "dir contains './': %s" % (p))
         ok = False
     return ok
 
 
-###############################################################################
 ###############################################################################
 # Main
 #
@@ -119,45 +128,45 @@ def processOptions():
         parser = argparse.ArgumentParser(description=descr)
 
     parser.add_argument(
-        "--absolutize",       action='store_true',
+        "--absolutize", action='store_true',
         help="""Expand old and new entries to absolute paths. This is more
             aggressive than --normalize.""")
     parser.add_argument(
-        "--delim",            type=str, default=':',
+        "--delim", type=str, default=':',
         help='Character to split on. Default: colon (:).')
     parser.add_argument(
-        "--normalize",        action='store_true',
+        "--normalize", action='store_true',
         help="""Normalize paths to remove redundant or up-level parts (like ../).
         On Windows, this also changes slash to backslash.""")
     parser.add_argument(
-        "--pathString",       type=str, default=os.environ['PATH'],
-        help='Use this string instead of the value of $PATH/.')
+        "--pathString", type=str, default=os.environ['PATH'],
+        help='Use this string instead of the value of $PATH.')
     parser.add_argument(
-        "--printList", "-p",  action='store_true',
+        "--printList", "-p", action='store_true',
         help='Print the dirs one per line, but not the packed list.')
     parser.add_argument(
-        "--prefix",           action='store_true',
+        "--prefix", action='store_true',
         help='Add new entries to the beginning instead of the end.')
     parser.add_argument(
-        "--quiet", "-q",      action='store_true',
+        "--quiet", "-q", action='store_true',
         help='Do not print the final result.')
     parser.add_argument(
-        "--recursive",        action='store_true',
-        help='Also add subdirectories or the given dir.')
+        "--recursive", action='store_true',
+        help='Also add subdirectories of the given dir.')
     parser.add_argument(
-        "--verbose", "-v",    action='count',       default=0,
+        "--verbose", "-v", action='count', default=0,
         help='Add more messages (repeatable).')
     parser.add_argument(
-        "--version",          action='version', version=__version__,
+        "--version", action='version', version=__version__,
         help='Display version information, then exit.')
 
     parser.add_argument(
-        'dirs',               type=str,
-        nargs=argparse.REMAINDER,
+        'dirs', type=str, nargs=argparse.REMAINDER,
         help='Path(s) to input file(s)')
 
     args0 = parser.parse_args()
     return(args0)
+
 
 ###############################################################################
 #
