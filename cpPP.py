@@ -16,11 +16,11 @@ isMac = (sys.platform == "darwin")
 
 try:
     import rsrcfork
-except ImportError as e:
+except ImportError:
     rscfork = None
     if (isMac): sys.stderr.write(
-        "Warning: Seems to be MacOS, but pip 'rsrcfork' not found. Resource forks will not be handled.")        
-        
+        "Warning: Seems to be MacOS, but pip 'rsrcfork' not found. Resource forks will not be handled.")
+
 __metadata__ = {
     "title"        : "cpPP.py",
     "description"  : "cp command, but with some additions.",
@@ -44,8 +44,10 @@ Do file copying pretty much like `cp`, but add a few features such as:
 
 * the full capability of `PowerWalk.py` for selecting what to copy
 * automatic renaming to avoid conflicts, including pulling in ancestor directory names
-* limited support for Mac resource forks: they are copied 
-if `--resourceForks` is set; 
+* limited support for Mac resource forks: they are copied
+
+if `--resourceForks` is set;
+
 if the pip `rsrcfork` library is found; and
 if a like-named `.rsrc` file does not already exist at the target, or --force is set.
 
@@ -56,9 +58,7 @@ With `-p`, uses `copy2` (which "Attempts to preserve file metadata").
 
     cpPP.py [options] [files] [target]
 
-
 =Related Commands=
-
 
 =Known bugs and Limitations=
 
@@ -68,10 +68,10 @@ Not all fine details of the usual `cp` options are (yet) implemented.
 
 Mac resource forks and hidden file-type codes are not copied. See [https://docs.python.org/3/library/shutil.html].
 
-
 =To do=
 
-* Add detection, warning, and copying options for Mac resource forks. 
+* Add detection, warning, and copying options for Mac resource forks.
+
 See [https://pypi.org/project/rsrcfork/].
 * Option to append instead of overwrite.
 * Option to replace only if newer.
@@ -87,12 +87,10 @@ Add remaining `cp` options:
 -- See https://stackoverflow.com/questions/47945481/how-to-clone-files-with-python.
 This doesn't look viable, esp. when you can just use regular `cp -c` if needed.
 
-
 =History=
 
 * 2021-11-09: Written by Steven J. DeRose.
 * 2021-11-17: Rudimentary support for old Mac resource forks. Add `--newer`.
-
 
 =Rights=
 
@@ -103,7 +101,6 @@ See [http://creativecommons.org/licenses/by-sa/3.0/] for more information.
 For the most recent version, see [http://www.derose.net/steve/utilities]
 or [https://github.com/sderose].
 
-
 =Options=
 """
 
@@ -113,10 +110,9 @@ def warning0(msg:str) -> None: log(0, msg)
 def warning1(msg:str) -> None: log(1, msg)
 def warning2(msg:str) -> None: log(2, msg)
 def error(msg:str) -> None: log(0, msg)
-def fatal(msg:str) -> None: log(0, msg); sys.exit()
+def fatal(msg:str) -> None: log(0, msg), sys.exit()
 
 nDirsSkipped = 0
-
 
 ###############################################################################
 # TODO: At depth>0, shouldn't need to worry about name conflicts.
@@ -137,9 +133,9 @@ def doOneFile(ipath:str, opath:str, depth:int=0) -> str:
         for ch in os.listdir(ipath):
             doOneFile(os.path.join(ipath, ch), os.path.join(opath, ch), depth=depth+1)
         return
-        
+
     _dirpath, basename = os.path.split(ipath)
-    
+
     cand = os.path.join(opath, basename)
     if (not os.path.exists(cand)):                      # NO CONFLICT
         return doTheCopy(ipath, cand)
@@ -151,17 +147,20 @@ def doOneFile(ipath:str, opath:str, depth:int=0) -> str:
         print("overwrite %s? (y/n [n])" % (cand), end="")
         buf = sys.stdin.readline()
         if (buf.startswith("y") or buf.startswith("Y")):
-            return doTheCopy(ipath, cand)    
-        return None    
-        
+            return doTheCopy(ipath, cand)
+
+        return None
+
     cand = pulls(ipath, opath, args.maxPulls)     # RENAME TO FIX CONFLICT
     if (cand):
-        return doTheCopy(ipath, cand)    
+        return doTheCopy(ipath, cand)
+
     cand = serials(ipath, opath)
     if (cand):
-        return doTheCopy(ipath, cand)    
+        return doTheCopy(ipath, cand)
+
     raise IOError("Can't find a place to put '%s' in '%s'." % (ipath, opath))
-        
+
 def isNewer(path1:str, path2:str):
     """Return True iff path1 is noticeably more recently modified than path2.
     "Noticeably" means 2 seconds, due to Windows time precision issues.
@@ -169,7 +168,7 @@ def isNewer(path1:str, path2:str):
     mtime1 = os.path.getmtime(path1)
     mtime2 = os.path.getmtime(path2)
     return (mtime1 > mtime2+2.000)
-    
+
 def pulls(ipath:str, opath:str, maxPulls:int=3) -> str:
     """Try adding one ancestor dir name at a time to the basename, hoping for
     uniqueness.
@@ -203,7 +202,7 @@ def doTheCopy(ipath, opath) -> str:
     else:
         shutil.copy(ipath, opath)  # follow_symlinks=True ??
     if (args.verbose): print("%s -> %s" % (ipath, opath))
-    
+
     if (args.resourceForks):
         orpath = os.path.join(opath, ".rsrc")
         if (os.path.exists(orpath) and not args.force):
@@ -216,9 +215,8 @@ def doTheCopy(ipath, opath) -> str:
             orfh.write(buf)
         irfh.close()
         orfh.close()
-        
-    return opath
 
+    return opath
 
 ###############################################################################
 # Main
@@ -310,7 +308,6 @@ if __name__ == "__main__":
             fatal("--force and --newer both specified. Please pick just one of them.")
         return(args0)
 
-
     ###########################################################################
     #
     args = processOptions()
@@ -324,6 +321,6 @@ if __name__ == "__main__":
     for path0, fh0, what0 in pw.traverse():
         if (what0 != PWType.LEAF): continue
         doOneFile(path0, args.tgtDir, depth=0)
-        
+
     if (not args.quiet):
         warning0("cpPP.py: Done, %d files.\n" % (pw.getStat("regular")))

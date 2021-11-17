@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 #
 # makeVue.py: Create a Vue document with many boxes.
+# 2016-02-08: Written by: Steven J. DeRose.
 #
 from __future__ import print_function
 import sys
@@ -8,11 +9,6 @@ import os
 import argparse
 import re
 import time
-
-PY2 = sys.version_info[0] == 2
-PY3 = sys.version_info[0] == 3
-if PY3:
-    def unichr(n): return chr(n)
 
 from alogging import ALogger
 lg = ALogger(1)
@@ -431,7 +427,7 @@ for label0 in (open(args.files[0],'r').readlines()):
             part[0] in '"\''): part = part[1:-2]
         if (part in nodeIndex):
             lg.error("Duplicate node label0 '%s' at record %d." % (part, recnum))
-        nodeIndex[part] =  ( curID, x0, y0, args.boxwidth, args.boxheight, args.shape )
+        nodeIndex[part] = ( curID, x0, y0, args.boxwidth, args.boxheight, args.shape )
         print(makeNode(curID, part, x0, y0, args.boxwidth, args.boxheight, args.shape))
         curID += 1
         # Move to next box position
@@ -450,5 +446,4 @@ print(makeLayer())
 print(makePathwayList(args.files[0]))
 
 if (not args.quiet):
-    lg.vMsg(0,"Done.")
-    lg.showStats()
+    lg.warning0("Done.")

@@ -74,7 +74,7 @@ def log(lvl:int, msg:str) -> None:
 def warning0(msg:str) -> None: log(0, msg)
 def warning1(msg:str) -> None: log(1, msg)
 def warning2(msg:str) -> None: log(2, msg)
-def fatal(msg:str) -> None: log(0, msg); sys.exit()
+def fatal(msg:str) -> None: log(0, msg), sys.exit()
 
 
 ###############################################################################
@@ -104,7 +104,7 @@ def printFileInfo(path):
     stMode = statResult.st_mode
     warning1("stMode: " + repr(stMode))
     perms = stat.filemode(stMode)
-    print("%9s %s" % (perms, path))    
+    print("%9s %s" % (perms, path))
     
        
 ###############################################################################

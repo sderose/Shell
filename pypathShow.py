@@ -69,7 +69,7 @@ def log(lvl:int, msg:str) -> None:
 def warning0(msg:str) -> None: log(0, msg)
 def warning1(msg:str) -> None: log(1, msg)
 def warning2(msg:str) -> None: log(2, msg)
-def fatal(msg:str) -> None: log(0, msg); sys.exit()
+def fatal(msg:str) -> None: log(0, msg), sys.exit()
 
 
 ###############################################################################
@@ -111,6 +111,7 @@ if __name__ == "__main__":
         args0 = parser.parse_args()
         return(args0)
 
+
     ###########################################################################
     #
     args = processOptions()
@@ -143,4 +144,3 @@ if __name__ == "__main__":
     # Check for /Library/Python/pyversionNumber
     # /usr/local/lib/python[ver]/site-packages
     # /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.8/lib/python3.8/site-packages
-    

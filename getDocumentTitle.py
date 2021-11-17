@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 #
-# getDocumentTitle.py
+# getDocumentTitle.py: Rudimentary document-title finder.
+# 2016-07-21: Written by Steven J. DeRose.
 #
 from __future__ import print_function
-import sys, os, argparse
+import sys
+import os
+import argparse
 import subprocess
 
 from alogging import ALogger
@@ -42,15 +45,19 @@ For example:
 
 * PDF:
 
+
 =Related Commands=
 
+
 =Known bugs and Limitations=
+
 
 =History=
 
 * 2016-07-21: Written by Steven J. DeRose.
 * 2018-047-18: lint.
 * 2020-03-04: lint, new layout, POD to MarkDown.
+
 
 =Rights=
 
@@ -60,6 +67,7 @@ this license, see http://creativecommons.org/licenses/by-sa/3.0/.
 
 For the most recent version, see [http://www.derose.net/steve/utilities] or
 [http://github.com/sderose].
+
 
 =Options=
 """
@@ -124,27 +132,26 @@ def processOptions():
         parser = argparse.ArgumentParser(description=descr)
 
     parser.add_argument(
-        "--iencoding",        type=str, metavar='E', default="utf-8",
+        "--iencoding", type=str, metavar='E', default="utf-8",
         help='Assume this character set for input files. Default: utf-8.')
     parser.add_argument(
-        "--oencoding",        type=str, metavar='E',
+        "--oencoding", type=str, metavar='E',
         help='Use this character set for output files.')
     parser.add_argument(
-        "--quiet", "-q",      action='store_true',
+        "--quiet", "-q", action='store_true',
         help='Suppress most messages.')
     parser.add_argument(
-        "--unicode",          action='store_const',  dest='iencoding',
+        "--unicode", action='store_const', dest='iencoding',
         const='utf8', help='Assume utf-8 for input files.')
     parser.add_argument(
-        "--verbose", "-v",    action='count',       default=0,
+        "--verbose", "-v", action='count', default=0,
         help='Add more messages (repeatable).')
     parser.add_argument(
         "--version", action='version', version=__version__,
         help='Display version information, then exit.')
 
     parser.add_argument(
-        'files',             type=str,
-        nargs=argparse.REMAINDER,
+        'files', type=str, nargs=argparse.REMAINDER,
         help='Path(s) to input file(s)')
 
     args0 = parser.parse_args()

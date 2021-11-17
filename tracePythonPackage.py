@@ -4,7 +4,8 @@
 # 2018-05-18: Written by Steven J. DeRose.
 #
 from __future__ import print_function
-import sys, os
+import sys
+import os
 import argparse
 import re
 import subprocess

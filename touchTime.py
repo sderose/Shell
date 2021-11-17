@@ -79,7 +79,7 @@ def warning0(msg:str) -> None: log(0, msg)
 def warning1(msg:str) -> None: log(1, msg)
 def warning2(msg:str) -> None: log(2, msg)
 def error(msg:str) -> None: log(0, msg)
-def fatal(msg:str) -> None: log(0, msg); sys.exit()
+def fatal(msg:str) -> None: log(0, msg), sys.exit()
 
 
 ###############################################################################
@@ -105,7 +105,7 @@ def doOneFile(path:str) -> int:
         if (rec == ""): continue  # Blank record
         rec = rec.rstrip()
         print(rec)
-    if  (fh != sys.stdin): fh.close()
+    if (fh != sys.stdin): fh.close()
     return recnum
 
 def doOneXmlFile(path):

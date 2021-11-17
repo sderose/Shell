@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 #
 # genKey.py: Generate a random key from given symbols and length.
-
 # 2016-01-04: Written by Steven J. DeRose.
 #
 from __future__ import print_function
-import sys, argparse
+import sys
+import argparse
 import string
 import random
 
@@ -53,6 +53,7 @@ likely than digits or punctuation with 'alphanum', etc.).
 * Words are drawn from a file that should contain one word per line.
 The default file is F</usr/share/dict/words> (but see '--dict').
 
+
 =Related Commands=
 
 `randomRecords`, `gendsa`, `genpkey`, `genrsa`, `openssl rand`.
@@ -61,6 +62,7 @@ The default file is F</usr/share/dict/words> (but see '--dict').
 
 Randomness of the key is whatever Python supplies. This may or may not
 be good enough for your needs.
+
 
 =Rights=
 
@@ -71,6 +73,7 @@ this license, see http://creativecommons.org/licenses/by-sa/3.0/.
 
 For the most recent version, see [http://www.derose.net/steve/utilities] or
 [http://github.com/sderose].
+
 
 =Options=
 """
@@ -87,27 +90,27 @@ def processOptions():
         parser = argparse.ArgumentParser(description=descr)
 
     parser.add_argument(
-        "--dict",             type=str, default='/usr/share/dict/words',
+        "--dict", type=str, default='/usr/share/dict/words',
         help='A dictionary file to use with --symbols words.')
     parser.add_argument(
-        "--length", "-n",     type=int, default=12, metavar='N',
+        "--length", "-n", type=int, default=12, metavar='N',
         help='length of key.')
     parser.add_argument(
-        "--punc",             type=str, default='._!@*~?',
+        "--punc", type=str, default='._!@*~?',
         help='Which punctuation to allow.')
     parser.add_argument(
-        "--quiet", "-q",      action='store_true',
+        "--quiet", "-q", action='store_true',
         help='Suppress most messages.')
     parser.add_argument(
-        "--seed",             type=int,
+        "--seed", type=int,
         help='Seed for random-number generator.')
     parser.add_argument(
-        "--symbols",          type=str, default="alphanum",
+        "--symbols", type=str, default="alphanum",
         choices=[ 'ascii', 'latin1', 'alpha', 'upper', 'lower',
             'alphanum', 'digits', 'hex', 'utf8', 'words' ],
         help='Which possible set of symbols to draw from.')
     parser.add_argument(
-        "--verbose", "-v",    action='count',       default=0,
+        "--verbose", "-v", action='count', default=0,
         help='Add more messages (repeatable).')
     parser.add_argument(
         "--version", action='version', version=__version__,

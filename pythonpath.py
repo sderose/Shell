@@ -9,7 +9,7 @@ import os
 import re
 import argparse
 from subprocess import check_output, CalledProcessError
-import glob
+#import glob
 
 from sjdUtils import sjdUtils
 su = sjdUtils()
@@ -129,7 +129,7 @@ def getClassDefs(path, recursive=False):
     bufRecs = []
     try:
         buf = check_output(cmdTokens, shell=False, stderr=None)
-        if (type(buf) == type("x")):
+        if (isinstance(buf, str)):
             bufRecs = buf.split(sep="\n")
     except CalledProcessError as e:
         if ( e.returncode != 1 ):  # 1 is normal "nothing found"

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 #
 # spinner.py: Show a spinning clock or something.
+# 2018-03-24: Written by Steven J. DeRose.
 #
 from __future__ import print_function
 import sys
@@ -29,15 +30,18 @@ descr = """
 
 Display a spinning clock-face in a shell window using Unicode clock-faces.
 
+
 =Related Commands=
 
+
 =Known bugs and Limitations=
+
 
 =History=
 
 * 2018-03-24: Written by Steven J. DeRose.
-
 * 2018-11-07: Py 3.
+
 
 =Rights=
 
@@ -48,8 +52,10 @@ this license, see http://creativecommons.org/licenses/by-sa/3.0/.
 For the most recent version, see [http://www.derose.net/steve/utilities] or
 [http://github.com/sderose].
 
+
 =Options=
 """
+
 
 ###############################################################################
 #
@@ -76,7 +82,6 @@ def processOptions():
 
 
 ###############################################################################
-###############################################################################
 # Main
 #
 args = processOptions()
@@ -92,4 +97,3 @@ while(1):
     #u = eval('u"\U%08x"' % (cur))  # unichr(cur)
     print(u + chr(8), end="")
     #sleep(1)
-

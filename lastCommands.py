@@ -127,4 +127,3 @@ if __name__ == "__main__":
 
     if (args.verbose):
         sys.stderr.write("\nlastCommand.py: %d one.\n" % (args.n))
-
