@@ -7,7 +7,8 @@ import sys
 import os
 #import codecs
 import re
-from typing import Dict, List, Enum  #, IO, Union
+from typing import Dict, List  #, IO, Union
+from enum import Enum
 
 import mimetypes
 from email import message_from_binary_file
@@ -153,7 +154,7 @@ def dumpAddresses(headers:Dict, which:str) -> None:
     header = headers[which]
     if (not header): return
     print(which.title()+':')  # %s' % (header))
-    for i, addr in enumerate(header.addresses):
+    for _i, addr in enumerate(header.addresses):
         #warning0("  %2d: %-8s %s" % (i, type(addr).__name__, addr))
         print("    %-12s  %-16s  %-24s  %s" %
             (addr.username, addr.domain, addr.display_name, addr))
@@ -289,7 +290,8 @@ def runTidy(doc) -> str:
     """
     from tidylib import tidy_document
     # This returns bytes, not str....
-    doc, errors = tidy_document(doc, options={
+    doc, _errors = tidy_document(doc, options={
+        # See above for full option list.
         "numeric-entities": 1,
         "indent": 1,
         "tidy-mark": 0,        # No tidy meta tag in output
@@ -302,10 +304,14 @@ def runTidy(doc) -> str:
     doc = str(doc, encoding="utf-8")
     return doc
 
+flags = re.DOTALL|re.UNICODE
+
 def cleanup(doc):
-    doc = re.sub(r"<meta .*?>", "", doc, flags=re.DOTALL)
-    doc = re.sub(r"<style .*?</style>\s+", "", doc, flags=re.DOTALL)
-    doc = re.sub(r"(<\w+) class=\"MsoNormal\"", "<\\1", doc, flags=re.DOTALL)
+    doc = re.sub(r"<meta .*?>", "", doc, flags=flags)
+    doc = re.sub(r"<style .*?</style>\s+", "", doc, flags=flags)
+    doc = re.sub(r"(<\w+) class=\"MsoNormal\"", "<\\1", doc, flags=flags)
+    # doc = re.sub(r"(<p.*>\s+)", "\\1", doc, flags=re.DOTALL)
+    # doc = re.sub(r"\s+</p>", "</p>", doc)
     doc = nukeWhitespaceElements(doc)
     return doc
 
@@ -316,7 +322,7 @@ def nukeWhitespaceElements(doc:str, changeTo="<p />") -> str:
     """Match and reduce elements only containing whitespace, even if entified.
     Outlook prduces a lot of"  <p class="MsoNormal">&#160;</p>
     """
-    return re.sub(wsElem, changeTo, doc, flags=re.UNICODE | re.DOTALL)
+    return re.sub(wsElem, changeTo, doc, flags=flags)
 
 
 ###############################################################################
