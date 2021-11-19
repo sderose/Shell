@@ -5,13 +5,13 @@
 #
 import sys
 import os
-import codecs
+#import codecs
 import re
-from typing import Dict, List  #, IO, Union
+from typing import Dict, List, Enum  #, IO, Union
 
 import mimetypes
 from email import message_from_binary_file
-from email.parser import BytesParser, Parser
+from email.parser import BytesParser  #, Parser
 from email.policy import default
 
 #import string
@@ -63,7 +63,7 @@ BytesParser() produces headers as an `email.message.EmailMessage`:
     preamble
     epilogue
     defects
-    _default_type    
+    _default_type
 
 .headers is all strings. But .headers['to'], etc., have a .addresses items, which
 is a list of Address objects, each of which has .username, .domain, .display_name.
@@ -136,7 +136,7 @@ def doOneFile(path:str) -> int:
             thisType = part.get_content_type()
             thisPart = part.get_payload(decode=True)
             fmtPart = formatBody(thisPart)
-            
+
             print("\n======= Part %d (%s):" % (partNum, thisType))
             print(fmtPart)
             if (args.saveParts):
@@ -153,7 +153,6 @@ def dumpAddresses(headers:Dict, which:str) -> None:
     header = headers[which]
     if (not header): return
     print(which.title()+':')  # %s' % (header))
-    buf = ""
     for i, addr in enumerate(header.addresses):
         #warning0("  %2d: %-8s %s" % (i, type(addr).__name__, addr))
         print("    %-12s  %-16s  %-24s  %s" %
@@ -166,12 +165,12 @@ def dumpHeaders(headers:Dict, exclude:List=None) -> None:
         buf += "\n    %-24s  %-24s  %s" % (k, type(v).__name__, v)
     #warning0("BytesParser produced a '%s':%s\n" % (type(headers), buf))
     print(buf[1:])
-    
-def formatBody(body:str):
+
+def formatBody(doc:str):
     if (args.bodyForm == "none"):
         return ""
     elif (args.bodyForm == "plain"):
-        return body
+        return doc
     elif (args.bodyForm == "pp" or args.bodyForm == "clean" ):
         doc = runTidy(doc)
         if (re.search(r"\\n", doc)):
@@ -185,6 +184,8 @@ def formatBody(body:str):
 DocType = str
 AutoBool = bool
 TagNames = list
+Encoding = str
+AUTO = None
 tidyOptions = {
     # optionName                    ( type, default )
     "add-xml-decl":                 ( bool, False ),
@@ -236,12 +237,12 @@ tidyOptions = {
     "uppercase-attributes":         ( bool, False ),
     "uppercase-tags":               ( bool, False ),
     "word-2000":                    ( bool, False ),
-    
+
     # Diagnostics Options
     "accessibility-check":          ( Enum, 0 ),  # (Tidy Classic)
     "show-errors":                  ( int,  6 ),
     "show-warnings":                ( bool, True ),
- 
+
     # Pretty Print Options
     "break-before-br":              ( bool, False ),
     "indent":                       ( AutoBool, False ),
@@ -260,7 +261,7 @@ tidyOptions = {
     "wrap-php":                     ( bool, True ),
     "wrap-script-literals":         ( bool, False ),
     "wrap-sections":                ( bool, True ),
- 
+
     # Character Encoding Options
     "ascii-chars":                  ( bool, False ),
     "char-encoding":                ( Encoding, "ascii" ),
@@ -269,8 +270,8 @@ tidyOptions = {
     "newline":                      ( Enum, "" ),  # Platform dependent
     "output-bom":                   ( AutoBool, "auto" ),
     "output-encoding":              ( Encoding, "ascii" ),
- 
-    # Miscellaneous Options 
+
+    # Miscellaneous Options
     "error-file":                   ( str,  "" ),
     "force-output":                 ( bool, False ),
     "gnu-emacs":                    ( bool, False ),
@@ -288,7 +289,7 @@ def runTidy(doc) -> str:
     """
     from tidylib import tidy_document
     # This returns bytes, not str....
-    doc, errors = tidy_document(body, options={ 
+    doc, errors = tidy_document(doc, options={
         "numeric-entities": 1,
         "indent": 1,
         "tidy-mark": 0,        # No tidy meta tag in output
@@ -300,7 +301,7 @@ def runTidy(doc) -> str:
         })
     doc = str(doc, encoding="utf-8")
     return doc
-    
+
 def cleanup(doc):
     doc = re.sub(r"<meta .*?>", "", doc, flags=re.DOTALL)
     doc = re.sub(r"<style .*?</style>\s+", "", doc, flags=re.DOTALL)
@@ -316,7 +317,8 @@ def nukeWhitespaceElements(doc:str, changeTo="<p />") -> str:
     Outlook prduces a lot of"  <p class="MsoNormal">&#160;</p>
     """
     return re.sub(wsElem, changeTo, doc, flags=re.UNICODE | re.DOTALL)
-            
+
+
 ###############################################################################
 # Main
 #
@@ -360,6 +362,7 @@ if __name__ == "__main__":
 
         args0 = parser.parse_args()
         return(args0)
+
 
     ###########################################################################
     #
