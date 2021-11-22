@@ -147,16 +147,16 @@ def processOptions():
         parser = argparse.ArgumentParser(description=descr)
 
     parser.add_argument(
-        "--quiet", "-q",      action='store_true',
+        "--quiet", "-q", action='store_true',
         help='Suppress most messages.')
     parser.add_argument(
-        "--pythonpath",       action='store_true',
+        "--pythonpath", action='store_true',
         help='Check along PYTHONPATH, not just sys.path.')
     parser.add_argument(
-        "--showPython",       action='store_true', default=True,
+        "--showPython", action='store_true', default=True,
         help='Also show info about which Python will run.')
     parser.add_argument(
-        "--verbose", "-v",    action='count',       default=0,
+        "--verbose", "-v", action='count', default=0,
         help='Add more messages (repeatable).')
     parser.add_argument(
         "--version", action='version', version=__version__,

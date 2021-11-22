@@ -318,56 +318,58 @@ def processOptions():
         parser = argparse.ArgumentParser(description=descr)
 
     parser.add_argument(
-        "--arrow",            type=str, default=">",
+        "--arrow", type=str, default=">",
         help='String to separate nodes/labels in input file lines.')
-    parser.add_argument("--boxwidth",     metavar="W", type=int, default=20,
+    parser.add_argument(
+        "--boxwidth", metavar="W", type=int, default=20,
         help='Width of boxes.')
-    parser.add_argument("--boxheight",    metavar="H", type=int, default=20,
+    parser.add_argument(
+        "--boxheight", metavar="H", type=int, default=20,
         help='Height of boxes.')
     parser.add_argument(
-        "--fillColor",        type=str, default="#A6A6A6", metavar="RGB",
+        "--fillColor", type=str, default="#A6A6A6", metavar="RGB",
         help='#RRGGBB')
     parser.add_argument(
-        "--fixids",           action='store_true',
+        "--fixids", action='store_true',
         help='Make IDs be not just numbers..')
     parser.add_argument(
-        "--font",             type=str, default="Arial-plain-12",
+        "--font", type=str, default="Arial-plain-12",
         help='')
     parser.add_argument(
-        "--force", "-f",      action='store_true',
+        "--force", "-f", action='store_true',
         help='Include non-well-formed Vue header comment.')
     parser.add_argument(
-        "--idstart",          type=int, default=1,
+        "--idstart", type=int, default=1,
         help='Value to use for first generated ID.')
     parser.add_argument(
-        "--iencoding",        type=str, metavar='E', default="utf-8",
+        "--iencoding", type=str, metavar='E', default="utf-8",
         help='Character set for input files. Default: utf-8.')
     parser.add_argument(
-        "--oencoding",        type=str, metavar='E',
+        "--oencoding", type=str, metavar='E',
         help='Use this character set for output files.')
     parser.add_argument(
-        "--quiet", "-q",      action='store_true',
+        "--quiet", "-q", action='store_true',
         help='Suppress most messages.')
     parser.add_argument(
-        "--shape",            type=str, choices=shapes, default="roundRect",
+        "--shape", type=str, choices=shapes, default="roundRect",
         help='Shape to use for boxes')
     parser.add_argument(
-        "--strokeColor",      type=str, default="#FFFFFF", metavar="RGB",
+        "--strokeColor", type=str, default="#FFFFFF", metavar="RGB",
         help='#RRGGBB')
     parser.add_argument(
-        "--strokeStyle",      type=int, default=1, metavar="S",
+        "--strokeStyle", type=int, default=1, metavar="S",
         help='')
     parser.add_argument(
-        "--strokeWith",       type=int, default=1, metavar="W",
+        "--strokeWith", type=int, default=1, metavar="W",
         help='')
     parser.add_argument(
-        "--textColor",        type=str, default="#000000", metavar="RGB",
+        "--textColor", type=str, default="#000000", metavar="RGB",
         help='#RRGGBB')
     parser.add_argument(
-        "--unicode",          action='store_const',  dest='iencoding',
+        "--unicode", action='store_const', dest='iencoding',
         const='utf8', help='Assume utf-8 for input files.')
     parser.add_argument(
-        "--verbose", "-v",    action='count',       default=0,
+        "--verbose", "-v", action='count', default=0,
         help='Add more messages (repeatable).')
     parser.add_argument(
         "--version", action='version', version=__version__,
@@ -392,8 +394,7 @@ def processOptions():
         help='Height of inter-row spacing.')
 
     parser.add_argument(
-        'files',             type=str,
-        nargs=argparse.REMAINDER,
+        "files", type=str, nargs=argparse.REMAINDER,
         help='Path(s) to input file(s)')
 
     args0 = parser.parse_args()

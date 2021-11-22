@@ -235,10 +235,10 @@ parser = argparse.ArgumentParser(
     epilog="(see also 'perldoc "+sys.argv[0]+"')"
 )
 parser.add_argument(
-    "--verbose",          action='count', default=0,
+    "--verbose", action='count', default=0,
     help='Add more messages (repeatable).')
 parser.add_argument(
-    "--version",          action='version', version='Version of '+__version__,
+    "--version", action='version', version='Version of '+__version__,
     help='Display version information, then exit.')
 
 args = parser.parse_args()

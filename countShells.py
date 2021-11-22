@@ -121,16 +121,16 @@ def processOptions():
         parser = argparse.ArgumentParser(description=descr)
 
     parser.add_argument(
-        "--quiet", "-q",      action='store_true',
+        "--quiet", "-q", action='store_true',
         help='Suppress most messages.')
     parser.add_argument(
-        "--shellName",        type=str, default='bash',
+        "--shellName", type=str, default='bash',
         help='What shell program to check for. Default: bash.')
     parser.add_argument(
-        "--verbose", "-v",    action='count', default=0,
+        "--verbose", "-v", action='count', default=0,
         help='Add more messages (repeatable).')
     parser.add_argument(
-        "--version",          action='version', version=__version__,
+        "--version", action='version', version=__version__,
         help='Display version information, then exit.')
 
     parser.add_argument(

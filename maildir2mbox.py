@@ -153,26 +153,26 @@ except ImportError:
     parser = argparse.ArgumentParser(description=descr)
 
 parser.add_argument(
-    "--maildirpath",      type=str, metavar="path", default=".",
+    "--maildirpath", type=str, metavar="path", default=".",
     help='A maildir (containing new, cur, tmp, etc. (usually hidden)')
 parser.add_argument(
-    "--mboxpath",         type=str, metavar="path",
+    "--mboxpath", type=str, metavar="path",
     default=os.environ["HOME"] + "/mailConverted",
     help='Where to put the resulting mbox file.')
 parser.add_argument(
-    "--quiet", "-q",      action='store_true',
+    "--quiet", "-q", action='store_true',
     help='Suppress most messages.')
 parser.add_argument(
-    "--test",             action='store_true',
+    "--test", action='store_true',
     help='Just find the mailboxes, don\'t convert.')
 parser.add_argument(
-    "--tickInterval",     type=int, metavar='N', default=100,
+    "--tickInterval", type=int, metavar='N', default=100,
     help='Report progress every n records.')
 parser.add_argument(
-    "--verbose",          action='count',       default=0,
+    "--verbose", action='count', default=0,
     help='Add more messages (repeatable).')
 parser.add_argument(
-    "--version",          action='version', version='Version of '+__version__,
+    "--version", action='version', version='Version of '+__version__,
     help='Display version information, then exit.')
 
 args = parser.parse_args()
