@@ -1,21 +1,23 @@
 #!/usr/bin/perl -w
 #
-# identifyAllExecutables
+# identifyAllExecutables: Search shell functions, aliases, executables, etc.
+# 2006-10: Written by Steven J. DeRose.
 #
 use strict;
 use Getopt::Long;
 
-use sjdUtils;
-use alogging;
+#use sjdUtils;
+#use alogging;
 
 our %metadata = (
     'title'        => "identifyAllExecutables.pm",
+    'description'  => "Search shell functions, aliases, executables, etc.",
     'rightsHolder' => "Steven J. DeRose",
     'creator'      => "http://viaf.org/viaf/50334488",
     'type'         => "http://purl.org/dc/dcmitype/Software",
     'language'     => "Perl 5.18",
     'created'      => "2006-10",
-    'modified'     => "2020-03-04",
+    'modified'     => "2021-12-03",
     'publisher'    => "http://github.com/sderose",
     'license'      => "https://creativecommons.org/licenses/by-sa/3.0/"
 );
@@ -24,31 +26,36 @@ our $VERSION_DATE = $metadata{'modified'};
 
 =pod
 
+
 =head1 Usage
 
 identifyAllExecutables [options]
 
-Finds anything (hopefully) that can be typed as a command, and display
-them along with their types:
+For example:
 
-    aliases
-    shell functions
-    shell builtins
-    shell keywords
-    executable files along your \$PATH
+    identifyAllExecutables --find '^python'
+    
+will attempt to find anything you can execute whose name starts with 'python' (not just
+the one that will actually be invoked in a given situation); while
+
+    identifyAllExecutables 
+
+withg no options tries to locate all command regardless of type or name (this will be
+a long list).
+    
+This should find anything that can be typed as a command, and display
+it along with the type:
+
+    alias
+    shell function
+    shell builtin
+    shell keyword
+    executable file along your \$PATH
 
 By default:
 
-    all types are shown (see I<--sa --sb --f --x>)
+    all types are shown (but see I<--sa --sb --f --x>)
     names beginning with "_" are omitted (see I<--underscore>.
-
-To list all executables of a given name or matching a regex, use:
-
-    identifyAllExecutables --find
-
-This does not just find the one that actually would get invoked, but all.
-This can be useful to track down PATH issues or other conflicts.
-
 
 
 =head1 Options
@@ -72,6 +79,13 @@ With I<--find>, ignore case when testing whether commands match the regex.
 
 Invoke bash with I<--login> when using it to get lists of things (PATH,
 aliases, shell functions,...), rather than searching for profiles manually.
+
+=item * B<--profile> I<path>
+
+Add the item at I<path> to the list of profiles to check for definitions of
+aliases, shell functions, etc. By default, the usual bash and zsh suspects
+are already included. Also, if C<$sjdUtilsDir/Public/BashSetup> is a directory,
+zprofile and bash_profile from there are included.
 
 =item * B<-q> OR B<--quiet>
 
@@ -118,10 +132,13 @@ Display version info and exit.
 
 =back
 
+
 =head1 Known bugs and limitations
 
+Does not notice all aliases.
+
 C<bash help> output (used to get the list of builtins),
-is not parsed correctly enough.
+is not parsed correctly enough. Also needs to support zsh for this.
 
 This isn't certain to get the exact environment you invoked it from, since it
 has to re-start Bash to get information. If you have more than one startup
@@ -130,25 +147,30 @@ inaccuracies.
 
 =head1 Related Commands
 
-C<which -a> -- lists all executables of a given name, along $PATH.
+C<which -a> -- lists all executables of a given name, along $PATH. However, it
+doesn't seem to deal with aliases, shell functions, or symlinks.
+
 
 =head1 History
 
 =over
 
-=item 2007-12-06: Written by Steven J. DeRose.
+=item 2006-10: Written by Steven J. DeRose.
 =item 2007-12-17 sjd: Handle profiles/rcs better.
 =item 2010-09-12 sjd: ??
 =item 2012-01-09 sjd: Refactor. Add --underscore. Test for bash use.
 =item 2013-02-08 sjd: Add --system, --login.
 =item 2015-08-27: --. Option aliases. Improve doc. Color.
 =item 2015-09-18: Add --ignoreCase. Improve output layout.
+=item 2020-03-04: New layout?
+=item 2021-12-03: Work on zsh support. Add --profile.
 
 =back
 
+
 =head1 To do
 
-     Compare against package managers (see --managers):
+Are there package managers that this will miss? Say, if they work around PATH somehow?
          macports     uses /opt/local
          anaconda     uses
          easy_install uses
@@ -157,11 +179,12 @@ C<which -a> -- lists all executables of a given name, along $PATH.
          apt-get      uses (Linux)
      Python-specific ones:
          pip          uses
-         virtualenv   uses (choose)
+         virtualenv   ~/.venv/*/bin
+         
      Sort by priority or alpha
      Show definition too (aliases)?
      Show or filter by shebang lines?
-     Separate items by space or null, or alignData them like 'ls'.
+
 
 =head1 Ownership
 
@@ -171,10 +194,12 @@ this license, see L<here|"http://creativecommons.org/licenses/by-sa/3.0/">.
 
 For the most recent version, see L<here|"http://www.derose.net/steve/utilities/">.
 
+
 =cut
 
 
 ###############################################################################
+# Options
 #
 my $color             = ($ENV{USE_COLOR} && -t STDERR) ? 1:0;
 my $count             = 0;
@@ -182,6 +207,7 @@ my $find              = "";
 my $ignoreCase        = 0;
 my $login             = 0;
 #my $managers          = 0;
+my @profiles          = ();
 my $quiet             = 0;
 my $showAliases       = 0;
 my $showBuiltins      = 0;
@@ -193,8 +219,6 @@ my $system            = 1;
 my $underscore        = 0;
 my $verbose           = 0;
 
-# Process options
-#
 my %getoptHash = (
     "c|count!"                        => \$count,
     "find=s"                          => \$find,
@@ -202,6 +226,7 @@ my %getoptHash = (
     "i|ignoreCase!"                   => \$ignoreCase,
     "login!"                          => \$login,
     #"managers!"                       => \$managers,
+    "profile=s"                       => \@profiles,
     "q|quiet!"                        => \$quiet,
     "sa|showAliases|aliases!"         => \$showAliases,
     "sb|showBuiltins|builtins!"       => \$showBuiltins,
@@ -215,7 +240,7 @@ my %getoptHash = (
     "version"                         => sub {
         die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
     },
-    );
+);
 Getopt::Long::Configure ("ignore_case");
 GetOptions(%getoptHash) || die "Bad options.\n";
 
@@ -224,8 +249,8 @@ my $showAll =
     ($showAliases+$showBuiltins+$showFunctions+$showExecutables+$showPathDirs+$count
      == 0);
 
-($ENV{SHELL} eq "/bin/bash") || die
-    "Only works if you're using bash, not '$ENV{SHELL}'.\n";
+($ENV{SHELL} eq "/bin/bash") || warn
+    "Not guaranteed when not using bash (current \$SHELL is '$ENV{SHELL}').\n";
 
 my $findExpr = "";
 if ($find) {
@@ -243,10 +268,26 @@ if ($find) {
 #
 # Find the user's startup file
 #
-my @profs = ( "/home/$ENV{USER}/.bash_profile",
-              "/home/$ENV{USER}/.bash_login",
-              "/home/$ENV{USER}/.profile",
-              "/home/$ENV{USER}/.bashrc");
+my $home = $ENV{HOME};
+my @profs = (
+    "$home/.bash_profile",
+    "$home/.bash_login",
+    "$home/.profile",
+    "$home/.bashrc",
+    "$home/.zshrc",
+    "$home/.zprofile",
+);
+for my $p (@profiles) {
+    push @profs, $p;
+}
+my $sjdSetup = $ENV{"sjdUtilsDir"} . "Public/BashSetup";
+if (-d $sjdSetup) {
+    for my $p (@profiles){
+        push @profs, "$sjdSetup/bash_profile";
+        push @profs, "$sjdSetup/zprofile";
+    }
+}
+
 my $rcf = "";
 if ($login) {
     $rcf = "--login";
@@ -262,13 +303,12 @@ else {
     }
     if ($nfound > 1) {
         warn "WARNING: Found more than one of:\n    "
-            . join("\n   ",@profs) . "\n";
-        warn "    Only '$rcf' will be used.\n";
+            . join("\n    ",@profs) . "\n";
+        warn "Only '$rcf' will be used.\n";
     }
 }
 
 
-###############################################################################
 ###############################################################################
 # Main
 #
@@ -323,7 +363,7 @@ sub report {
         for my $c (@functions) {  $all{$c} = "FUNCTION"; }
         for my $c (@xfiles)    {  $all{$c} = "FILE"; }
 
-        ($quiet) || print "\nCOMPLETE LIST:\n";
+        ($quiet) || print "\nItems found:\n";
         for my $cmd (sort keys %all) {
             rline($all{$cmd}, $cmd);
         }
@@ -374,12 +414,9 @@ sub report {
         printf("    Total:     %5d\n",
         $xtot + scalar(@builtins) + scalar(@functions) + scalar(@aliases));
     }
-
-} # report
-
+}
 
 
-###############################################################################
 ###############################################################################
 # Try to find out what all the aliases are.
 # The difficulty is that we're not in the interactive shell the user has.

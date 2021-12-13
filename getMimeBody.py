@@ -69,6 +69,8 @@ BytesParser() produces headers as an `email.message.EmailMessage`:
 .headers is all strings. But .headers['to'], etc., have a .addresses items, which
 is a list of Address objects, each of which has .username, .domain, .display_name.
 
+Note: The `tidylib` library is in pip as `pytidylib`.
+
 
 =Known bugs and Limitations=
 
@@ -288,7 +290,7 @@ tidyOptions = {
 def runTidy(doc) -> str:
     """See http://tidy.sourceforge.net/docs/quickref.html
     """
-    from tidylib import tidy_document
+    from tidylib import tidy_document  # pip `pytidylib`
     # This returns bytes, not str....
     doc, _errors = tidy_document(doc, options={
         # See above for full option list.

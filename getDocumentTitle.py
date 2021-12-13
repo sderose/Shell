@@ -81,7 +81,7 @@ def tryOneItem(path):
     lg.hMsg(1, "Starting item '%s'" % (path))
     recnum = 0
     if (not os.path.exists(path)):
-        lg.error("Couldn't find '%s'." % (path), stat="cantOpen")
+        lg.error("Couldn't find '%s'." % (path))
     elif (os.path.isdir(path)):
         lg.bumpStat("totalDirs")
         if (args.recursive):
@@ -171,4 +171,3 @@ for f in (args.files):
 
 if (not args.quiet):
     lg.vMsg(0,"Done.")
-    lg.showStats()
