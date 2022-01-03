@@ -126,6 +126,9 @@ to fiddle around a bit to get that working.
 
 C<bash>, C<type>, C<which>, C<type>, C<shopt>.
 
+L<https://unix.stackexchange.com/questions/322459/is-it-possible-to-check-where-an-alias-was-defined>
+provides some useful information on how to locate aliases and such.
+
 
 =head1 Notes
 
