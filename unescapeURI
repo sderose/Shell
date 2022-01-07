@@ -6,8 +6,8 @@
 use strict;
 use Getopt::Long;
 use Encode;
+use Encode qw(decode_utf8);
 
-use sjdUtils;
 use alogging;
 
 our %metadata = (
@@ -61,6 +61,13 @@ B<Note>: This changes I<char> followed by two hex digits,
 to the standard URI '%' plus the digits, then does a normal URI escape.
 It will still change any pre-existing %-escapes, too. This could be a bug or
 a feature, depending on what you want.
+
+=item * B<--entify>
+
+B<UNFINISHED>
+
+At the end, convert non-ASCII to C<&#x0FFFF;> form (HTML/XML/SGML hexadecimal numeric
+character references).
 
 =item * B<--files>
 
@@ -142,6 +149,7 @@ character set but interpreted as another.
   2014-08-31f: Fix --escape to use right context. Multi-file. i/o encodings.
   2015-09-15: Adding MIME support, fix use of sjdUtils::unescapeURI().
   2021-09-16: Minor cleanup.
+  2022-01-07: Start adding --entify. Move in unescapeURI() from sjdUtils.
   
 
 =head1 Rights
@@ -161,6 +169,7 @@ L<https://github.com/sderose>.
 ###############################################################################
 # Options
 #
+my $entify        = 0;
 my $esc           = '%';
 my $files         = 0;
 my $iencoding     = "";
@@ -171,6 +180,7 @@ my $quiet         = 0;
 my $verbose       = 0;
 
 my %getoptHash = (
+    "entify!"                 => \$entify,
     "escape=s"                => \$esc,
     "f|files!"                => \$files,
     "h|help"                  => sub { system "perldoc $0"; exit; },
@@ -187,7 +197,7 @@ my %getoptHash = (
 Getopt::Long::Configure ("ignore_case");
 GetOptions(%getoptHash) || die "Bad options.\n";
 
-sjdUtils::setVerbose($verbose);
+alogging::setLogVerbose($verbose);
 
 if (length($esc) != 1) {
     eMsg(-1, "-esc must specify exactly one character.");
@@ -245,8 +255,46 @@ sub convertString {
         $s = $buf;
     }
     else {
-        $s = sjdUtils::unescapeURI($s, $plusToSpace, $esc);
+        $s = unescapeURI($s, $plusToSpace, $esc, $entify);
     }
+
+    return($s);
+}
+
+# Pulled from sjdUtils.pm, since it's all we use from there and we add entify.
+#
+sub unescapeURI {
+    my ($s, $plusToSpace, $escapeChar, $entity) = @_;
+    if (!$escapeChar) { $escapeChar='%'; }
+    ($s) || return("");
+    if ($plusToSpace) {
+        $s =~ s/\+/ /g;
+    }
+    my $s2 = "";
+    if (!$entify) {
+        if ($escapeChar eq '%') {
+            $s2 =~ s/%([0-9a-f][0-9a-f])/{ chr(hex("0x$1")); }/gie;
+        }
+        else {
+            $s2 =~ s/$escapeChar([0-9a-f][0-9a-f])/{ chr(hex("0x$1")); }/gie;
+        }
+        $s = $s2;
+    }
+    else {
+        alogging::vMsg(1, "Entifying");
+        $s2 = $s;
+        $s2 =~ s/$escapeChar([0-9a-f][0-9a-f])/{ chr(hex("0x$1")); }/gie;
+        my $s3 = decode_utf8($s2);
+        my $s4 = decode_utf8("");
+        alogging::vMsg(1, sprintf("   original |%d|, utf |%d|, decoded |%d|.",
+            length($s), length($s2), length($s3))); 
+        foreach my $c (split //, $3) {
+            $s4 .= (ord($c) < 0x80) ? $c : sprintf("&#x%05x;", ord($c));
+        }
+        $s = encode_utf8($s4);
+    }
+
+    # Seems to work fine for UTF-8
     return($s);
 }
 
