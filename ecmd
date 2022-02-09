@@ -143,7 +143,7 @@ To enable auto-completion with this script in C<bash> use
 
     complete -F _command ecmd
 
-On Mac OS X, you may need to do the C<zsh> equivalent first,
+On Mac OS X, you may need to use the C<zsh> equivalent first,
 or install bash_completion, for example as:
 
     sudo port install bash-completion
@@ -216,6 +216,8 @@ L<http://wiki.bash-hackers.org/scripting/bashbehaviour>.
 
 
 =head1 To do
+
+At least when in zsh, use `whence -w` to find where shell functions were defined. 
 
 
 =head1 History

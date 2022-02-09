@@ -1,20 +1,96 @@
 #!/usr/bin/perl -w
 #
-# checkpath
-#
-# 2007-??: Written by Steven J. DeRose.
-# 2007-11-08 sjd: strict, Getopt, fix -d test.
-# 2010-09-17 sjd: Cleanup. -list.
-# 2012-09-05 sjd: Cleanup.
-# 2013-10-08: Also check for trailing slash and dups.
-#
-# To do:
-#     Quote all printed paths, or escape spaces.
+# checkpath: Test the PATH env. var for potential problems.
 #
 use strict;
 use Getopt::Long;
 
+our %metadata = (
+    'title'        => "checkPath",
+    'description'  => "Test the PATH env. var for potential problems.",
+    'rightsHolder' => "Steven J. DeRose",
+    'creator'      => "http://viaf.org/viaf/50334488",
+    'type'         => "http://purl.org/dc/dcmitype/Software",
+    'language'     => "Perl 5.18",
+    'created'      => "2007",
+    'modified'     => "2022-02-03",
+    'publisher'    => "http://github.com/sderose",
+    'license'      => "https://creativecommons.org/licenses/by-sa/3.0/"
+);
+our $VERSION_DATE = $metadata{'modified'};
 our $VERSION_DATE = "2013-10-08";
+
+=pod
+
+=head1 Usage
+
+checkpath [options] [file]
+
+Checks \$PATH for problems such as missing directories, directories listed
+more than once, or directories with no executable files. Also checks that
+it contains several directories it typically should, and that entries
+do not end in "/".
+
+These are not necessarily errors, but you should probably know I<why> any of
+them is the case.
+
+
+=head1 Options
+
+=over
+
+=item * B<--list>
+
+Show each directory as it is checked.
+
+=item * B<--quiet> OR B<-q>
+Suppress most messages.
+
+=item * B<--verbose> OR B<-v>
+Add more detailed messages.
+
+=item * B<--version>
+
+Display version info and exit.
+
+=back
+
+
+=head1 Related commands
+
+Several shell functions defined in my F<BashSetup/path_utils>, for re-ordering, 
+displaying, uniqifying, etc.
+
+C<env> -- prints out environment variables (such as \$PATH) legibly.
+
+
+=head1 History
+
+  2007-??: Written by Steven J. DeRose.
+  2007-11-08 sjd: strict, Getopt, fix -d test.
+  2010-09-17 sjd: Cleanup. -list.
+  2012-09-05 sjd: Cleanup.
+  2013-10-08: Also check for trailing slash and dups.
+  2022-02-03: New layout.
+  
+
+=head1 To do
+
+    Quote all printed paths, or escape spaces.
+
+
+=head1 Rights
+
+Copyright 2007 by Steven J. DeRose. This work is licensed under a
+Creative Commons Attribution-Share Alike 3.0 Unported License.
+For further information on this license, see
+L<https://creativecommons.org/licenses/by-sa/3.0>.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities> or
+L<https://github.com/sderose>.
+
+
+=cut
 
 my @required = (
     "/bin", "/sbin",
@@ -44,7 +120,6 @@ Getopt::Long::Configure ("ignore_case");
 GetOptions(%getoptHash) || die("Bad options.\n");
 
 
-###############################################################################
 ###############################################################################
 # Main
 #
@@ -79,66 +154,3 @@ for my $x (@required) {
     }
 }
 print "checkpath: done.\n";
-
-exit;
-
-
-
-###############################################################################
-###############################################################################
-###############################################################################
-#
-
-=pod
-
-=head1 Usage
-
-checkpath [options] [file]
-
-Checks \$PATH for problems such as missing directories, directories listed
-more than once, or directories with no executable files. It also checks that
-PATH contains several directories that it normally should, and that names
-do not end in "/".
-
-These are not necessarily errors, but you should probably know I<why> any of
-them is the case.
-
-
-
-=head1 Options
-
-=over
-
-=item * B<--list>
-
-Show each directory as it is checked.
-
-=item * B<--quiet> OR B<-q>
-Suppress most messages.
-
-=item * B<--verbose> OR B<-v>
-Add more detailed messages.
-
-=item * B<--version>
-
-Display version info and exit.
-
-=back
-
-
-
-=head1 Related commands
-
-C<env> -- prints out environment variables (such as \$PATH) legibly.
-
-
-
-=head1 Ownership
-
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
-
-For the most recent version, see L<http://www.derose.net/steve/utilities/>.
-
-=cut
