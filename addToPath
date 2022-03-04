@@ -4,7 +4,8 @@
 # 2020-02-11: Ported from my earlier Perl. Copyright by Steven J. DeRose.
 #
 from __future__ import print_function
-import sys, os
+import sys
+import os
 import argparse
 import re
 

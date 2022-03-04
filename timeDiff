@@ -4,7 +4,8 @@
 # 2017-02-02: Written by Steven J. DeRose.
 #
 from __future__ import print_function
-import sys, argparse
+import sys
+import argparse
 import re
 #import string
 import math

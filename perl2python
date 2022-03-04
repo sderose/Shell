@@ -571,7 +571,8 @@ changes = [
     ###########################################################################
     # Packages and inits
     #
-    [ r"^\s*\buse strict\b",                      r"import sys, os, re, subprocess" +
+    [ r"^\s*\buse strict\b",
+        r"import sys\nimport os\nimport re\nimport subprocess" +
         r"\nimport string\n" + r"import math\n" ],
     [ r"^\s*\buse Getopt\.Long",                  r"import argparse"      ],
     [ r"^\s*\buse ",                              r"import "              ],

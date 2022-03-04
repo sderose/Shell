@@ -6,7 +6,8 @@
 #pylint: disable=W0703
 #
 from __future__ import print_function
-import sys, argparse
+import sys
+import argparse
 import re
 from pint import UnitRegistry  # In PyPI
 

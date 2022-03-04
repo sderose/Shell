@@ -18,7 +18,7 @@ our %metadata = (
     'type'         => "http://purl.org/dc/dcmitype/Software",
     'language'     => "Perl 5.18",
     'created'      => "2006-11-03",
-    'modified'     => "2020-08-24",
+    'modified'     => "2022-02-14",
     'publisher'    => "http://github.com/sderose",
     'license'      => "https://creativecommons.org/licenses/by-sa/3.0/"
 );
@@ -31,7 +31,7 @@ our $VERSION_DATE = $metadata{'modified'};
 
 Prints the file(s), or STDIN if no files are specified,
 colorizing matches to any regex(es) specified,
-using the normal ANSI terminal escapes for color.
+using the normal ANSI terminal escapes for color (or by inserting HTML for colors).
 
 For example:
 
@@ -39,19 +39,23 @@ For example:
     
 highlights all matches to the `-e` regex in bold red on a black background.
 
-Similarly, you can colorize XML tags pretty accurately with the following command
+B<Note>: Set I<-c> before I<-e>. I<-c> applies to I<following> expressions.
+    
+See my `colorNames.pod` for details on my naming conventions for colors and effects
+([https://github.com/sderose/Color.git/blob/master/colorNames.md]).
+Terminal colors are discussed under C<sjdUtils.pm> and C<terminfo>.
+The color and effect names are described under I<--color> below, and
+in the documentation for the I<ColorManager> package.
+
+You can colorize XML tags pretty accurately with the following command
 (or just use the `--xml` option):
 
     hilite -c blue -e "</?\w.*?>" myFile.txt -c green -e "<\!--.*?-->" 
         -c red -e "<\?.*?\?>" -c white/black -e "&.*?;"
 
-See my `colorNames.pod` for details on my naming conventions for colors and effects
-([https://github.com/sderose/Color.git/blob/master/colorNames.md]).
-Can instead insert HTML colorizing markup (see I<--useHtml>).
-
-Terminal colors are discussed under C<sjdUtils.pm> and C<terminfo>.
-The color and effect names are described under I<--color> below, and
-in the documentation for the I<ColorManager> package.
+You can generate HTML markup that applies colors, instead of raw ANI terminal
+color-control sequences, using I<--useHtml> (though for the moment, only the
+same colors are available).
 
 B<Note>: There are many pre-defined sets of regexes available as options,
 listed separately below under L<Predefined regex sets>.
@@ -120,8 +124,16 @@ Matches use the latest value for I<--color>. For example:
 
 =item * B<--file> I<file>
 
-Load a I<file>, treating each line as if specified via I<-e>.
-The I<--color> setting cannot be changed mid-file.
+Load a I<file>, treating lines as if specified via I<-e>.
+Two types of lines are special. Lines starting with (optional whitespace and) "#" are ignored.
+Lines starting with "!COLOR" should have a following space(s) and then color name, which
+is applied to following expressions (until overridden). For example:
+
+    # Pat's color table.
+    !COLOR red/white
+    the
+    !COLOR green/italic
+    and
 
 =item * B<--ignoreCase> or B<-i>
 
@@ -147,7 +159,7 @@ Only show lines that have highlighting.
 
 Suppress most messages.
 
-=item * B<-r>
+=item * B<-r> OR B<--regardCase>
 
 Regard case. Default is to ignore case. See also I<-i>.
 
@@ -162,19 +174,26 @@ Not yet supported.
 
 =item * B<--useHtml>
 
-B<Not yet supported>.
-Insert HTML C<span> elements to set color, instead of
-ANSI terminal control color escapes.
-See also I<--color>.
+B<Experimental>.
+
+Instead of inserting ANSI terminal escape sequences to create color, insert HTML markup.
+This inserts outermost "html" and "body" tags (but no DOCTYPE), and inserts "span" tags
+with inline "style" attributes to get colors and effects. 
+It does not even attempt the "blink", "fblink", or "reverse" effects.
+However, it does accept #RGB colors as well as the usual ANSI names (it does I<not> 
+know the other HTML color names, however).
+It doesn't XML-escape the text, so take care of "<" and "&" first if needed.
+
+This only applies to coloring a file or STDIN, not to special options like I<--list>.
 
 =item * B<--version>
 
 Display version info and exit.
 
-=item * B<--waitfor> I<pat>
+=item * B<--waitFor> I<pat>
 
-Suppress all output until regex I<pat> is seen (follows I<--ignorecase> setting).
-If I<pat> is '*', waits for the first highlightable match.
+Suppress all output until a match to regex I<pat> is seen (applyigng the
+I<--ignoreCase> setting). If I<pat> is '*', waitq for the first highlightable match.
 
 =back
 
@@ -190,7 +209,7 @@ See also I<--changeColor>, above.
 
 =item * B<--aname> I<e>
 
-XML attribute with (entire) name matching e.
+XML attribute with (entire) name matching I<e>.
 This doesn't do a full-fledged XML parse, so can be fooled by CDATA, comments, etc.
 
 =item * B<--avalue> I<e>
@@ -295,21 +314,32 @@ Linux C<colorit> seems to do something similar.
 
 =head1 Known bugs and limitations
 
-To see highlighting with the I<more> command on some sytems, use I<more --raw>.
+To see highlighting with the I<more> command on some systems, use I<more --raw>.
 
 Multiple predefined expressions are not necessarily
 applied in the order specified.
 
-For XML-related options, constructs split across lines are not accurately
+For XML-related options, constructs that are split across lines are not accurately
 highlighted (the code use regexes, not a real parser). This does have
 the compensation that non-well-formed files can be highlighted.
-See C<prettyPrintXml.py>, C<normalizeXML>, etc. for more precise treatment.
+See my C<prettyPrintXml.py>, C<normalizeXML>, etc. for more precise treatment.
 
 Overlapping matches may produce interesting highlighting.
 
 The I<--diff> option highlights some lines with ' | ' in them that aren't diffs.
+    
 
-This should be integrated with C<TabularFormats.pm> to be able to handle fields.
+=head1 To do
+
+     Fix problem with --diff setup
+     Finish --columns feature
+     Finish --useHtml support for factoring out CSS.
+     Postscript output so you can color-print? Linux 'enscript' supports
+     Option for filename-containing or filename-with-extension
+     --aname and --avalue should use lookbehind so only match target portion
+     Option to hilite all occurrences of any words from file F (-f enough?)
+     hilite given fields by name or number
+     Add support for svn and git status?
 
 
 =head1 History
@@ -331,19 +361,7 @@ Drop --useHtml. Redo --changeColor locally.
     2017-06-02: Start making options like --color "sticky".
     2018-09-17: Fix accidentally hard-coded 'red'.
     2021-06-25: New layout.
-
-
-=head1 To do
-
-     Fix problem with --diff setup
-     Finish --columns feature
-     Finish --useHtml, esp. to map names right
-     Postscript output so you can color-print? Linux 'enscript' supports
-     Option for filename-containing or filename-with-extension
-     --aname and --avalue should use lookbehind so only match target portion
-     Option to hilite all occurrences of any words from file F (-f enough?)
-     hilite given fields by name or number
-     Add support for svn and git status?
+    2022-02-14: Implement most of --useHtml. Add #comment and !COLOR to --file.
 
 
 =head1 Ownership
@@ -354,6 +372,7 @@ this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
 
 For the most recent version, see L<http://www.derose.net/steve/utilities/>.
 
+
 =cut
 
 
@@ -363,10 +382,10 @@ For the most recent version, see L<http://www.derose.net/steve/utilities/>.
 my @changeColor = ();        # Color-name remapping.
 my @columns     = ();        # Array of [ color, colspec ] pairs.
 my $curColor 	= "red";
-my %exprs 		= ();        # expressions to hilite => color esc for each
+my %exprs 		= ();        # expressions to hilite => colorName
 my $file 		= "";        # load expressions from a file
 my $fixBars 	= 0;         # try harder to detect real diff change-lines
-my $ignorecase 	= 1;         # ignore case for all -e exprs.
+our $ignoreCase = 1;         # ignore case for all -e exprs.
 my $listColors  = 0;
 my $only 		= 0;
 my $quiet 		= 0;
@@ -374,8 +393,8 @@ my $test 		= 0;
 my $untabify    = 0;
 my $useHtml     = 0;
 my $verbose 	= 0;
-my $waitfor 	= "";
-my $wholelines 	= 0;
+my $waitFor 	= "";
+my $wholeLines 	= 0;
 
 # Option flags for pre-defined expression sets
 #
@@ -417,34 +436,37 @@ sub hColor {
 # Set up color table before handling options, so we can error-check "-c".
 #
 
-my $testColor = "blue";
+my $testColor = "red/italic";
 my $cStart = my $testStart = hColor($testColor);
 my $cEnd   = hColor("default");
-($cStart && $cEnd) || die "Unable to set up starting colors.\n";
-
+($cStart && $cEnd) || die "Unable to set up test color '$testColor'.\n";
+my $cStart = hColor($curColor);
 Getopt::Long::Configure ("ignore_case");
+my $haveSeenColorOption = 0;
+
 my $result = GetOptions(
     # Predefined target expressions
-    "aname=s"              => \@predefined_aname,
-    "avalue=s"             => \@predefined_avalue,
-    "cvsstatus!"           => \$predefined_cvsstatus,
-    "diff!"                => \$predefined_diff,
-    "entities!"            => \$predefined_entities,
-    "err|error!"           => \$predefined_err,
-    "gi!"                  => \$predefined_gi,
-    "htmlstyle!"           => \$predefined_htmlstyle,
-    "man!"                 => \$predefined_man,
-    "nonascii!"            => \$predefined_nonascii,
-    "ns=s"                 => \$predefined_ns,
-    "pylint!"              => \$predefined_pylint,
-    "regex!"               => \$predefined_regex,
-    "tag=s"                => \$predefined_tag,
-    "uri!"                 => \$predefined_uri,
-    "xml!"                 => \$predefined_xml,
-    "css!"                 => \$predefined_css,
+    "aname=s"      => \@predefined_aname,
+    "avalue=s"     => \@predefined_avalue,
+    "cvsstatus!"   => \$predefined_cvsstatus,
+    "diff!"        => \$predefined_diff,
+    "entities!"    => \$predefined_entities,
+    "err|error!"   => \$predefined_err,
+    "gi!"          => \$predefined_gi,
+    "htmlstyle!"   => \$predefined_htmlstyle,
+    "man!"         => \$predefined_man,
+    "nonascii!"    => \$predefined_nonascii,
+    "ns=s"         => \$predefined_ns,
+    "pylint!"      => \$predefined_pylint,
+    "regex!"       => \$predefined_regex,
+    "tag=s"        => \$predefined_tag,
+    "uri!"         => \$predefined_uri,
+    "xml!"         => \$predefined_xml,
+    "css!"         => \$predefined_css,
 
     # Other options
-    "c|color=s"            => sub {
+    "c|color=s"    => sub {
+        $haveSeenColorOption = 1;
         $curColor = $_[1];
         my $try = hColor($curColor);
         if (!$try) {
@@ -456,40 +478,117 @@ my $result = GetOptions(
     },
     #"changeColor=s"        => \@changeColor,
     "cols|columns=s"       => sub { push(@columns, [ $curColor, $_[1] ]); },
-    "e|expr=s"             => sub { $exprs{$_[1]} = $cStart; },
+    "e|expr=s"             => sub { 
+        $exprs{$_[1]} = $curColor;
+        ($verbose && !$haveSeenColorOption) &&
+            warn "Did you want to set --color before --expr? Defaulting to '$curColor'.\n";
+    },
     "file=s"               => sub {
         (-f $_[1]) || die "Can't find file for -f $_[1].\n";
         open F, "<$_[1]";
         my $nf = 0;
         while (my $rec = <F>) {
             $nf++;
-            $exprs{$rec} = $cStart;
+            $exprs{$rec} = $curColor;
         }
         close F;
         ($verbose) && warn "Loaded $nf expressions from file '$_[1]'.\n";
     },
     "fixBars!"             => \$fixBars,
     "h|help|?"             => sub { system "perldoc $0"; exit; },
-    "i|ignoreCase!"        => \$ignorecase,
-    "l|lines|wholeLines!"  => \$wholelines,
+    "i|ignoreCase!"        => \$ignoreCase,
+    "l|lines|wholeLines!"  => \$wholeLines,
     "listColors!"          => \$listColors,
     "only!"                => \$only,
     "q|quiet!"             => \$quiet,
+    "r|regardCase!"        => sub { $ignoreCase = 0; },
     "test|dry-run|dryrun!" => \$test,
     "u|untabify|expand=o"  => \$untabify,
-    #"useHtml!"             => \$useHtml,
+    "useHtml!"             => \$useHtml,
     "v|verbose+"           => \$verbose,
     "version"              => sub {
         die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
     },
-	"waitfor=s"            => \$waitfor,
-    );
+	"waitFor=s"            => \$waitFor,
+);
+
+if ($verbose) {
+    warn("\n******* Color/expression map *******\n");
+    for my $e (keys(%exprs)) {
+        warn(sprintf("%-20s /%s/\n", $exprs{$e}, $e));
+    }
+}
+
+###############################################################################
+# HTML support
+#
+my %colors = (
+    "black"   => 0,
+    "red"     => 1,
+    "green"   => 2,
+    "yellow"  => 3,
+    "blue"    => 4,
+    "magenta" => 5,
+    "cyan"    => 6,
+    "white"   => 7,
+    "default" => 9,
+);
+
+my %effects = (
+    "bold"       => 1,  # aka 'bright'
+    "faint"      => 2,  #
+    "italic"     => 3,  # (rare)
+    "underline"  => 4,  # aka 'ul'
+    "blink"      => 5,  #
+    "fblink"     => 6,  # aka 'fastblink' (rare)
+    "reverse"    => 7,  # aka 'inverse'
+    "concealed"  => 8,  # aka 'invisible' or 'hidden'
+    "strike"     => 9,  # aka 'strikethru' or 'strikethrough'
+    "plain"      => 0,  # (can be used to express "no special effect")
+);
+
+# TODO: Move this into colorstring?
+#
+sub getStartTag {
+    my ($colorName) = @_;
+    my $css = "";
+    my @c = split(/\//, $colorName);
+    if ($c[0] && (defined $colors{$c[0]} or $c[0] =~ m/^#([0-9a-f][0-9a-f]){1,3}$/)) {
+        $css .= "color:" . $c[0] . ";";
+    }
+    if ($c[1] && (defined $colors{$c[1]} or $c[1] =~ m/^#([0-9a-f][0-9a-f]){1,3}$/)) {
+        $css .= "background:" . $c[1] . ";";
+    }
+    if ($c[2] && defined $effects{$c[2]}) {
+        if ($c[2]    eq "bold")      { $css .= "font-weight:bold;"; }
+        elsif ($c[2] eq "faint")     { $css .= "font-weight:lighter;"; }
+        elsif ($c[2] eq "italic")    { $css .= "font-style:italic;"; }
+        elsif ($c[2] eq "underline") { $css .= "font-decoration:underline;"; }
+        #elsif ($c[2] eq "blink")     { $css .= ""; }
+        #elsif ($c[2] eq "fblink")    { $css .= ""; }
+        #elsif ($c[2] eq "reverse")   { $css .= ""; }
+        elsif ($c[2] eq "concealed") { $css .= "display:none;"; }
+        elsif ($c[2] eq "strike")    { $css .= "text-decoration-line:line-through;"; }
+        elsif ($c[2] eq "plain")     {
+            $css .= "font-weight:medium; font-style:normal; font-decoration:none;";
+        }
+    }
+    
+    my $tag = sprintf('<span style="%s">', $css);
+    ($verbose) && warn(sprintf("Mapping '%s' to %s\n", $colorName, $tag));
+    return $tag;
+}
+
+sub getEndTag {
+    return "</span>"
+}
 
 
 ###############################################################################
 # Main
 #
-($verbose) && warn $testStart . "TEST $testColor" . $cEnd . "\n";
+($verbose) && warn sprintf("TEST %s%s%s (cur color %s%s%s).\n",
+     $testStart, $testColor, $cEnd, $cStart, $curColor, $cEnd);
 
 #if ($untabify) {
 #    ($untabify > 1) ||
@@ -523,14 +622,51 @@ setup_predefined();
 if ($file) {
     open(XLIST, "<$file") || die "Could not open expression file '$file'.\n";
     binmode(XLIST, ":encoding(utf8)");
+    my $curColor = "red";
     my $c = hColor("red");
     while (my $x = <XLIST>) { # Could 'or' together instead...
         chomp $x;
-        $exprs{$x} = $c;
+        if ($x =~ m/^\s*#/) {
+            next;
+        }
+        elsif ($x =~ m/^!COLOR\s/) {
+            $curColor = $x;
+            $curColor =~ s/!COLOR\s+//;
+        }
+        else {
+            $exprs{$x} = $curColor;
+        }
     }
     close XLIST;
     ($verbose) && warn
         "Expressions loaded from '$file': " . scalar(keys %exprs) . ".\n";
+}
+
+# Map the colorNames to ANSI or HTML.
+# TODO: Shorten up the start-tags by putting the CSS in head/style and use via @class.
+#
+my $headCSS = "<style type=\"text/css\"><!--\n";
+my %color2esc = ();
+if ($useHtml) {
+    $cEnd = getEndTag();
+    for my $e (keys %exprs) {
+        my $className = my $colorName = $exprs{$e};
+        $className =~ s/[^\w]/_/g;
+        my $stag = getStartTag($colorName);
+        $color2esc{$colorName} = $stag;
+        $stag =~ s/<span style="(.*)">/$1/;
+        $headCSS .= sprintf("    span.%-20a { %s }\n", $className, $stag);
+        ($verbose) && warn("%-20s %s\n", $colorName, $color2esc{$colorName});
+    }
+    $headCSS .= "--></style>\n";
+}
+else {
+    $cEnd = hColor("default");
+    for my $e (keys %exprs) {
+        my $colorName = $exprs{$e};
+        $color2esc{$colorName} = hColor($colorName);
+        ($verbose) && warn("%-20s %s\n", $colorName, $color2esc{$colorName});
+    }
 }
 
 if (!$quiet) { showSetup(); }
@@ -539,22 +675,24 @@ if (!$quiet) { showSetup(); }
 my $tfile = "/tmp/hilite.txt_" . int(rand(100000));
 
 my $doneWaitingFor = 0;
+($useHtml) && print("<html>\n<head>\n<title></title>\n$headCSS</head>\n<body>");
+
 while (my $line = <>) {
     my $gotit = 0;
     if (0 && $untabify) {
         $line = Text::Tabs::expand($line);
     }
 
-    if ($wholelines) { # stop at first match per line
+    if ($wholeLines) { # stop at first match per line
         foreach my $e (keys %exprs) {
-            if (($ignorecase  && $line =~ m/$e/i) ||
-                (!$ignorecase && $line =~ m/$e/)) {
+            if (($ignoreCase  && $line =~ m/$e/i) ||
+                (!$ignoreCase && $line =~ m/$e/)) {
                 $gotit = 1;
                 if (!defined $exprs{$e}) {
                     alogging::eMsg(0, "Undefined expr '" . $exprs{$e} . "'. Known:");
                     alogging::eMsg(-1, join("\n", sort keys %exprs));
                 }
-                $line = $exprs{$e} . $line . $cEnd;
+                $line = $color2esc{$exprs{$e}} . $line . $cEnd;
                 last;
             }
         }
@@ -566,17 +704,17 @@ while (my $line = <>) {
         foreach my $e (keys %exprs) {
             # screwy case is where match contains $cEnd already....
             $gotit ||= ($line =~ m/$e/);
-            my $cOn = $exprs{$e};  # Use the right color
-            if ($ignorecase) { $line =~ s/($e)/$cOn$1$cEnd/gi; }
+            my $cOn = $color2esc{$exprs{$e}};  # Use the right color
+            if ($ignoreCase) { $line =~ s/($e)/$cOn$1$cEnd/gi; }
             else             { $line =~ s/($e)/$cOn$1$cEnd/g;  }
         }
     }
     if (!$doneWaitingFor) {
-        if ($waitfor eq "*") {
+        if ($waitFor eq "*") {
             if ($gotit) { $doneWaitingFor = 1; }
         }
-        elsif ((!$ignorecase && $line =~ m/$waitfor/) ||
-               ( $ignorecase && $line =~ m/$waitfor/i)) {
+        elsif ((!$ignoreCase && $line =~ m/$waitFor/) ||
+               ( $ignoreCase && $line =~ m/$waitFor/i)) {
             $doneWaitingFor = 1;
         }
         else { next; }
@@ -585,6 +723,8 @@ while (my $line = <>) {
         print $line;
     }
 } # while
+
+($useHtml) && print("</body>\n</html>\n");
 
 system "rm $tfile 2>/dev/null";
 
@@ -609,7 +749,7 @@ sub showSetup {
             $i++;
         }
         warn "hilite:     Case will be " .
-            (($ignorecase) ? "ignored":"regarded") . ".\n";
+            (($ignoreCase) ? "ignored":"regarded") . ".\n";
         ($test) && exit;
     }
 }
@@ -665,7 +805,7 @@ sub setup_predefined {
     }
 
     if ($predefined_cvsstatus) {
-        $wholelines = 1;
+        $wholeLines = 1;
         $exprs{"Up-to-date"}          = hColor("green");
         $exprs{"Locally Added"}       = hColor("green");
         $exprs{"Locally Modified"}    = hColor("cyan");
@@ -678,12 +818,12 @@ sub setup_predefined {
         $exprs{"Invalid|Error"}       = hColor("/red");
         # Following is added by ~deroses/bin/mods...
         $exprs{"but repository has"}  = hColor("/red");
-        $wholelines = 1;
+        $wholeLines = 1;
     }
 
     # Require 2 spaces before "|" so we don't catch it in content.
     if ($predefined_diff) {
-        $wholelines = 1;
+        $wholeLines = 1;
         if ($fixBars) {
             warn "hilite: --fixBars may not work due to tabs.\n";
             my $w = $ENV{COLUMNS};
@@ -711,7 +851,7 @@ sub setup_predefined {
     }
 
     if ($predefined_err) {
-        $ignorecase = 1;
+        $ignoreCase = 1;
         # RED messages
         $exprs{"(syntax )?ERROR( occurred at|s)?"} =
         $exprs{"(element|attribute)? *('\\w+')? *(is)? *(INVALID|NOT VALID)"} =
@@ -797,7 +937,7 @@ sub setup_predefined {
         $exprs{$e} = hColor("red");
         $e = "^W:";
         $exprs{$e} = hColor("yellow");
-        $wholelines = 1;
+        $wholeLines = 1;
     }
 
     if ($predefined_tag) {
