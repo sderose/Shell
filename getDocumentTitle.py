@@ -78,7 +78,7 @@ For the most recent version, see [http://www.derose.net/steve/utilities] or
 def tryOneItem(path):
     """Try to open a file (or directory, if -r is set).
     """
-    lg.hMsg(1, "Starting item '%s'" % (path))
+    lg.info1("====Starting item '%s'" % (path))
     recnum = 0
     if (not os.path.exists(path)):
         lg.error("Couldn't find '%s'." % (path))
