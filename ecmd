@@ -118,6 +118,18 @@ C<SublimeText> uses C<:n> instead.
 C<kompozer> isn't (but see
 L<http://sourceforge.net/tracker/index.php?func=detail&aid=2941487&group_id=170132&atid=853125>).
 
+C<type> returns stereotyped responses for each kind of command.
+If your local C<type> command returns significantly different forms,
+you will need to adjust this script accordingly.
+
+    xxx is aliased to `xxx -i'
+    xxx is a shell keyword
+    xxx is a shell builtin
+    xxx is a function
+    xxx is hashed (/home/mluther/bin/xxx)
+    xxx is /usr/bin/xxx
+    bash: type: xxx: not found
+
 *nix variants differ in how you configure auto-completion of commands, so you may have
 to fiddle around a bit to get that working.
 
