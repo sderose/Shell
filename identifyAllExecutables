@@ -6,9 +6,6 @@
 use strict;
 use Getopt::Long;
 
-#use sjdUtils;
-#use alogging;
-
 our %metadata = (
     'title'        => "identifyAllExecutables.pm",
     'description'  => "Search shell functions, aliases, executables, etc.",
@@ -17,12 +14,11 @@ our %metadata = (
     'type'         => "http://purl.org/dc/dcmitype/Software",
     'language'     => "Perl 5.18",
     'created'      => "2006-10",
-    'modified'     => "2021-12-03",
+    'modified'     => "2022-04-06",
     'publisher'    => "http://github.com/sderose",
     'license'      => "https://creativecommons.org/licenses/by-sa/3.0/"
 );
 our $VERSION_DATE = $metadata{'modified'};
-
 
 =pod
 
@@ -77,8 +73,8 @@ With I<--find>, ignore case when testing whether commands match the regex.
 
 =item * B<--login>
 
-Invoke bash with I<--login> when using it to get lists of things (PATH,
-aliases, shell functions,...), rather than searching for profiles manually.
+Invoke shell with I<--login> when using it to get lists of things (PATH,
+aliases, shell functions, ...), rather than searching for profiles manually.
 
 =item * B<--profile> I<path>
 
@@ -113,9 +109,9 @@ Show executable files.
 
 =item * B<--system>
 
-Include system commands (default; use I<--nosystem> to turn off).
-System commands are bash builtins, and
-executables under /usr, /bin, or /sbin.
+Include system command directories (default; use I<--nosystem> to turn off).
+System commands are taken to include
+executables under /usr, /bin, /sbin, or (mainly for MacOS) /Library.
 
 =item * B<--underscore>
 
@@ -135,20 +131,35 @@ Display version info and exit.
 
 =head1 Known bugs and limitations
 
-Does not notice all aliases.
+Has to get information about aliases, shell functions, environment variables, etc.
+from a newly-spawned shell, not the one it was called from. There's no guarantee
+that will be the same, though it tries to mimic states such as being login or
+interactive.
+
+May not correctly find all applicable profile files, or especially, anything
+sourced indirectly from them.
+
+Doesn't know anything about things like inactive Python venv or pyenv environments,
+which aren't listed in \$PATH.
 
 C<bash help> output (used to get the list of builtins),
-is not parsed correctly enough. Also needs to support zsh for this.
+is not parsed correctly enough. Also need to support zsh for this.
 
-This isn't certain to get the exact environment you invoked it from, since it
-has to re-start Bash to get information. If you have more than one startup
-file, or your Bash environment has changed since startup, there may be
-inaccuracies.
+
+=head1 To do
+
+    Sort by priority or alpha
+    Show definitions (aliases)? Cf C<ecmd>.
+    Show or filter by shebang lines?
+
 
 =head1 Related Commands
 
-C<which -a> -- lists all executables of a given name, along $PATH. However, it
+C<which -a>: lists all executables of a given name, along $PATH. However, it
 doesn't seem to deal with aliases, shell functions, or symlinks.
+
+C<ecmd>: Tries to locate and edit the definition of an alias, shell function,
+or non-binary executable file.
 
 
 =head1 History
@@ -156,34 +167,26 @@ doesn't seem to deal with aliases, shell functions, or symlinks.
 =over
 
 =item 2006-10: Written by Steven J. DeRose.
+
 =item 2007-12-17 sjd: Handle profiles/rcs better.
+
 =item 2010-09-12 sjd: ??
+
 =item 2012-01-09 sjd: Refactor. Add --underscore. Test for bash use.
+
 =item 2013-02-08 sjd: Add --system, --login.
+
 =item 2015-08-27: --. Option aliases. Improve doc. Color.
+
 =item 2015-09-18: Add --ignoreCase. Improve output layout.
+
 =item 2020-03-04: New layout?
+
 =item 2021-12-03: Work on zsh support. Add --profile.
 
+=item 2022-04-06: Start zsh support.
+
 =back
-
-
-=head1 To do
-
-Are there package managers that this will miss? Say, if they work around PATH somehow?
-         macports     uses /opt/local
-         anaconda     uses
-         easy_install uses
-         homebrew     uses /usr/local
-         fink         uses /sw
-         apt-get      uses (Linux)
-     Python-specific ones:
-         pip          uses
-         virtualenv   ~/.venv/*/bin
-         
-     Sort by priority or alpha
-     Show definition too (aliases)?
-     Show or filter by shebang lines?
 
 
 =head1 Ownership
@@ -221,7 +224,7 @@ my $verbose           = 0;
 
 my %getoptHash = (
     "c|count!"                        => \$count,
-    "find=s"                          => \$find,
+    "f|find=s"                        => \$find,
     "h|help|?"                        => sub { system "perldoc $0"; exit; },
     "i|ignoreCase!"                   => \$ignoreCase,
     "login!"                          => \$login,
@@ -249,61 +252,86 @@ my $showAll =
     ($showAliases+$showBuiltins+$showFunctions+$showExecutables+$showPathDirs+$count
      == 0);
 
-($ENV{SHELL} eq "/bin/bash") || warn
-    "Not guaranteed when not using bash (current \$SHELL is '$ENV{SHELL}').\n";
-
 my $findExpr = "";
 if ($find) {
     $findExpr = qr/$find/;
 }
 
-# From 'man bash':
-#    Interactive login:
-#        /etc/profile, ~/.bash_profile, ~/.bash_login, ~/.profile.
-#        (unless --noprofile, or if invoked as 'sh' or with --posix).
-#    Interactive non-login:
-#        !/.bashrc (unless --rcfile or --norc).
-#    Non-interactive:
-#        Whatever is named by $BASH_ENV
-#
-# Find the user's startup file
+
+###############################################################################
+# Find startup and profile files to consider.
 #
 my $home = $ENV{HOME};
-my @profs = (
-    "$home/.bash_profile",
-    "$home/.bash_login",
-    "$home/.profile",
-    "$home/.bashrc",
-    "$home/.zshrc",
-    "$home/.zprofile",
-);
+my $shell = $ENV{SHELL};
+($shell eq "/bin/bash") || warn
+    "Not guaranteed when not using bash (current \$SHELL is '$shell').\n";
+($shell eq "/bin/zsh" && $ENV{ZDOTDIR} != $home) && warn
+    "In zsh, with \$ZDOTDIR is $ENV{ZDOTDIR} -- not supported yet.\n";
+    
+my @profs = ();
+if ($shell eq "/bin/bash") {
+    @profs = (
+        "/etc/profile",
+        "$home/.bash_profile",
+        "$home/.bash_login",
+        "$home/.profile",
+        "$home/.bashrc",
+    );
+    if ($ENV{BASH_ENV}) { push @profs, $ENV{BASH_ENV}; }
+}
+else {
+    @profs = (
+        "/etc/zshenv",	 "$home/.zshenv",	# for all shells
+        "/etc/zprofile", "$home/.zprofile",	# for LOGIN shells only
+        "/etc/zshrc",    "$home/.zshrc",	# for INTERACTIVE shells only
+        "/etc/zlogin",	 "$home/.zlogin",	# for LOGIN shells only
+    );
+}
+
 for my $p (@profiles) {
     push @profs, $p;
 }
-my $sjdSetup = $ENV{"sjdUtilsDir"} . "Public/BashSetup";
+my $sjdUtilsDir = $ENV{"sjdUtilsDir"};
+my $sjdSetup =  "$sjdUtilsDir/Public/BashSetup";
 if (-d $sjdSetup) {
     for my $p (@profiles){
-        push @profs, "$sjdSetup/bash_profile";
-        push @profs, "$sjdSetup/zprofile";
+        if ($shell eq "/bin/bash") { push @profs, "$sjdSetup/bash_profile"; }
+        if ($shell eq "/bin/zsh") { push @profs, "$sjdSetup/zprofile"; }
     }
 }
+else {
+    ($verbose) && warn "\$sjdUtilsDir area not found ($sjdUtilsDir).\n";
+}
 
+($verbose) && warn sprintf("List of setup files:\n%s\n", join(@profs, "\n    "));
+
+
+###############################################################################
+# Figure how to launch shell so it looks mostly like caller's state.
+#
 my $rcf = "";
 if ($login) {
     $rcf = "--login";
 }
 else {
     my $nfound = 0;
-    for my $p (@profs) {
+    my @foundProfiles = ();
+    for my $p (@profs) {  # TODO: This only keeps one, though checks many!
         if (-f $p) {
             ($verbose) && warn "Profile/rc file found: '$p'.\n";
-            $rcf = "--rcfile $p";
+            push @foundProfiles, $p;
+            if ($shell eq "/bin/bash") {
+                $rcf = "--rcfile $p";
+            }
+            else {
+                warn "Cannot do --rcfile $p in non-bash.\n";
+            }
             $nfound++;
         }
     }
     if ($nfound > 1) {
-        warn "WARNING: Found more than one of:\n    "
-            . join("\n    ",@profs) . "\n";
+        warn "WARNING: Found multiple profiles:\n    "
+            . join("\n    ", @foundProfiles) . "\n";
         warn "Only '$rcf' will be used.\n";
     }
 }
@@ -313,16 +341,16 @@ else {
 # Main
 #
 my @pathdirs  = split(/:/, $ENV{PATH});
-if (!$system) {
+if (!$system) {  # In that case, remove system directoriess
     for (my $i = scalar(@pathdirs)-1; $i>=0; $i--) {
-        if ($pathdirs[$i] =~ m@^/(usr|bin|sbin)@) {
+        if ($pathdirs[$i] =~ m@^/(usr|bin|sbin|Library)@) {
             delete $pathdirs[$i];
         }
     }
 }
 
 my @aliases   = @{getAliases()};
-my @builtins  = ($system) ? @{getBuiltins()} : ();
+my @builtins  = @{getBuiltins()};
 my @functions = @{getFunctions()};
 my @xfiles    = ();
 my %xcounts   = ();
@@ -337,7 +365,129 @@ exit;
 
 
 ###############################################################################
-# Report
+# Get an array of all the aliases.
+# The difficulty is that we're not in the interactive shell the user has.
+# Could instead use 'alias -p'
+#
+sub getAliases {
+    # $rcf says what kind of shell to launch, like --login or --rcfile x
+    my $cmd = "$shell $rcf -l -c alias " .
+        "| grep '^alias'" .
+        "| sed -e 's/alias *//' -e 's/=.*\$//'";
+    ($verbose) && warn "getting Aliases via $cmd.\n";
+    my @aliases = `$cmd`;
+    (scalar @aliases > 1) || die "    -- nope\n";
+    for (my $i=0; $i<scalar(@aliases); $i++) {
+        chomp $aliases[$i];
+    }
+    if (!$underscore) { dropUS(\@aliases); }
+    return(\@aliases);
+}
+
+
+###############################################################################
+# Get an array of all the builtins.
+#
+sub getBuiltins {
+    my $cmd = "$shell $rcf -i";
+    if ($shell eq "/bin/bash") { $cmd .= " -c help"; }
+    ($verbose) && warn "getting builtins via $cmd.\n";
+    my @raw = `$cmd`; # in 2 columns
+    (scalar @aliases > 1) || die "    -- nope\n";
+    my @builtins = ();
+    for (my $i=0; $i<scalar(@raw); $i++) {
+        if ($raw[$i] =~ m/^[^ ]/ ||  # Skip intro text
+            $raw[$i] =~ m/^\s*$/) {
+            next;
+        }
+        chomp $raw[$i];
+        if (length($raw[$i]) > 35 && substr($raw[$i],35,1) ne " ") {
+            warn "WARNING: Data from 'help' not formatted as expected:\n";
+            warn "[" . substr($raw[$i],0,35) . "]\n" .
+                "[" . substr($raw[$i],35,1) . "]\n" .
+                "[" . substr($raw[$i],36)   . "]\n";
+        }
+        elsif ($verbose) {
+        }
+        my $b1 = substr($raw[$i],1,35);
+        if ($b1 =~ m/^\w/) { $b1 =~ s/\s.*//; }
+        push @builtins, $b1;
+        my $b2 = substr($raw[$i],36);
+        if ($b2 =~ m/^\w/) { $b2 =~ s/\s.*//; }
+        push @builtins, $b2;
+    }
+    if (!$underscore) { dropUS(\@builtins); }
+    return(\@builtins);
+}
+
+
+###############################################################################
+# Get an array of all the shell functions.
+# 'typeset' command is a bash builtin that sets or prints variables,
+# including shell functions (-f), arrays (-a), associative arrays (-A).
+#
+sub getFunctions {
+    my @functions = ();
+    if ($shell eq "/bin/bash") {
+        my $cmd = "$shell $rcf -i -c typeset -f" .
+            " | grep '^[^ ].*()'" .
+            " | sed 's/ ()//'";
+        ($verbose) && warn "getting functions via $cmd.\n";
+        @functions = `$cmd`;
+        for (my $i=0; $i<scalar(@functions); $i++) {
+            chomp $functions[$i];
+        }
+    }
+    elsif ($shell eq "/bin/zsh") {
+    }
+    else {
+        warn "getFunctions: Unsupported shell $shell.\n";
+    }
+    if (!$underscore) { dropUS(\@functions); }
+    return(\@functions);
+}
+
+
+###############################################################################
+# Collect up all the executables in directories listed in @pathDirs.
+#
+sub getFiles {
+    @xfiles = ();
+    %xcounts = ();
+    for my $d (@pathdirs) {
+        next unless (defined $d);
+        ($verbose) && warn "Checking \$PATH dir '$d'.\n";
+        if (! -d $d) { next; }
+        if ($xcounts{$d}) {
+            ($quiet) || warn "WARNING: Duplicate dir in \$PATH: '$d'.\n";
+            next;
+        }
+        for my $f (`ls $d 2>/dev/null`) {
+            chomp $f;
+            ($verbose >= 2) && warn "    File '$d/$f'.\n";
+            next unless (-x "$d/$f");
+            push @xfiles, "$d/$f";
+            $xcounts{$d}++;
+            # Check for #! line?
+        }
+    }
+    if (!$underscore) { dropUS(\@xfiles); }
+    return(\@xfiles);
+}
+
+sub dropUS {
+    my ($aRef) = @_;
+    my @copy = ();
+    ($verbose) && warn "dropUS: aRef: $aRef.\n";
+    for my $name (@{$aRef}) {
+        if ($name !~ m/^_/) { push @copy, $name; }
+    }
+    @{$aRef} = @copy;
+}
+
+
+###############################################################################
+# Reporting
 #
 sub rline {
     my ($type, $path) = @_;
@@ -414,107 +564,4 @@ sub report {
         printf("    Total:     %5d\n",
         $xtot + scalar(@builtins) + scalar(@functions) + scalar(@aliases));
     }
-}
-
-
-###############################################################################
-# Try to find out what all the aliases are.
-# The difficulty is that we're not in the interactive shell the user has.
-# Could instead use 'alias -p'
-#
-sub getAliases {
-    my $acmd = "bash $rcf -l -c alias " .
-        "| grep '^alias'" .
-        "| sed -e 's/alias *//' -e 's/=.*\$//'";
-    my @aliases = `$acmd`;
-    for (my $i=0; $i<scalar(@aliases); $i++) {
-        chomp $aliases[$i];
-    }
-    if (!$underscore) { dropUS(\@aliases); }
-    return(\@aliases);
-}
-
-
-###############################################################################
-#
-sub getBuiltins {
-    my @raw = `bash $rcf -i -c help`; # in 2 columns
-    my @builtins = ();
-    for (my $i=0; $i<scalar(@raw); $i++) {
-        if ($raw[$i] =~ m/^[^ ]/ ||  # Skip intro text
-            $raw[$i] =~ m/^\s*$/) {
-            next;
-        }
-        chomp $raw[$i];
-        if (length($raw[$i]) > 35 && substr($raw[$i],35,1) ne " ") {
-            warn "WARNING: Data from 'help' not formatted as expected:\n";
-            warn "[" . substr($raw[$i],0,35) . "]\n" .
-                "[" . substr($raw[$i],35,1) . "]\n" .
-                "[" . substr($raw[$i],36)   . "]\n";
-        }
-        elsif ($verbose) {
-        }
-        my $b1 = substr($raw[$i],1,35);
-        if ($b1 =~ m/^\w/) { $b1 =~ s/\s.*//; }
-        push @builtins, $b1;
-        my $b2 = substr($raw[$i],36);
-        if ($b2 =~ m/^\w/) { $b2 =~ s/\s.*//; }
-        push @builtins, $b2;
-    }
-    if (!$underscore) { dropUS(\@builtins); }
-    return(\@builtins);
-}
-
-
-###############################################################################
-# The 'typeset' command is a bash builtin that sets or prints variables,
-# including shell functions (-f), arrays (-a), associative arrays (-A).
-#
-sub getFunctions {
-    my $fcmd = "bash $rcf -i -c typeset -f" .
-        " | grep '^[^ ].*()'" .
-        " | sed 's/ ()//'";
-    my @functions = `$fcmd`;
-    for (my $i=0; $i<scalar(@functions); $i++) {
-        chomp $functions[$i];
-    }
-    if (!$underscore) { dropUS(\@functions); }
-    return(\@functions);
-}
-
-
-###############################################################################
-# Collect up all the executables in directories listed in @pathDirs.
-#
-sub getFiles {
-    my @xfiles = ();
-    %xcounts = ();
-    for my $d (@pathdirs) {
-        next unless (defined $d);
-        ($verbose) && warn "Checking \$PATH dir '$d'.\n";
-        if (! -d $d) { next; }
-        if ($xcounts{$d}) {
-            ($quiet) || print "WARNING: Duplicate dir in \$PATH: '$d'.\n";
-            next;
-        }
-        for my $f (`ls $d 2>/dev/null`) {
-            chomp $f;
-            ($verbose) && warn "    File '$d/$f'.\n";
-            next unless (-x "$d/$f");
-            push @xfiles, "$d/$f";
-            $xcounts{$d}++;
-            # Check for #! line?
-        }
-    }
-    if (!$underscore) { dropUS(\@xfiles); }
-    return(\@xfiles);
-}
-
-sub dropUS {
-    my ($aRef) = @_;
-    my @copy = ();
-    for my $name (@{$aRef}) {
-        if ($name !~ m/^_/) { push @copy, $name; }
-    }
-    @{$aRef} = @copy;
 }
