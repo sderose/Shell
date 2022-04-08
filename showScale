@@ -42,6 +42,7 @@ having C<export COLUMNS> in your F<.bashrc> or similar file),
 the scale will be sized to fit your window.
 
 Can also make plain separator line (see C<--separator>), such as shown below,
+insert I<--comment> delimiters, 
 and/or display the line C<--up n> lines in an ANSI terminal program, so you
 can place it near a line you want to measure.
 
@@ -113,6 +114,11 @@ Start the scale at offset 0 instead of 1.
 This is just shorthand for C<--startCount 0>.
 
 =back
+
+
+=head1 Related commands
+
+C<colorstring.pm> -- used for the I<--color> option.
 
 
 =head1 Known bugs and limitations

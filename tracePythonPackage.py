@@ -163,7 +163,7 @@ def processOptions():
         help='Display version information, then exit.')
 
     parser.add_argument(
-        'packages',           type=str,
+        'packages', type=str,
         nargs=argparse.REMAINDER,
         help='Package nam(s)')
 
