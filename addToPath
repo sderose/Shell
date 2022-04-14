@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # addToPath: Add a dir to a $PATH-like variable and display it.
 # 2020-02-11: Ported from my earlier Perl. Copyright by Steven J. DeRose.

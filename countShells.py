@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # countShells.py: How many shells are running?
 # 2017-02-03: Written by Steven J. DeRose.

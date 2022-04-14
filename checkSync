@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # checkSync: compare files that ought to be the same, and report.
 #

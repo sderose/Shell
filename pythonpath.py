@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # pythonpath.py: Display and check where Python is going to look.
 # 2014-06-12: Written by Steven J. DeRose.

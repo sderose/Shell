@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # lastCommands.py: Re-un the last N commands from the shell history.
 # 2014-06-19: Written by Steven J. DeRose.

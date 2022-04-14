@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # torque: Display torque in various units.
 # 2020-04-08: Written by Steven J. DeRose.

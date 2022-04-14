@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # getDocumentTitle.py: Rudimentary document-title finder.
 # 2016-07-21: Written by Steven J. DeRose.

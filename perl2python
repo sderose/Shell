@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Rudimentary Perl -> Python translation assistant.
 # Written 2011-09, by Steven J. DeRose.

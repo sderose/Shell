@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # tracePythonPackage.py: Find where a Python package is installed.
 # 2018-05-18: Written by Steven J. DeRose.

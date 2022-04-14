@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # makeVue.py: Create a Vue document with many boxes.
 # 2016-02-08: Written by: Steven J. DeRose.

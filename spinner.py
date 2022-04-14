@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # spinner.py: Show a spinning clock or something.
 # 2018-03-24: Written by Steven J. DeRose.

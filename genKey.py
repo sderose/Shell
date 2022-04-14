@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # genKey.py: Generate a random key from given symbols and length.
 # 2016-01-04: Written by Steven J. DeRose.
