@@ -3,7 +3,6 @@
 # pythonpath.py: Display and check where Python is going to look.
 # 2014-06-12: Written by Steven J. DeRose.
 #
-from __future__ import print_function
 import sys
 import os
 import re
@@ -63,10 +62,11 @@ and other).
 
 * 2014-06-12: Written by Steven J. DeRose.
 * 2014-07-10: Report missing __init__.py.
-* 2014-09-09: Add --extras, --where, notify() indirection.
+* 2014-09-09: Add --extras, --where, lg.info() indirection.
 * 2015-08-06: Clean up options. Quieter by default. Finish --find x.
 * 2020-11-06: Fix split().
 * 2021-06-16: Fix some 'grep' issues.
+* 2022-05-10: Switch to Python logger conventions.
 
 
 =Rights=
@@ -81,17 +81,6 @@ For the most recent version, see [http://www.derose.net/steve/utilities] or
 
 =Options
 """
-
-def notify(level, msg, color=None):
-    if (args.where): return
-    if (color): lg.vMsg(level, msg, color=color)
-    else: lg.vMsg(level, msg)
-
-def prob(level, msg, color="red"):
-    if (args.where): return
-    if (color): lg.vMsg(level, msg, color=color)
-    else: lg.vMsg(level, msg)
-
 
 def hasPythonModule(curDir):
     if (os.path.exists(os.path.join(curDir,"__init__.py"))): return(True)
@@ -125,7 +114,7 @@ def getClassDefs(path, recursive=False):
     #flist = glob.glob(path+"/*.py")
     #if (len(flist)<1): return("")
     #cmdTokens.extend(flist)
-    lg.vMsg(1, "getClassDefs cmd: %s" % ("\\\n    ".join(cmdTokens)))
+    lg.info("getClassDefs cmd: %s" % ("\\\n    ".join(cmdTokens)))
     bufRecs = []
     try:
         buf = check_output(cmdTokens, shell=False, stderr=None)
@@ -152,13 +141,13 @@ def getClassDefs2(path):
     try:
         classDict = pyclbr.readmodule(name, path=curDir)
     except ImportError as e:
-        lg.vMsg(1, "    Unable to access module '%s/%s': %s" % (curDir, name, e))
+        lg.info("    Unable to access module '%s/%s': %s" % (curDir, name, e))
         return([])
     bigDict = {}
     for k, v in classDict.items():
-        lg.vMsg(1, "    %-16s %-16s %s" % (k, v.module, v.file))
+        lg.info("    %-16s %-16s %s" % (k, v.module, v.file))
         if (k in bigDict):
-            lg.vMsg(1, "    DUPLICATE %-16s %-16s %s" % (k, v.module, v.file))
+            lg.info("    DUPLICATE %-16s %-16s %s" % (k, v.module, v.file))
             bigDict[k] += "\n" + v.file
         else:
             bigDict[k] = v.file
@@ -203,7 +192,7 @@ def showClasses(curDir):
             lg.warning0("... %s" % (cd[len(curDir):]))
         if (cd in classesSeen):
             cl = re.sub(r"^.*class ", "", cd)
-            prob(0, "    -- Duplicate def of class '%s'" % cl)
+            lg.warning("    -- Duplicate def of class '%s'" % cl)
             classesSeen[cd] += "\n\t" + curDir
         else:
             classesSeen[cd] = curDir
@@ -215,7 +204,7 @@ def showClasses(curDir):
     return classesSeen
 
 def checkPYTHONPATH():
-    notify(0, "Checking PYTHONPATH:")
+    lg.info("Checking PYTHONPATH:")
     pp = os.environ["PYTHONPATH"]
     if (not pp):
         lg.fatal("Can't find $PYTHONPATH.")
@@ -225,35 +214,35 @@ def checkPYTHONPATH():
     classesSeen = {}
     lastD = ""
     for curDir in (dirs):
-        if (args.classes): notify(0,"")
+        if (args.classes): lg.info(0,"")
         if (args.abbrevs):
             clen = commonLen(lastD, curDir, onlyEndAt="/")
             printD = (" " * (clen+1)) + curDir[clen:]
         elif (args.color):
             clen = commonLen(lastD, curDir, onlyEndAt="/")
-            printD = curDir[0:clen+1] + su.colorize("blue", curDir[clen:])
+            printD = curDir[0:clen+1] + su.colorize(argColor="blue", s=curDir[clen:])
         else:
             printD = curDir
-        notify(0, printD)
+        lg.warning(printD)
 
         if (curDir in dirsSeen):
-            prob(0, "    Duplicate PYTHONPATH entry '%s'" % (curDir))
+            lg.warning("    Duplicate PYTHONPATH entry '%s'" % (curDir))
         dirsSeen[curDir] = 1
 
         if (curDir == ""):
-            prob(0, "    Empty entry")
+            lg.warning("    Empty entry")
             continue
 
         if (re.search(r"/\.\./|/\.|//|\$", curDir)):
-            prob(0, "    Path is not normalized")
+            lg.warning("    Path is not normalized")
         if (not os.path.isdir(curDir)):
-            prob(0, "    Directory does not exist", color="/red")
+            lg.warning("    Directory does not exist", color="/red")
             continue
         if (args.init and
             not os.path.exists(os.path.join(curDir, "__init__.py"))):
-            prob(0, "    Directory does not contain __init__.py", color="/red")
+            lg.warning("    Directory does not contain __init__.py", color="/red")
         if (not hasPythonModule(curDir)):
-            prob(0, "    No modules found here")
+            lg.warning("    No modules found here")
         if (args.classes):
             showClasses(curDir)
         lastD = curDir
@@ -267,7 +256,7 @@ def searchForFile(sysdirs, tgt):
     whereFound = []
     for curDir in sysdirs:
         fcmd = [ "find", curDir, "-name", tgt, "-print", "-maxdepth", "1" ]
-        lg.vMsg(2, "Running: %s" % (" ".join(fcmd)))
+        lg.info("Running: %s" % (" ".join(fcmd)))
         try:
             out = check_output(fcmd, stderr=toss)
             if (out.strip()): whereFound.append(out.strip())
@@ -346,10 +335,10 @@ if (args.sys or args.verbose):
         (len(syspath)))
     for sysDir in (syspath):
         if (sysDir in dirsSeen0): print("    "+sysDir)
-        else: print(su.colorize("red", sysDir))
+        else: print(su.colorize(argColor="red", s=sysDir))
 
 if (not (set(dirs0) < set(syspath))):
-    prob(0, "\n$PYTHONPATH not a subset of sys.path. Extras:")
+    lg.warning("\n$PYTHONPATH not a subset of sys.path. Extras:")
     xtra = set(dirs0)-set(syspath)
     lg.warning0("\n    ".join(xtra))
 
