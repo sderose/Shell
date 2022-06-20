@@ -282,7 +282,7 @@ def processOptions():
     parser.add_argument(
         "--classes", action="store_true",
         help="Also report what classes are defined where.")
-    colorDefault = (sys.stdout.isatty() and "USE_COLOR" in os.environ)
+    colorDefault = (sys.stdout.isatty() and "CLI_COLOR" in os.environ)
     parser.add_argument(
         "--color", action="store_true", default=colorDefault,
         help="Use color to improve readability.")

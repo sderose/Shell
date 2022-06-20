@@ -7,17 +7,8 @@ from __future__ import print_function
 import sys
 import os
 import codecs
-#import string
-#import math
-#import subprocess
-#from collections import defaultdict, namedtuple
-#from typing import IO, Dict, List, Union
 
-from PowerWalk import PowerWalk, PWType
-#from sjdUtils import sjdUtils
-#from alogging import ALogger
-#su = sjdUtils()
-#lg = ALogger(1)
+from PowerWalk import PowerWalk
 
 __metadata__ = {
     "title"        : "gatherArgsViaAutocompletions.py",
@@ -35,6 +26,8 @@ __version__ = __metadata__["modified"]
 
 descr = """
 =Description=
+
+[UNFINISHED]
 
 Scan the files (generally one per command) that zsh uses to configure autcompletion.
 Do a simple/approximate extraction of arguments for each, which can then be used
@@ -96,13 +89,13 @@ def fatal(msg:str) -> None: log(0, msg); sys.exit()
 #
 def extractInfo(path:str) -> int:
     """Read and deal with one individual file.
-    Most files has a single lines starting '_arguments' like:    
+    Most files has a single lines starting '_arguments' like:
         _arguments \
           '-v[lowest possible]' \
           '-c[cutoff]:cutoff year:' \
           '*:time zone:_time_zone'
-          
-    and/or code to assemble a list for it like this (from '_find'): 
+
+    and/or code to assemble a list for it like this (from '_find'):
         if ! _pick_variant gnu=gnu unix --help; then
           arguments=(
             '(-A)-a[list entries starting with .]'
@@ -112,7 +105,7 @@ def extractInfo(path:str) -> int:
         )
         if [[ "$OSTYPE" = (netbsd*|dragonfly*|freebsd*|openbsd*|darwin*) ]]; then
           arguments+=(
-            '-T[show complete time information]'    
+            '-T[show complete time information]'
             ...
           )
         fi
@@ -192,16 +185,15 @@ if __name__ == "__main__":
 
         args0 = parser.parse_args()
         if (args0.color == None):
-            args0.color = ("USE_COLOR" in os.environ and sys.stderr.isatty())
-        #lg.setColors(args0.color)
-        #if (args0.verbose): lg.setVerbose(args0.verbose)
+            args0.color = ("CLI_COLOR" in os.environ and sys.stderr.isatty())
         return(args0)
+
 
     ###########################################################################
     #
     args = processOptions()
 
     if (not args.configDir):
-        for x in os.listdir(configDir):
-            extractInfo(x)
-            
+        for thisFile in os.listdir(args.configDir):
+            extractInfo(thisFile)
+

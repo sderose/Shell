@@ -204,7 +204,7 @@ For the most recent version, see L<here|"http://www.derose.net/steve/utilities/"
 ###############################################################################
 # Options
 #
-my $color             = ($ENV{USE_COLOR} && -t STDERR) ? 1:0;
+my $color             = ($ENV{CLI_COLOR} && -t STDERR) ? 1:0;
 my $count             = 0;
 my $find              = "";
 my $ignoreCase        = 0;

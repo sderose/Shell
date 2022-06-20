@@ -218,7 +218,7 @@ sub commenter {
 #
 my $base       = 10;
 my $char       = "#";
-my $color      = ($ENV{USE_COLOR} && -t STDERR) ? 1:0;
+my $color      = ($ENV{CLI_COLOR} && -t STDERR) ? 1:0;
 my $comment    = 0;
 my $quiet      = 0;
 my $rule       = "";

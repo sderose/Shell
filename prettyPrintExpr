@@ -103,7 +103,7 @@ L<https://github.com/sderose>.
 
 ###############################################################################
 #
-my $color         = ($ENV{USE_COLOR} && -t STDERR) ? 1:0;
+my $color         = ($ENV{CLI_COLOR} && -t STDERR) ? 1:0;
 my $iencoding     = "";
 my $oencoding     = "";
 my $quiet         = 0;
