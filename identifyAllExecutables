@@ -80,7 +80,7 @@ aliases, shell functions, ...), rather than searching for profiles manually.
 
 Add the item at I<path> to the list of profiles to check for definitions of
 aliases, shell functions, etc. By default, the usual bash and zsh suspects
-are already included. Also, if C<$sjdUtilsDir/Public/BashSetup> is a directory,
+are already included. Also, if C<$sjdUtilsDir/BashSetup> is a directory,
 zprofile and bash_profile from there are included.
 
 =item * B<-q> OR B<--quiet>
@@ -267,32 +267,36 @@ my $shell = $ENV{SHELL};
     "Not guaranteed when not using bash (current \$SHELL is '$shell').\n";
 ($shell eq "/bin/zsh" && $ENV{ZDOTDIR} != $home) && warn
     "In zsh, with \$ZDOTDIR is $ENV{ZDOTDIR} -- not supported yet.\n";
-    
+
+my @zshProfiles = (
+    "/etc/profile",
+    "$home/.bash_profile",
+    "$home/.bash_login",
+    "$home/.profile",
+    "$home/.bashrc",
+);
+my @bashProfiles = (
+    "/etc/zshenv",	 "$home/.zshenv",	# for all shells
+    "/etc/zprofile", "$home/.zprofile",	# for LOGIN shells only
+    "/etc/zshrc",    "$home/.zshrc",	# for INTERACTIVE shells only
+    "/etc/zlogin",	 "$home/.zlogin",	# for LOGIN shells only
+);
+if ($ENV{BASH_ENV}) { push @bashProfiles, $ENV{BASH_ENV}; }
+
 my @profs = ();
 if ($shell eq "/bin/bash") {
-    @profs = (
-        "/etc/profile",
-        "$home/.bash_profile",
-        "$home/.bash_login",
-        "$home/.profile",
-        "$home/.bashrc",
-    );
-    if ($ENV{BASH_ENV}) { push @profs, $ENV{BASH_ENV}; }
+    @profs = @bashProfiles;
+    
 }
 else {
-    @profs = (
-        "/etc/zshenv",	 "$home/.zshenv",	# for all shells
-        "/etc/zprofile", "$home/.zprofile",	# for LOGIN shells only
-        "/etc/zshrc",    "$home/.zshrc",	# for INTERACTIVE shells only
-        "/etc/zlogin",	 "$home/.zlogin",	# for LOGIN shells only
-    );
+    @profs = @zshProfiles;
 }
-
 for my $p (@profiles) {
     push @profs, $p;
 }
+
 my $sjdUtilsDir = $ENV{"sjdUtilsDir"};
-my $sjdSetup =  "$sjdUtilsDir/Public/BashSetup";
+my $sjdSetup =  "$sjdUtilsDir/BashSetup";
 if (-d $sjdSetup) {
     for my $p (@profiles){
         if ($shell eq "/bin/bash") { push @profs, "$sjdSetup/bash_profile"; }
@@ -307,7 +311,7 @@ else {
 
 
 ###############################################################################
-# Figure how to launch shell so it looks mostly like caller's state.
+# Launch shell so it looks mostly like caller's state.
 #
 my $rcf = "";
 if ($login) {
@@ -367,7 +371,7 @@ exit;
 ###############################################################################
 # Get an array of all the aliases.
 # The difficulty is that we're not in the interactive shell the user has.
-# Could instead use 'alias -p'
+# Could instead use 'alias -p'.
 #
 sub getAliases {
     # $rcf says what kind of shell to launch, like --login or --rcfile x

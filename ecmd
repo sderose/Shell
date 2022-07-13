@@ -32,24 +32,22 @@ For aliases and shell functions, the file where they are defined (if any)
 should open at the right line.
 
 Commands are identified via the C<type> command, which is run under a fresh
-interactive bash shell (running it straight from Perl's environment would miss a lot).
+interactive bash shell (running it straight from Perl's environment might miss a lot).
 
-This script is mainly meant for use with C<bash>. To recognize shell
+This script was originally written for use with C<bash>. It might still have
+problems in zsh (let me know if you hit any). To recognize shell
 functions and aliases, it needs to see the environment with them defined,
 so it should be run as an `interactive` and possibly as
 a `login` shell (see L<Options> below).
 
-It knows to look in the "usual" places, but you can add other places to
-check (see next section).
-
 =head2 Where this script (and bash) look for commands
 
 Aliases and shell function definitions are sought among the various bash and zsh
-profile/startup files (via invoking a shell to run C<type>).
+profile/startup files (via invoking a new shell to run C<type>).
 
 To search extra files that define aliases or shell functions (perhaps that are
-sourced from .bash_profile, .bashrc,...), list them in
-environment variable C<ECMDPATH>, separated by colons like \$PATH, etc.
+sourced from .bash_profile, .zprofile, etc...), list them in
+environment variable C<ECMDPATH>, separated by colons like got \$PATH.
 Or specify them with the (repeatable) I<--addProfile> option.
 
 Use I<-v> to see a list of all the places to be searched.
@@ -79,12 +77,12 @@ Use I<--no-edit> to skip opening the found file.
 =item * B<--interactive>
 
 When checking what kind of thing the command is,
-run C<type> in an interactive Bash shell (default).
+run C<type> in an interactive shell (default).
 
 =item * B<--login>
 
 When checking what kind of thing the command is,
-run C<type> in a Bash login shell.
+run C<type> in a login shell.
 
 =item * B<-q> OR B<--quiet>
 
@@ -114,13 +112,13 @@ Does not expand C<$BASH_ENV> or C<$ENV> before trying it as a path.
 Assumes your C<$EDITOR> has a I<+n> option to take you to line number I<n>
 (this is used to get you right to the definition of an alias or shell function).
 C<emacs>, C<vi>, C<pico>, C<gedit>, C<bbedit>, and C<xedit> are all ok.
-C<SublimeText> uses C<:n> instead.
-C<kompozer> isn't (but see
+It does know a few specific exceptions, such as that C<SublimeText> uses C<:n> instead.
+C<kompozer> doesn't seem to have a comparable option (but see
 L<http://sourceforge.net/tracker/index.php?func=detail&aid=2941487&group_id=170132&atid=853125>).
 
 C<type> returns stereotyped responses for each kind of command.
 If your local C<type> command returns significantly different forms,
-you will need to adjust this script accordingly.
+you will need to adjust this script accordingly. It currently assumes:
 
     xxx is aliased to `xxx -i'
     xxx is a shell keyword
@@ -128,15 +126,12 @@ you will need to adjust this script accordingly.
     xxx is a function
     xxx is hashed (/home/mluther/bin/xxx)
     xxx is /usr/bin/xxx
-    bash: type: xxx: not found
-
-*nix variants differ in how you configure auto-completion of commands, so you may have
-to fiddle around a bit to get that working.
+    bash: type: xxx: not found (or in zsh, just "xxx not found"
 
 
 =head1 Related commands
 
-C<bash>, C<type>, C<which>, C<type>, C<shopt>.
+C<bash>, C<zsh>, C<type>, C<which>, C<shopt>.
 
 L<https://unix.stackexchange.com/questions/322459/is-it-possible-to-check-where-an-alias-was-defined>
 provides some useful information on how to locate aliases and such.
@@ -144,18 +139,21 @@ provides some useful information on how to locate aliases and such.
 
 =head1 Notes
 
-When an instance of C<bash> starts up, if it's a B<login> shell, it runs F</etc/profile>. Then
-it looks for ~/.bash_profile, ~/.bash_login, and ~/.profile,
+When an instance of C<bash> starts up, if it's a B<login> shell, it runs F</etc/profile>.
+Then it looks for ~/.bash_profile, ~/.bash_login, and ~/.profile
 in  that order, and reads and executes commands from the first one readable.
-C<ecmd> checks all those places.
+C<ecmd> checks all those places, or the comparable places for zsh.
 
 =head2 Auto-completion
+
+*nix variants differ in how you configure auto-completion of commands, so you may have
+to fiddle around a bit to get that working.
 
 To enable auto-completion with this script in C<bash> use
 
     complete -F _command ecmd
 
-On Mac OS X, you may need to use the C<zsh> equivalent first,
+On Mac OS X you may need to use the C<zsh> equivalent first,
 or install bash_completion, for example as:
 
     sudo port install bash-completion
@@ -192,30 +190,25 @@ shift, trap, unset.
 =head2 bash configuration
 
 This script runs C<type> in
-a separate I<interactive> C<bash> shell, so it identifies the specified command
+a separate I<interactive> shell, so it identifies the specified command
 name presuming that context (see I<--interactive> and I<--login>).
-
-Many factors affect how C<bash> ends up configured, and thus what
+Many factors affect how C<bash> or C<zsh> ends up configured, and thus what
 a particular command name does. For example:
 
 =over
 
-=item * Whether you're running C<bash> or a different shell altogether
+=item * Which specific shell you're using
 
-=item * Whether C<bash> is running as a login, interactive, or non-interactive shell
+=item * Whether you're running a login, interactive, or non-interactive shell
 
 =item * Whether C<bash> is in C<sh> compatibility, C<restricted>,
 or I<POSIX> compatibility mode
 
-=item * Which of these setup files are in effect:
-    F</etc/profile>
-    F<$HOME/.bash_profile>
-    F<$HOME/.bash_login>
-    F<$HOME/.profile>
-    F</etc/bash.bashrc>
-    F<$HOME/.bashrc>
+=item * Which of the many possible setup files are in effect (and the list is quite
+different for C<zsh> vs. C<bash>)
 
-=item * Other files sourced by those files (but see I<--addProfile>)
+=item * Other files sourced by those files or manually (see I<--addProfile> for
+how to add them)
 
 =item * Logic implemented in setup files
 
@@ -228,6 +221,10 @@ L<http://wiki.bash-hackers.org/scripting/bashbehaviour>.
 
 
 =head1 To do
+
+Add doc on how to set up autocompletion for this in zsh.
+
+Be able to find the thing that an alias is aliased to and edit C<it>.
 
 At least when in zsh, use `whence -w` to find where shell functions were defined. 
 
@@ -348,7 +345,7 @@ my %typeNames = (
 );
 
 # See what 'type' says about the command. But inside Perl we don't have \$PATH
-#     or all the aliases, etc. user may have.
+# or all the aliases, etc. user may have.
 # Force 'type' to run via an interactive shell, so profiles are in effect.
 #
 sub findType {
@@ -375,7 +372,7 @@ sub findType {
 }
 
 # Run a command via a shell, and grab the output. This is a bit of a pain
-# because you need to duplicate the user's environment in a new SHELL, including
+# because you need to duplicate the user's environment in a new shell, including
 # aliases and other setup. Also, starting a shell may cause other output.
 #
 sub runShellCommandInRealEnv {
@@ -450,7 +447,7 @@ sub setupPaths {
     my $sjdDir = $ENV{"sjdUtilsDir"};
     if ($sjdDir && -d "$sjdDir/Public") {
         ($verbose>1) && warn "Adding sjd Utils from '$sjdDir/Public'.\n";
-        my $bset = $sjdDir . "/Public/*";
+        my $bset = "$sjdDir/Public/*";
         push @allPaths, $bset;
     }
 }
@@ -458,7 +455,8 @@ sub setupPaths {
 sub getProfilePaths {
     my $profile = "$ENV{HOME}/.bash_profile";
 
-    # Test current shell first?
+    # Test current shell first, and just add the needed ones? Or is it better
+    # to try all, so we can report other places the user may want?
     #
     my @profilePaths = (
         "$ENV{HOME}/.zshenv",
@@ -478,7 +476,8 @@ sub getProfilePaths {
         "$ENV{HOME}/bin/bash_profile", # I keep stuff here so not invisible.
 
     );
-    ($verbose>1) && warn("Initial profile paths:\n    " . join("\n    ", @profilePaths) . "\n");
+    ($verbose>1) &&
+        warn("Initial profile paths:\n    " . join("\n    ", @profilePaths) . "\n");
 
     # NON-INTERACTIVE (must be expanded; don't use $PATH)
     if (defined $ENV{BASH_ENV}) {
