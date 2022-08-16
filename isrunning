@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [[ "$1" == "-h" ]]; then
+if isHelpOption "$1"; then
     echo "isrunning PROG: check whether 'ps -e' shows PROG running."
     echo "    See also 'runonce' and 'ps -C [cmd]'."
     exit

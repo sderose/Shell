@@ -2,7 +2,7 @@
 #
 # Written 2015-12-31 by Steven J. DeRose. CCLI Attribution-Sharealike 3.0.
 #
-if [[ "$1" == "-h" ]]; then
+if isHelpOption "$1"; then
     echo "$0: Grab some random words from system dictionary."
     exit
 fi

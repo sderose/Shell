@@ -3,7 +3,7 @@
 # Written 2015-09-18 by Steven J. DeRose.
 # Licensed under Creative Commons Attribution-Sharealike 3.0 unported license.
 #
-if [[ "$1" == "-h" ]]; then
+if isHelpOption "$1"; then
     echo "$0 [dirToCheck]"
     echo "    Run all the executables in a directory, with just '-h'."
     echo "    This is a handy way to smoke out badly broken scripts."
