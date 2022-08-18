@@ -14,13 +14,15 @@ our %metadata = (
     'type'         => "http://purl.org/dc/dcmitype/Software",
     'language'     => "Perl 5.18",
     'created'      => "2012-05-08",
-    'modified'     => "2021-12-15ff",
+    'modified'     => "2022-08-18",
     'publisher'    => "http://github.com/sderose",
     'license'      => "https://creativecommons.org/licenses/by-sa/3.0/"
 );
 our $VERSION_DATE = $metadata{'modified'};
 
+
 =pod
+
 
 =head1 Usage
 
@@ -31,26 +33,27 @@ Binaries will not be opened. Scripts will be opened with your \$EDITOR.
 For aliases and shell functions, the file where they are defined (if any)
 should open at the right line.
 
-Commands are identified via the C<type> command, which is run under a fresh
-interactive bash shell (running it straight from Perl's environment might miss a lot).
+To just display the location without opening \$EDITOR, set I<--noedit>.
 
-This script was originally written for use with C<bash>. It might still have
-problems in zsh (let me know if you hit any). To recognize shell
-functions and aliases, it needs to see the environment with them defined,
-so it should be run as an `interactive` and possibly as
-a `login` shell (see L<Options> below).
+Commands are identified via the C<whence> and/or C<type> commands,
+which are run under a fresh interactive bash shell. This means that your usual
+shell profiles should be run, however, anything you manually defined or added to \$PATH
+may be missed. If C<whence> and C<type> fail, the directories in \$PATH will
+be searched. 
 
-=head2 Where this script (and bash) look for commands
-
-Aliases and shell function definitions are sought among the various bash and zsh
-profile/startup files (via invoking a new shell to run C<type>).
+For aliases and shell functions, the usual shell setup files
+are also searched. When a defining file is found, it is searched for
+the definition, and your \$EDITOR should open to the correct line.
 
 To search extra files that define aliases or shell functions (perhaps that are
 sourced from .bash_profile, .zprofile, etc...), list them in
-environment variable C<ECMDPATH>, separated by colons like got \$PATH.
+environment variable C<\$ECMDPATH>, separated by colons like with \$PATH.
 Or specify them with the (repeatable) I<--addProfile> option.
 
 Use I<-v> to see a list of all the places to be searched.
+
+This script was originally written for use with C<bash>. It might still have
+problems in zsh (let me know if you hit any).
 
 
 =head1 Options
@@ -65,11 +68,11 @@ Add the file at I<path> to (the end of) the list of places to look for
 definitions of aliases and shell functions. Repeatable.
 The usual suspects, such as F<.bash_profile>, F<.bashrc>, etc.
 are already covered (use C<-v> for a list).
-You can also/instead set environment variable C<$ECMDPATH>.
+You can also/instead set environment variable C<\$ECMDPATH>.
 
 =item * B<--edit>
 
-If appropriate, open the file defining the requested item, using \$EDITOR.
+If not binary, open the file defining the requested item, using \$EDITOR.
 For aliases and shell functions, open it to the start of the actual definition.
 Binaries are not opened, though their path is reported.
 Use I<--no-edit> to skip opening the found file.
@@ -77,12 +80,12 @@ Use I<--no-edit> to skip opening the found file.
 =item * B<--interactive>
 
 When checking what kind of thing the command is,
-run C<type> in an interactive shell (default).
+run C<whence> and C<type> in an interactive shell (default).
 
 =item * B<--login>
 
 When checking what kind of thing the command is,
-run C<type> in a login shell.
+run C<whence> and C<type> in a login shell.
 
 =item * B<-q> OR B<--quiet>
 
@@ -104,20 +107,20 @@ Show version info and exit.
 Does not check all possible places that an alias or shell function
 could be defined. In particular, does not consider files invoked by a
 setup file, or cases where a setup file defines different things in different
-situations. However, you can add such files by setting environment variable
+situations. However, you can add such files by adding them in environment variable
 C<$ECMDPATH> or option C<--addProfile>.
 
-Does not expand C<$BASH_ENV> or C<$ENV> before trying it as a path.
+Does not expand C<\$BASH_ENV> or C<\$ENV> before trying it as a path.
 
-Assumes your C<$EDITOR> has a I<+n> option to take you to line number I<n>
+Assumes your C<\$EDITOR> has a I<+n> option to take you to line number I<n>
 (this is used to get you right to the definition of an alias or shell function).
 C<emacs>, C<vi>, C<pico>, C<gedit>, C<bbedit>, and C<xedit> are all ok.
 It does know a few specific exceptions, such as that C<SublimeText> uses C<:n> instead.
 C<kompozer> doesn't seem to have a comparable option (but see
 L<http://sourceforge.net/tracker/index.php?func=detail&aid=2941487&group_id=170132&atid=853125>).
 
-C<type> returns stereotyped responses for each kind of command.
-If your local C<type> command returns significantly different forms,
+C<whence> and C<type> return stereotyped responses for each kind of command.
+If your local versions return significantly different forms,
 you will need to adjust this script accordingly. It currently assumes:
 
     xxx is aliased to `xxx -i'
@@ -126,7 +129,7 @@ you will need to adjust this script accordingly. It currently assumes:
     xxx is a function
     xxx is hashed (/home/mluther/bin/xxx)
     xxx is /usr/bin/xxx
-    bash: type: xxx: not found (or in zsh, just "xxx not found"
+    bash: type: xxx: not found (or in zsh, just "xxx not found")
 
 
 =head1 Related commands
@@ -137,17 +140,11 @@ L<https://unix.stackexchange.com/questions/322459/is-it-possible-to-check-where-
 provides some useful information on how to locate aliases and such.
 
 
-=head1 Notes
-
-When an instance of C<bash> starts up, if it's a B<login> shell, it runs F</etc/profile>.
-Then it looks for ~/.bash_profile, ~/.bash_login, and ~/.profile
-in  that order, and reads and executes commands from the first one readable.
-C<ecmd> checks all those places, or the comparable places for zsh.
-
 =head2 Auto-completion
 
 *nix variants differ in how you configure auto-completion of commands, so you may have
-to fiddle around a bit to get that working.
+to fiddle around a bit to get that working so you can use C<ecmd> without typing
+the entire name for the target command.
 
 To enable auto-completion with this script in C<bash> use
 
@@ -168,15 +165,15 @@ See L<http://superuser.com/questions/288438/bash-completion-for-commands-in-mac-
 
 =head2 Categories of commands
 
-The categories of items checked are those distinguished by the C<type>
-command. Commands are found by Bash in this order:
+The categories of items checked are those distinguished by the C<whence> and C<type>
+commands. Commands are found by Bash in this order (same in zsh?):
 
   aliases (can override shell keywords and/or shell builtins)
   shell keywords
   shell builtins
   POSIX special builtins
   shell functions (B<cannot> define one overriding a shell keyword)
-  files (per $PATH), including:
+  files (per \$PATH), including:
       hashed executables
       other executables
 
@@ -187,35 +184,6 @@ The POSIX special builtins only apply in POSIX mode. They are:
     break, :, ., continue, eval, exec, exit, export, readonly, return, set,
 shift, trap, unset.
 
-=head2 bash configuration
-
-This script runs C<type> in
-a separate I<interactive> shell, so it identifies the specified command
-name presuming that context (see I<--interactive> and I<--login>).
-Many factors affect how C<bash> or C<zsh> ends up configured, and thus what
-a particular command name does. For example:
-
-=over
-
-=item * Which specific shell you're using
-
-=item * Whether you're running a login, interactive, or non-interactive shell
-
-=item * Whether C<bash> is in C<sh> compatibility, C<restricted>,
-or I<POSIX> compatibility mode
-
-=item * Which of the many possible setup files are in effect (and the list is quite
-different for C<zsh> vs. C<bash>)
-
-=item * Other files sourced by those files or manually (see I<--addProfile> for
-how to add them)
-
-=item * Logic implemented in setup files
-
-=item * Changes you've done manually
-
-=back
-
 A nice page on bash's startup and other behavior is:
 L<http://wiki.bash-hackers.org/scripting/bashbehaviour>.
 
@@ -225,8 +193,6 @@ L<http://wiki.bash-hackers.org/scripting/bashbehaviour>.
 Add doc on how to set up autocompletion for this in zsh.
 
 Be able to find the thing that an alias is aliased to and edit C<it>.
-
-At least when in zsh, use `whence -w` to find where shell functions were defined. 
 
 
 =head1 History
@@ -260,6 +226,9 @@ Add --addProfile.
 =item * 2021-11-17: Clean up, nuke useless error messages, start C<mapType>().
 
 =item * 2021-12-15ff: Rewrite findType() to use `zsh -c "type -w..."`, much cleaner.
+
+=item * 2022-08-18: Refactor and clean up searching. Make use 'whence', which
+hands back path info more often.
 
 =back
 
@@ -329,19 +298,20 @@ sub lineSeekOption {
     return $lineSeekPrefix{lc($editorName)} . $fndLine;
 }
 
+sub fmtList {
+    my (@theList) = @_;
+    return "\n    " . join("\n    ", @theList) | "\n";
+}
 
-###############################################################################
-#
 my %typeNames = (
-    "alias"    => "ALIAS",
-    "builtin"  => "???",
-    "command"  => "EXECUTABLE",
-    "function" => "FUNCTION",
-    "hashed"   => "HASHED",
-    "none"     => "NOT-FOUND or FAIL",
-    "reserved" => "SHELL-KEYWORD",
-    #             # previously NON-EXECUTABLE-FILE
-    # "binary" is added below, to distinguish ones not to edit...
+    "ALIAS"    => "ALIAS",
+    "BUILTIN"  => "BUILTIN",
+    "COMMAND"  => "COMMAND",
+    "FUNCTION" => "FUNCTION",
+    "HASHED"   => "HASHED",
+    "NONE"     => "NOTFOUND",
+    "KEYWORD"  => "KEYWORD",
+    "BINARY"   => "BINARY",
 );
 
 # See what 'type' says about the command. But inside Perl we don't have \$PATH
@@ -351,24 +321,76 @@ my %typeNames = (
 sub findType {
     my ($login, $interactive, $cmd) = @_;
     
-    my $shellCmd = "type -w '$cmd'";
-    my $typeEnum = my $typeLine = runShellCommandInRealEnv($login, $interactive, $shellCmd, 1);
-    chomp $typeEnum;
-    $typeEnum =~ s/^.*?:\s*//;
-    defined ($typeNames{$typeEnum}) || die
-        "Unrecognized type '$typeEnum' returned in '$typeLine' from 'type -w $cmd'.\n";
+    my ($typeEnum, $path) = tryWhence($login, $interactive, $cmd);
     
-    my $path = "";
-    if ($typeEnum eq "command") {
-        my $shellCmd2 = "type '$cmd'";
-        $path = my $pathLine = runShellCommandInRealEnv($login, $interactive, $shellCmd2, 1);
-        chomp $path;
-        $path =~ s/^.* is //;
-        ($verbose) && warn "path to '$cmd' command is '$path' from response '$pathLine'.\n";
-        if (-B $path) { $typeEnum = "binary"; }
+    if ($typeEnum eq "NOTFOUND") {
+        ($typeEnum, $path) = tryType($login, $interactive, $cmd);
     }
-    ($verbose) && print "Enum: '$typeEnum'. Path: '$path'\n";
+    # Try manual search in the usual suspects
+    #if ($typeEnum eq "NOTFOUND") {
+    #    ($typeEnum, $path) = trySearch($login, $interactive, $cmd);
+    #}          
+    defined ($typeNames{$typeEnum}) || die
+        "Unexpected type '$typeEnum'.\n";
+    ($verbose) && print 
+        "Type: '$typeEnum'. Path: '$path'\n";
     return $typeEnum, $path;
+}
+
+sub tryWhence {
+    # Sample 'whence' responses (MacOS):
+    #     ecmd is [path]
+    #     gitsubs is a shell function from [path]
+    #     ll is an alias for ls -o
+    #     zerg not found
+    #
+    my ($login, $interactive, $cmd) = @_;
+    my $shellCmd = "whence '$cmd'";
+    my $tail = runShellCommandInRealEnv($login, $interactive, $shellCmd, 1);
+    ($verbose > 1) && warn "'whence' got: $tail\n";
+    if ($tail =~ m/(.*?) is a shell function from (.*)/) {
+        return "FUNCTION", $2;
+    }
+    if ($tail =~ m/(.*?) is an alias for (.*)/) {
+        return "ALIAS", "";
+    }
+    if ($tail =~ m/(.*?) not found/) {
+        return "NOTFOUND", "";
+    }
+    if ($tail =~ m/(.*?) is (.*)/) {
+        if (-B $2) { return "BINARY", $2; }
+        return "COMMAND", $2;
+    }
+    warn "Cannot understand 'whence' response: $tail.\n";
+    return "NOTFOUND", "";
+}
+
+sub tryType {
+    # Sample 'whtypeence' responses (MacOS):
+    #     ecmd is [path]
+    #     gitsubs is a shell function from [path]
+    #     ll is an alias for ls -o
+    #     zerg not found
+    #
+    my ($login, $interactive, $cmd) = @_;
+    my $shellCmd = "type -w '$cmd'";
+    my $tail = runShellCommandInRealEnv($login, $interactive, $shellCmd, 1);
+    ($verbose > 1) && warn "'type' got tail: $tail\n";
+    if ($tail =~ m/(.*?) is a shell function from (.*)/) {
+        return "FUNCTION", $2;
+    }
+    if ($tail =~ m/(.*?) is an alias for (.*)/) {
+        return "ALIAS", "";
+    }
+    if ($tail =~ m/(.*?) not found/) {
+        return "NOTFOUND", "";
+    }
+    if ($tail =~ m/(.*?) is (.*)/) {
+        if (-B $2) { return "BINARY", $2; }
+        return "COMMAND", $2;
+    }
+    warn "Cannot understand 'whence' response: $tail.\n";
+    return "NOTFOUND", "";
 }
 
 # Run a command via a shell, and grab the output. This is a bit of a pain
@@ -389,14 +411,14 @@ sub runShellCommandInRealEnv {
     else {  # bash
         $toRun = "type -w '$shellCmd' 2>/dev/null >$tmpFile";
     }
-    ($verbose) && warn "### findType(): Running: $toRun\n";
+    ($verbose > 1) && warn "Running: $toRun\n";
     my $cruft = `$toRun`;
-    ($verbose>1) && warn "### Result: <<<\n$cruft>>>\n";
+    ($verbose > 1) && warn "### Result: <<<\n$cruft>>>\n";
 
     my $tailLines = `cat $tmpFile`;
     ($tailLines) || die "No output from '$toRun'.\n";
     chomp $tailLines;
-    ($verbose) && warn "### Last $nTail line(s) from '$toRun': <<<\n    $tailLines>>>\n";
+    ($verbose > 1) && warn "### Last $nTail lines: <<<\n    $tailLines>>>\n";
     return $tailLines;
 }
 
@@ -406,14 +428,20 @@ sub runShellCommandInRealEnv {
 sub reportType {
     my ($theCmdName, $typ, $file, $line) = @_;
     if ($quiet) { return; }
-    my $msg = sprintf("'%s' is a%s %s. ", ($theCmdName, ($typ =~ m/^[aeiouh]/) ? "n ":" "), $typ);
+    my $msg = sprintf("'%s' is %s %s. ", $theCmdName, getArticle($typ), $typ);
     if ($file) {
-        $msg .= sprintf("Found at %s (%sopening).\n", $file, $typ eq "binary" ? "not " : "");
+        $msg .= sprintf("Found at %s (%sopening).\n",
+            $file, $typ eq "binary" ? "not " : "");
         #if ($line) { $msg .= ", line $line"; }
     }
     print $msg;
 }
 
+sub getArticle {
+    my ($word) = @_;
+    # Haccidents ardly hever appen.
+    return ($word =~ m/^[aeiouh]/) ? "an":"a";
+}
 
 ###############################################################################
 # Places to look for startup/profile files
@@ -436,17 +464,20 @@ sub setupPaths {
     if ($ep) {
         @ecmdPaths = split /:/, $ENV{"ECMDPATH"};
     }
-    ($verbose>1) && warn ("\n\$ECMDPATH gives: [\n    " . join("\n    ", @ecmdPaths) . "]\n");
+    ($verbose) && warn 
+        "\n\$ECMDPATH gives:" . fmtList(@ecmdPaths);
 
     @allPaths = (@profilePaths, @ecmdPaths);
-    ($verbose>1) && warn sprintf("profilePaths |%d|, allPaths |%d|\n", scalar @profilePaths, scalar @allPaths);
+    ($verbose) && warn sprintf(
+        "profilePaths |%d|, allPaths |%d|\n", scalar @profilePaths, scalar @allPaths);
 
-    ($verbose>1) && warn "\n\@profilePaths to be checked for alias/function definitions:\n    " .
-        join("\n    ", @profilePaths) . "\n";
+    ($verbose) && warn 
+        "\n\@profilePaths for alias/function definitions: " . fmtList(@profilePaths);
 
     my $sjdDir = $ENV{"sjdUtilsDir"};
     if ($sjdDir && -d "$sjdDir/Public") {
-        ($verbose>1) && warn "Adding sjd Utils from '$sjdDir/Public'.\n";
+        ($verbose) && warn 
+            "Adding sjd Utils from '$sjdDir/Public'.\n";
         my $bset = "$sjdDir/Public/*";
         push @allPaths, $bset;
     }
@@ -476,8 +507,8 @@ sub getProfilePaths {
         "$ENV{HOME}/bin/bash_profile", # I keep stuff here so not invisible.
 
     );
-    ($verbose>1) &&
-        warn("Initial profile paths:\n    " . join("\n    ", @profilePaths) . "\n");
+    ($verbose>1) && warn
+        "Initial profile paths:" . fmtList(@profilePaths);
 
     # NON-INTERACTIVE (must be expanded; don't use $PATH)
     if (defined $ENV{BASH_ENV}) {
@@ -496,49 +527,62 @@ sub getProfilePaths {
 
 ###############################################################################
 # Functions to find specific definitions within a file (just use grep).
-# (switching over to generic %functionRegexes)
 #
 my %functionRegexes = (
     "Python" =>     "^\\s*def\\s+\\w+\\s*\(",
     "Perl" =>       "^\\s*sub\\s+\\w+\\s*{",
-    "BashFunct" =>  "^\\s*\\w+\(\)\\s*{",
-    "Alias" =>      "^\\s*alias\\s+\\w+=",
+    "C" =>          "^\\s*(\\w+)\\s*\\*?(\\w+)\\(",
 );
 
-sub findSomeDef {
-    my ($cmd, $lg) = @_;
-    my $regex = $functionRegexes{$lg};
-    ($verbose) && print "Searching for definition in:\n";
-    my @pairs = findAll($regex, \@allPaths, \@profilePaths);
-    return @pairs;
-}
-
-sub findFunctionDef {  # Soon to be obsolete
-    my ($cmd) = @_;
-    my $regex = "^ *$cmd()\\s{";
-    ($verbose) && print "Searching for shell function definition in:\n";
-    my @pairs = findAll($regex, \@allPaths, \@profilePaths);
-    return @pairs;
-}
-
-sub findAliasDef {  # Soon to be obsolete
-    my ($cmd) = @_;
-    my $regex = "^ *alias *$cmd=";
-    ($verbose) && print "Searching for alias definition in:\n";
-    my @pairs = findAll($regex, \@allPaths, \@profilePaths);
-    return @pairs;
-}
-
-sub findAll {
-    my ($regex, $allPathsRef, $profilePathsRef) = @_;
-    for my $area ( ($allPathsRef, $profilePathsRef) ) {
-        for my $path (@{$area}) {
-            #($verbose) && print "    $path\n";
-            my @pairs = getAllLines($path, $regex);
-            if (scalar @pairs) { return(@pairs); }
-        }
+sub findProgFunctionDef {
+    my ($cmd, $path) = @_;
+    my @hitLocs = ();
+    for my $lg (keys(%functionRegexes)) {
+        push (@hitLocs, findAll($functionRegexes{$lg}, $path));
     }
-    return(0); # not found
+    return @hitLocs;
+}
+
+sub findFunctionDef {
+    my ($funcName, $path) = @_;
+    my @hitLocs = findAll("^ *$funcName()\\s{", $path);
+    return @hitLocs;
+}
+
+sub findAliasDef {
+    my ($cmd, $path) = @_;
+    my @hitLocs = findAll("^\\s*alias\\s+$cmd+=", $path);
+    return @hitLocs;
+}
+
+# Search for a given regex in a path somebody else found already,
+# or if that's nil then search all the files in passed lists.
+# Return all the hits found in the first file that has any,
+# or if $doAllFiles is set then all the hits in all the files.
+# Returns: a list of path:lineNum strings (as from grep).
+#
+sub findAll {
+    my ($regex, $path, $doAllFiles) = @_;
+    if ($path) {
+        ($verbose) && print "findAll: Searching in: $path.\n";
+        return getAllLines($path, $regex);
+    }
+    ($verbose) && printf("findAll: Searching in %d files.\n",
+        scalar(@allPaths) + scalar(@profilePaths));
+    my @allHitLocs = ();
+    for my $curPath (@allPaths) {
+        my @hitLocs = getAllLines($curPath, $regex);
+        if (scalar @hitLocs == 0) { next; }
+        push(@allHitLocs, @hitLocs);
+        if (! $doAllFiles) { last; }
+    }
+    for my $curPath (@profilePaths) {
+        my @hitLocs = getAllLines($curPath, $regex);
+        if (scalar @hitLocs == 0) { next; }
+        push(@allHitLocs, @hitLocs);
+        if (! $doAllFiles) { last; }
+    }
+    return(\@allHitLocs);
 }
 
 # Return array of lines matching the regex.
@@ -547,15 +591,15 @@ sub getAllLines {
     my ($file, $regex) = @_;
     (-r $file) || return("");
     ($verbose) && warn "getAllLines: grepping in '$file'.\n";
-    my @pairs = ();
+    my @hitLocs = ();
     my $buf = `grep -r -n '$regex' $file`;
     ($verbose) && warn "$file:\n    ++>$buf\n";
     if ($buf =~ m/^(\d+):/) {
         for my $line (split(/\n/, $buf)) {
-            push @pairs, $line =~ s/(^[^:]*:[^:]*):.*/$1/;
+            push @hitLocs, $line =~ s/(^[^:]*:[^:]*):.*/$1/;
         }
     }
-    return(@pairs);
+    return(@hitLocs);
 }
 
 sub notFoundMsg {
@@ -580,67 +624,54 @@ my $shell = $ENV{SHELL} || "";
 
 setupPaths();
 
-# This only sets $path for *commmands* (not alias, builtin, shell fn, etc)
+# This only sets $path for some things (like, not aliases)
 my ($typ, $path) = findType($login, $interactive, $cmd);
 
 # Check for alias/shell function first, in case they overrode a name.
 #
-if ($typ eq "function") {
-    #($path, $fndLine) = findSomeDef($cmd, "BashFunc");
-    ($path, $fndLine) = findFunctionDef($cmd);
-    if ($fndLine) {
-        reportType($cmd, "function", $path);
+if ($typ eq "FUNCTION") {
+    my @hitLocs = findAll("^ *$cmd()\\s{", $path);
+    if (scalar @hitLocs) {
+        for my $hitLoc (@hitLocs) {
+            $hitLoc =~ s/.*://;
+            reportType($cmd, "FUNCTION", $path, $hitLoc);
+        }
     }
     else {
-        notFoundMsg($cmd, "function");
+        notFoundMsg($cmd, "FUNCTION");
     }
 }
-elsif ($typ eq "alias") {
-    #($path, $fndLine) = findSomeDef($cmd, "Alias");
-    ($path, $fndLine) = findAliasDef($cmd);
-    if (defined $fndLine && $fndLine>0) {
-        reportType($cmd, "alias", $path, $fndLine);
+elsif ($typ eq "ALIAS") {
+    my @hitLocs = findAll("^\\s*alias\\s+$cmd+=", $path);
+    if (scalar @hitLocs) {
+        for my $hitLoc (@hitLocs) {
+            $hitLoc =~ s/.*://;
+            reportType($cmd, "ALIAS", $path, $hitLoc);
+        }
     }
     else {
-        notFoundMsg($cmd, "alias");
+        notFoundMsg($cmd, "ALIAS");
     }
 }
-elsif ($typ eq "binary") {
-    reportType($cmd, "binary", $path);
+elsif ($typ eq "BINARY") {
+    reportType($cmd, "BINARY", $path);
 }
-elsif ($typ eq "builtin") {
-    reportType($cmd, "builtin", $path);
+elsif ($typ eq "BUILTIN") {
+    reportType($cmd, "BUILTIN", $path);
 }
-elsif ($typ eq "command") {
-    reportType($cmd, "non-binary command", $path);
+elsif ($typ eq "COMMAND") {
+    reportType($cmd, "non-binary COMMAND", $path);
 }
-elsif ($typ eq "function") {
-    reportType($cmd, "function", $path);
+elsif ($typ eq "HASHED") {
+    reportType($cmd, "HASHED", $path);
 }
-elsif ($typ eq "hashed") {
-    reportType($cmd, "hashed", $path);
+elsif ($typ eq "KEYWORD") {
+    reportType($cmd, "reserved shell keyword", "(nothing to edit)");
 }
-elsif ($typ eq "none") {
+elsif ($typ eq "NONE") {
     # Could still be alias/shell function that script doesn't see?
     #
-    my ($path1, $fndLine1) = findAliasDef($cmd);
-    my ($path2, $fndLine2) = findFunctionDef($cmd);
-    if ($fndLine1) {
-        reportType($cmd, "alias", $path1);
-        $path = $path1;
-        $fndLine = $fndLine1;
-    }
-    elsif ($fndLine2) {
-        reportType($cmd, "function", $path2);
-        $path = $path2;
-        $fndLine = $fndLine2;
-    }
-    else {
-        reportType($cmd, "??? (not found)");
-    }
-}
-elsif ($typ eq "reserved") {
-    reportType($cmd, "reserved shell keyword", "(nothing to edit)");
+    ($verbose) && warn "Could not identify '$cmd'.\n";
 }
 else {
     ($quiet) || warn "Unrecognized response from '$cmd':\n$typ\n";
@@ -650,7 +681,7 @@ else {
 
 # If we found it, go edit it.
 #
-if ($path && $typ ne "binary" && $edit) {
+if ($path && $typ ne "BINARY" && $edit) {
     ($quiet) || printf("  Last modified %3.1f days ago.\n", -M($path));
     if (defined $ENV{EDITOR}) {
         my $edcmd = "$ENV{EDITOR} " . lineSeekOption($fndLine) . " $path";
