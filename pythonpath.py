@@ -181,22 +181,21 @@ def showClasses(curDir):
     """Find the specific classes defined by Python code in a given directory.
     """
     cds = getClassDefs(curDir)
-    lg.MsgPush()
     classesSeen = {}
     for cd in (cds):
         if (cd==""): continue
         if (args.where):
             if (re.search(args.where, cd)):
-                lg.warning0("*** FOUND *** %s" % (cd))
+                lg.warning0("    *** FOUND *** %s" % (cd))
         else:
-            lg.warning0("... %s" % (cd[len(curDir):]))
+            lg.warning0("    ... %s" % (cd[len(curDir):]))
         if (cd in classesSeen):
             cl = re.sub(r"^.*class ", "", cd)
-            lg.warning("    -- Duplicate def of class '%s'" % cl)
+            lg.warning("        -- Duplicate def of class '%s'" % cl)
             classesSeen[cd] += "\n\t" + curDir
         else:
             classesSeen[cd] = curDir
-    lg.MsgPop()
+
     # Print dirs where multiply-defined classes were found
     for k,v in classesSeen.items():
         if (v.find("\n")>=0):

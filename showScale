@@ -42,7 +42,7 @@ having C<export COLUMNS> in your F<.bashrc> or similar file),
 the scale will be sized to fit your window.
 
 Can also make plain separator line (see C<--separator>), such as shown below,
-insert I<--comment> delimiters, 
+insert I<--comment> delimiters,
 and/or display the line C<--up n> lines in an ANSI terminal program, so you
 can place it near a line you want to measure.
 
@@ -126,6 +126,10 @@ C<colorstring.pm> -- used for the I<--color> option.
 B<Note>: C<bash> does not automatically C<export COLUMNS>, so
 for this script to know your terminal width
 your F<.bashrc> or similar file must do that explicitly.
+
+Using I<--up> to move the scale further than the terminal's height
+in lines, likely will not work (even if the location can be scrolled to).
+This probably depends on the particular terminal program in use.
 
 
 =head1 To do

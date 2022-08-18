@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 #
 # checkSync: compare files that ought to be the same, and report.
+# 2015-03-23: Written by Steven J. DeRose.
 #
-from __future__ import print_function
 import sys
 import os
 import re
@@ -106,7 +106,7 @@ svnStats = {
 #
 def processOptions():
     import argparse
-    
+
     try:
         from BlockFormatter import BlockFormatter
         parser = argparse.ArgumentParser(
@@ -142,7 +142,7 @@ def processOptions():
 
 ###############################################################################
 #
-def compareDirs(paths):
+def compareDirs(paths, depth:int=0):
     un = set()
     lists = []
     for i in range(len(paths)):
@@ -158,13 +158,13 @@ def compareDirs(paths):
                 ilist.append(os.path.join(paths[j],lists[j]))
             else:
                 ilist.append(None)
-        compareFiles(ilist)
+        compareFiles(ilist, depth=depth)
 
 
-def compareFiles(paths):
-    lg.vMsg(0, "Checking: '%s'" % (os.path.split(paths[0])[1]))
+def compareFiles(paths, depth:int=0):
+    ind = "    " * depth
+    lg.info(ind + "Checking: '%s'" % (os.path.split(paths[0])[1]))
     sawDiff = False
-    lg.MsgPush()
     date = []
     size = []
 
@@ -186,7 +186,7 @@ def compareFiles(paths):
                 rc = subprocess.check_output([ 'diff', '-q', paths[0], p ])
                 sawDiff = True
                 msg = "diff '%s'" % (rc)
-        lg.pline("%d: %s" % (i, os.path.split(p)[0]), msg)
+        lg.pline(ind + "%d: %s" % (i, os.path.split(p)[0]), msg)
         try:
             rc = subprocess.check_output([ 'git', 'status', '-s', p ])
             if ("Not a git repository" not in rc):
@@ -194,7 +194,7 @@ def compareFiles(paths):
                     lg.pline(p, "git: '%s'." % (rc[0]))
                     sawDiff = True
         except subprocess.CalledProcessError:
-            lg.vMsg(0, "git fail")
+            lg.error("git fail")
 
         try:
             rc = subprocess.check_output([ 'svn', 'status', p ], stderr=None)
@@ -203,8 +203,7 @@ def compareFiles(paths):
                     lg.pline(p, "svn: '%s'." % (rc[0:2]))
                     sawDiff = True
         except subprocess.CalledProcessError:
-            lg.vMsg(0, "svn fail")
-    lg.MsgPop()
+            lg.error("svn fail")
     return(sawDiff)
 
 
@@ -247,7 +246,7 @@ if (args.filelist):
             mat = re.match(r'\s*(\w+)\s*=\s*(.*)$', rec)
             if (mat):
                 v = mat.group(2).strip('"\'')
-                lg.vMsg(1, "Assigning %s = '%s'" % (mat.group(1), v))
+                lg.info("Assigning %s = '%s'" % (mat.group(1), v))
                 varDict[mat.group(1)] = varSub(v)
             else:
                 lg.error("%s:%d: Bad variable assignment: %s" %
@@ -269,4 +268,4 @@ else:
     lg.error("No fileS or --file specified....")
     sys.exit()
 
-if (not args.quiet): lg.vMsg(0, "Done.")
+if (not args.quiet): lg.info("Done.")

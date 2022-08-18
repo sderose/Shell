@@ -5,18 +5,8 @@
 #
 import sys
 import re
-
 import logging
-lg = logging.getLogger("echoPP")
-def info0(msg:str) -> None:
-    if (args.verbose >= 0): lg.info(msg)
-def info1(msg:str) -> None:
-    if (args.verbose >= 1): lg.info(msg)
-def info2(msg:str) -> None:
-    if (args.verbose >= 2): lg.info(msg)
-def fatal(msg:str) -> None: 
-    lg.critical(msg); sys.exit()
-
+lg = logging.getLogger()
 
 __metadata__ = {
     "title"        : "echoPP",
@@ -35,15 +25,15 @@ __version__ = __metadata__["modified"]
 descr = """
 =Name=
     """ +__metadata__["title"] + ": " + __metadata__["description"] + """
-    
-    
+
+
 =Description=
 
-Add these features to `echo` (by default, should work just the same as 
+Add these features to `echo` (by default, should work just the same as
 regular POSIX `echo`):
 
 * Option to write to stderr (--stderr OR -2).
-* Basic ANSI foreground colors.
+* Basic ANSI colors.
 * Set newline string (not just ''-n'' to suppress newlines)
 * Input and output encodings (--iencoding, --oencoding).
 * Making things visible by escaping non-ASCII, non-Latin-1, controls,
@@ -63,7 +53,7 @@ with "\\c" to suppress newline
     `colorString.py`
     `highlight`
     `showInvisibles`
-    
+
 
 =Known bugs and Limitations=
 
@@ -82,7 +72,7 @@ with "\\c" to suppress newline
 
 * 2022-02-25: Written by Steven J. DeRose.
 * 2022-04-07: Add --color, --ascii, --slashc. Add rest of --space alternatives.
-
+* 2022-07-39: Add --bgcolor.
 
 =Rights=
 
@@ -97,14 +87,14 @@ or [https://github.com/sderose].
 =Options=
 """
 
-    
+
 ###############################################################################
 # Main
 #
 if __name__ == "__main__":
     import argparse
     colors = {
-        "black":0, "red":1, "green":2, "yellow":3, "blue":4, 
+        "black":0, "red":1, "green":2, "yellow":3, "blue":4,
         "magenta":5, "cyan":6, "white":7, "default":9 }
 
     def processOptions() -> argparse.Namespace:
@@ -125,7 +115,10 @@ if __name__ == "__main__":
             "--backslashes", "--decode", action="store_true",
             help="Recognize and decode Python-style \\x, \\u, \\n, etc.")
         parser.add_argument(
-            "--color", "--fg", type=str, choices=list(colors.keys()),
+            "--bgcolor", type=str, choices=list(colors.keys()),
+            help="Write in this (background) color.")
+        parser.add_argument(
+            "--fgcolor", "--color", type=str, choices=list(colors.keys()),
             help="Write in this (foreground) color.")
         parser.add_argument(
             "--end", type=str, metavar="S", default="\n",
@@ -173,7 +166,7 @@ if __name__ == "__main__":
             help="What to echo.")
 
         args0 = parser.parse_args()
-        
+
         if (args.n): args.end = ""
         if (args.space):
             if (args.space == "LITERAL"): args.spaceGoesTo = " "
@@ -181,7 +174,7 @@ if __name__ == "__main__":
             elif (args.space == "UNDER"): args.spaceGoesTo = chr(0x2423)
             elif (args.space ==  "b"): args.spaceGoesTo = chr(0x2422)
             elif (args.space == "SP"): args.spaceGoesTo = chr(0x2420)
-            else: fatal("Unknown value for --space: '%s'." % (args.space))
+            else: lg.fatal("Unknown value for --space: '%s'.", args.space)
         return(args0)
 
 
@@ -196,10 +189,13 @@ if __name__ == "__main__":
         sys.stdout.reconfigure(encoding="utf-8")
 
     cStart = cEnd = ""
-    if (args.color):
-        cStart = "\x1b[%dm" % (colors[args.color] + 30)
-        cEnd = "\x1b[%dm" % (colors["default"] + 30)
-    
+    if (args.fgcolor or args.bgcolor):
+        cStart = "\x1b["
+        if (args.fgcolor): cStart += "%d" % (colors[args.fgcolor] + 30)
+        if (args.bgcolor): cStart += "%d" % (colors[args.ggcolor] + 40)
+        cStart += "m"
+        cEnd = "\x1b0m"
+
     ender = args.end
     for s in args.text:
         if (args.slashc):
