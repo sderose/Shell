@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 #
 # allDates: List a bunch of file info (mainly for getting all the dates).
 #

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 #
 # Dublin Core Metadata
 DC_title=".sh"

@@ -16,7 +16,7 @@ __metadata__ = {
     "type"         : "http://purl.org/dc/dcmitype/Software",
     "language"     : "Python 3.7",
     "created"      : "2022-02-25",
-    "modified"     : "2022-04-07",
+    "modified"     : "2022-08-19",
     "publisher"    : "http://github.com/sderose",
     "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
@@ -53,17 +53,18 @@ with "\\c" to suppress newline
     `colorString.py`
     `highlight`
     `showInvisibles`
-
+    `ColorManager.py`
+    `ColorManager.pm`
+    
 
 =Known bugs and Limitations=
-
-* Unicode > 0xFFFF doesn't use \\U%08x instead of \\u%04x.
 
 
 =To do=
 
 * Offer inline emphasis (*word*, _word_, `word`) and/or color?
 * Background colors, 256-color, ANSI effects.
+* Support fg/bg/effect syntax per colorManager.
 * sprintf?
 * decode \\xFF, \\uFFFF, \\U, \\x{}, &x;, %ff, etc (--decode)?
 
@@ -73,6 +74,8 @@ with "\\c" to suppress newline
 * 2022-02-25: Written by Steven J. DeRose.
 * 2022-04-07: Add --color, --ascii, --slashc. Add rest of --space alternatives.
 * 2022-07-39: Add --bgcolor.
+* 2022-08-19: Finish --bgcolor. Fix escaping for chars > U+FFFF.
+
 
 =Rights=
 
@@ -107,7 +110,7 @@ if __name__ == "__main__":
 
         parser.add_argument(
             "--ascii", action="store_true",
-            help="Turn all non-ASCII to \\u.")
+            help="Turn all non-ASCII to \\u form.")
         parser.add_argument(
             "--slashc", "-c", action="store_true",
             help="If the input ends with \\c, suppress the newline (cf POSIX).")
@@ -127,8 +130,8 @@ if __name__ == "__main__":
             "--iencoding", type=str, metavar="E", default="utf-8",
             help="Assume this character coding for input. Default: utf-8.")
         parser.add_argument(
-            "--latin1", "--latin-1", action="store_true",
-            help="Turn all non-Latin-1 to \\u.")
+            "--latin1", "--latin-1", "--iso8859-1", action="store_true",
+            help="Turn all non-Latin-1 characters to \\u form.")
         parser.add_argument(
             "-n", action="store_true",
             help="Suppress newline (same as --end='').")
@@ -139,7 +142,7 @@ if __name__ == "__main__":
             "--quiet", "-q", action="store_true",
             help="Suppress most messages.")
         parser.add_argument(
-            "--showControls", "--pics", "--controls", "-c", action="store_true",
+            "--showControls", "--pics", "--control", action="store_true",
             help="Map control characters to Unicode CONTROL PICTURES for visibility.")
         parser.add_argument(
             "--showWhitespace", "-w", action="store_true",
@@ -167,14 +170,14 @@ if __name__ == "__main__":
 
         args0 = parser.parse_args()
 
-        if (args.n): args.end = ""
-        if (args.space):
-            if (args.space == "LITERAL"): args.spaceGoesTo = " "
-            elif (args.space ==  "HEX"): args.spaceGoesTo = "\\x20"
-            elif (args.space == "UNDER"): args.spaceGoesTo = chr(0x2423)
-            elif (args.space ==  "b"): args.spaceGoesTo = chr(0x2422)
-            elif (args.space == "SP"): args.spaceGoesTo = chr(0x2420)
-            else: lg.fatal("Unknown value for --space: '%s'.", args.space)
+        if (args0.n): args.end = ""
+        if (args0.space):
+            if (args.space == "LITERAL"):  args0.spaceGoesTo = " "
+            elif (args0.space == "HEX"):   args0.spaceGoesTo = "\\x20"
+            elif (args0.space == "UNDER"): args0.spaceGoesTo = chr(0x2423)
+            elif (args0.space == "b"):     args0.spaceGoesTo = chr(0x2422)
+            elif (args0.space == "SP"):    args0.spaceGoesTo = chr(0x2420)
+            else: lg.fatal("Unknown value for --space: '%s'.", args0.space)
         return(args0)
 
 
@@ -191,8 +194,8 @@ if __name__ == "__main__":
     cStart = cEnd = ""
     if (args.fgcolor or args.bgcolor):
         cStart = "\x1b["
-        if (args.fgcolor): cStart += "%d" % (colors[args.fgcolor] + 30)
-        if (args.bgcolor): cStart += "%d" % (colors[args.ggcolor] + 40)
+        if (args.fgcolor): cStart += "%d;" % (colors[args.fgcolor] + 30)
+        if (args.bgcolor): cStart += "%d" % (colors[args.bgcolor] + 40)
         cStart += "m"
         cEnd = "\x1b0m"
 
@@ -214,12 +217,13 @@ if __name__ == "__main__":
         if (args.showControls):
             s = re.sub(r"([\x00-\x1F])", lambda mat: { chr(ord(mat.group(1))+0x2400) }, s)
         if (args.ascii):
+            s = re.sub(r"([\U00010000-])", lambda mat: { "\\u%08x" % ord(mat.group(1)) }, s)
             s = re.sub(r"([\x80-])", lambda mat: { "\\u%04x" % ord(mat.group(1)) }, s)
         if (args.latin1):
             s = re.sub(r"([\u0100-])", lambda mat: { "\\u%04x" % ord(mat.group(1)) }, s)
         if (args.space):
             s = re.sub(r" ", args.spaceGoesTo, s)
-        if (args.color):
+        if (args.fgcolor or args.bgcolor):
             s = cStart + s + cEnd
         if (args.stderr):
             sys.stderr.write(s+ender)

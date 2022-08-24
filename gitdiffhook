@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 
 # gitdiffhook
 # git passes these to an external diff prog:

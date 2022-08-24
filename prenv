@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 #
 # prenv: Print env information nicely.
 #

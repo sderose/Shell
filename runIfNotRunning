@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 #
 if isHelpOption "$1"; then
     echo "runonce PROG: Start up PROG unless already running."

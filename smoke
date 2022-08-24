@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 #
 # Written 2015-09-18 by Steven J. DeRose.
 # Licensed under Creative Commons Attribution-Sharealike 3.0 unported license.
@@ -22,14 +22,13 @@ echo
 echo "Running everything under '$B'..."
 echo
 
-
 if ! [ -x colorstring ]; then
     colorstring() {
         shift; shift
         echo "$*"
     }
 fi
-colorstring -c 'blue/white' -m "******* STARTING DIR ~/bingit/ *******"
+colorstring -c 'blue/white' -m "******* STARTING DIR $B *******"
 for x in `ls $B`; do
     CMD="$B/$x"
     if [[ "$CMD" == "$0" ]]; then
