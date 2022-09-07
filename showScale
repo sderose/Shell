@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl -w
 #
 # showScale: Display a line to help count character columns and widths.
 # 2006-11-??: Written by Steven J. DeRose.

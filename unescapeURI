@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl -w
 #
 # unescapeURI: Undo %ff or a few other kinds of special-char escaping.
 # 2014-04-22: Written by Steven J. DeRose.

@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl -w
 #
 # showTip: Show a random idea on how to use something in my bin/.
 #

@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl -w
 #
 # greprange: Extract text starting at each line with a hit,
 # and continuing until some other kind of hit.

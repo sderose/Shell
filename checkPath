@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl -w
 #
 # checkpath: Test the PATH env. var for potential problems.
 #

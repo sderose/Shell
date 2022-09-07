@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl -w
 #
 # macFilenameSort: Sort filenames considering numeric parts.
 # 2007-09-07: Written by Steven J. DeRose.

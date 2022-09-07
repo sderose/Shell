@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl -w
 #
 # showNumberInBases: Convert numbers to various bases and forms.
 # ~2007-11: Written by Steven J. DeRose.

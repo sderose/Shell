@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl -w
 #
 # identifyAllExecutables: Search shell functions, aliases, executables, etc.
 # 2006-10: Written by Steven J. DeRose.

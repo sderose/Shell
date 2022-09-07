@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl -w
 #
 # whereFrom
 # 2013-03-16: Written by Steven J. DeRose.

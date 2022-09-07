@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl -w
 #
 # ecmd: Find a command/alias/shell function/etc., and edit it.
 # 2012-05-08: Written by Steven J. DeRose.
@@ -33,13 +33,15 @@ Binaries will not be opened. Scripts will be opened with your \$EDITOR.
 For aliases and shell functions, the file where they are defined (if any)
 should open at the right line.
 
+The time since last modified is also displayed (unless I<--quiet>).
+
 To just display the location without opening \$EDITOR, set I<--noedit>.
 
 Commands are identified via the C<whence> and/or C<type> commands,
 which are run under a fresh interactive bash shell. This means that your usual
-shell profiles should be run, however, anything you manually defined or added to \$PATH
+shell profiles should be run; however, anything you manually defined or added to \$PATH
 may be missed. If C<whence> and C<type> fail, the directories in \$PATH will
-be searched. 
+be searched.
 
 For aliases and shell functions, the usual shell setup files
 are also searched. When a defining file is found, it is searched for
@@ -52,8 +54,9 @@ Or specify them with the (repeatable) I<--addProfile> option.
 
 Use I<-v> to see a list of all the places to be searched.
 
-This script was originally written for use with C<bash>. It might still have
-problems in zsh (let me know if you hit any).
+This script was originally written for use with C<bash>, but has been updated
+to also handle zsh (such as knowing which profile files to look at). It might still have
+problems that depend on the particular shell (let me know if you hit any).
 
 
 =head1 Options
@@ -320,19 +323,19 @@ my %typeNames = (
 #
 sub findType {
     my ($login, $interactive, $cmd) = @_;
-    
+
     my ($typeEnum, $path) = tryWhence($login, $interactive, $cmd);
-    
+
     if ($typeEnum eq "NOTFOUND") {
         ($typeEnum, $path) = tryType($login, $interactive, $cmd);
     }
     # Try manual search in the usual suspects
     #if ($typeEnum eq "NOTFOUND") {
     #    ($typeEnum, $path) = trySearch($login, $interactive, $cmd);
-    #}          
+    #}
     defined ($typeNames{$typeEnum}) || die
         "Unexpected type '$typeEnum'.\n";
-    ($verbose) && print 
+    ($verbose) && print
         "Type: '$typeEnum'. Path: '$path'\n";
     return $typeEnum, $path;
 }
@@ -464,19 +467,19 @@ sub setupPaths {
     if ($ep) {
         @ecmdPaths = split /:/, $ENV{"ECMDPATH"};
     }
-    ($verbose) && warn 
+    ($verbose) && warn
         "\n\$ECMDPATH gives:" . fmtList(@ecmdPaths);
 
     @allPaths = (@profilePaths, @ecmdPaths);
     ($verbose) && warn sprintf(
         "profilePaths |%d|, allPaths |%d|\n", scalar @profilePaths, scalar @allPaths);
 
-    ($verbose) && warn 
+    ($verbose) && warn
         "\n\@profilePaths for alias/function definitions: " . fmtList(@profilePaths);
 
     my $sjdDir = $ENV{"sjdUtilsDir"};
     if ($sjdDir && -d "$sjdDir/Public") {
-        ($verbose) && warn 
+        ($verbose) && warn
             "Adding sjd Utils from '$sjdDir/Public'.\n";
         my $bset = "$sjdDir/Public/*";
         push @allPaths, $bset;
