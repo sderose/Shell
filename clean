@@ -1,4 +1,4 @@
-#!//usr/bin/perl -w
+#!/usr/bin/env perl -w
 #
 # Clean up spurious files in the current directory (only!).
 #

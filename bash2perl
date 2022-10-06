@@ -1,30 +1,85 @@
 #!/usr/bin/env perl -w
 #
-# bash2perl
-#
-# 2006-??: Written by Steven J. DeRose.
-# 2007-07-25 sjd: Draft a little more.
-# 2007-10-31 sjd: strict, Getopt, cleanup.
-# 2010-09-12, 2012-09-05 sjd: Clean up.
-#
-# To do:
-#     case; #PROB cases.
-#    $ENV:
-#    ${}
-#    line-final \
-#    -e, etc.
+# bash2perl: Rudimentary conversion of a Bash script to Perl.
+# 2006: Written by Steven J. DeRose.
 #
 use strict;
 use Getopt::Long;
 
-our $VERSION_DATE = "2012-09-05";
+our %metadata = (
+    'title'        => "bash2perl",
+    'description'  => "Rudimentary conversion of a Bash script to Perl.",
+    'rightsHolder' => "Steven J. DeRose",
+    'creator'      => "http://viaf.org/viaf/50334488",
+    'type'         => "http://purl.org/dc/dcmitype/Software",
+    'language'     => "Perl 5",
+    'created'      => "2006",
+    'modified'     => "2022-10-06",
+    'publisher'    => "http://github.com/sderose",
+    'license'      => "https://creativecommons.org/licenses/by-sa/3.0/"
+);
+our $VERSION_DATE = $metadata{'modified'};
 
-my $quiet   = 0;
-my $verbose = 0;
+=pod
+
+=head1 Usage
+
+bash2perl [options] [file]
+
+Do a rudimentary conversion of a Bash script to Perl.
+This just covers the tedious, simply changes. so it should save a lot
+of pointless typing, but the hard parts are left to you.
+Look for '#PROB' marking things it knows it didn't convert right.
+
+
+=head1 Options
+
+=over
+
+=item * B<--quiet> OR B<-q>
+Suppress most messages.
+
+=item * B<--version>
+
+Display version info and exit.
+
+=back
+
+
+=head1 To do
+    case;     PROB cases.
+    $ENV:
+    ${}
+    line-final \
+    -e, etc.
+
+
+=head1 History
+
+    2006-??: Written by Steven J. DeRose.
+    2007-07-25 sjd: Draft a little more.
+    2007-10-31 sjd: strict, Getopt, cleanup.
+    2010-09-12, 2012-09-05 sjd: Clean up.
+    2012-09-05: ?
+    2022-10-06: New layout. No longer maintained.
+    
+
+=head1 Ownership
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities/>.
+
+=cut
 
 
 ###############################################################################
 #
+my $quiet   = 0;
+my $verbose = 0;
+
 my %getoptHash = (
     "h|help|?"          => sub { system "perldoc $0"; exit; },
     "q|quiet!"          => \$quiet,
@@ -69,15 +124,15 @@ my $envVars =
     " XAUTHLOCALHOSTNAME      XCURSOR_THEME   XKEYSYMDB   ";
 
 
-
-###############################################################################
 ###############################################################################
 # Main
 #
+my $shebang = "#!/usr/bin/env perl -w\n";
+
 my $rec = <>;
 (substr($rec,0,2) eq "#!") || die "First line doesn't start right.\n";
 
-print "#!/usr/bin/perl\n";
+print $shebang;
 print "#\n";
 print "# ((converted from Bash to Perl by bash2perl $VERSION_DATE, " .
     "by Steven J. DeRose.\n";
@@ -105,8 +160,8 @@ while ($rec = <>) {
 
     if (substr($key1,0,1) eq "#") {                   # comment
         if (substr($key1,1,1) eq "!") {
-            $rec = "#!/usr/bin/perl";
-            $rec .= "\n# (converted from Bash by bash2perl, $VERSION_DATE, " .
+            $rec = $shebang .
+                "# (converted from Bash by bash2perl, $VERSION_DATE, " .
                 "by Steven J. DeRose.\n";
         }
         print "$rec\n";
@@ -248,8 +303,6 @@ warn "Done, $lineCount lines, $unknownCount unidentified (system?)\n";
 exit;
 
 
-
-###############################################################################
 ###############################################################################
 
 # Bash conditions have complicated syntax... Handle some of it here.
@@ -268,48 +321,3 @@ sub fixCondition {
     # Change operators as needed
     # eq etc.
 }
-
-
-
-###############################################################################
-###############################################################################
-###############################################################################
-#
-
-=pod
-
-=head1 Usage
-
-bash2perl [options] [file]
-
-Do a rudimentary conversion of a Bash script to Perl.
-This just covers the tedious, simply changes. so it should save a lot
-of pointless typing, but the hard parts are left to you.
-Look for '#PROB' marking things it knows it didn't convert right.
-
-
-
-=head1 Options
-
-=over
-
-=item * B<--quiet> OR B<-q>
-Suppress most messages.
-
-=item * B<--version>
-
-Display version info and exit.
-
-=back
-
-
-
-=head1 Ownership
-
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
-
-For the most recent version, see L<http://www.derose.net/steve/utilities/>.
-
-=cut
