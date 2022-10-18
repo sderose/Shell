@@ -150,7 +150,8 @@ def compareDirs(paths, depth:int=0):
         lists.append(lst)
         un = un.union(set(lst))
 
-    ulist = list(un).sort()
+    ulist = list(un)
+    ulist.sort()
     for i in (range(len(ulist))):
         ilist = []
         for j in range(len(paths)):

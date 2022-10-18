@@ -3,7 +3,6 @@
 # pypathShow.py: Show which python is really running, with what libs.
 # 2021-09-09: Written by Steven J. DeRose.
 #
-from __future__ import print_function
 import sys
 import os
 
@@ -64,21 +63,12 @@ or [https://github.com/sderose].
 =Options=
 """
 
-def log(lvl:int, msg:str) -> None:
-    if (args.verbose >= lvl): sys.stderr.write(msg + "\n")
-def warning0(msg:str) -> None: log(0, msg)
-def warning1(msg:str) -> None: log(1, msg)
-def warning2(msg:str) -> None: log(2, msg)
-def fatal(msg:str) -> None: log(0, msg); sys.exit()
-
 
 ###############################################################################
 # Main
 #
 if __name__ == "__main__":
     import argparse
-    def anyInt(x:str) -> int:
-        return int(x, 0)
 
     def processOptions() -> argparse.Namespace:
         try:

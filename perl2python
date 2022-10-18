@@ -347,8 +347,6 @@ Add more messages (repeatable). See also '''--trace'''.
 
 Show version info and exit.
 
-=back
-
 
 =Known Bugs and Limitations / To do list=
 
@@ -1312,9 +1310,6 @@ def norm(s:str) -> str:
 ###############################################################################
 # Main
 #
-def anyInt(x:str) -> int:
-    return int(x, 0)
-
 def processOptions():
     try:
         from BlockFormatter import BlockFormatter
