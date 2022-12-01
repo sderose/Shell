@@ -14,12 +14,11 @@ our %metadata = (
     'type'         => "http://purl.org/dc/dcmitype/Software",
     'language'     => "Perl 5.18",
     'created'      => "2012-05-08",
-    'modified'     => "2022-08-18",
+    'modified'     => "2022-12-01",
     'publisher'    => "http://github.com/sderose",
     'license'      => "https://creativecommons.org/licenses/by-sa/3.0/"
 );
 our $VERSION_DATE = $metadata{'modified'};
-
 
 =pod
 
@@ -39,9 +38,9 @@ To just display the location without opening \$EDITOR, set I<--noedit>.
 
 Commands are identified via the C<whence> and/or C<type> commands,
 which are run under a fresh interactive bash shell. This means that your usual
-shell profiles should be run; however, anything you manually defined or added to \$PATH
-may be missed. If C<whence> and C<type> fail, the directories in \$PATH will
-be searched.
+shell profiles should be run; however, anything you manually defined
+or added to \$PATH may be missed.
+If C<whence> and C<type> fail, the directories in \$PATH will be searched.
 
 For aliases and shell functions, the usual shell setup files
 are also searched. When a defining file is found, it is searched for
@@ -55,8 +54,9 @@ Or specify them with the (repeatable) I<--addProfile> option.
 Use I<-v> to see a list of all the places to be searched.
 
 This script was originally written for use with C<bash>, but has been updated
-to also handle zsh (such as knowing which profile files to look at). It might still have
-problems that depend on the particular shell (let me know if you hit any).
+to also handle zsh (such as knowing which profile files to look at).
+It might still have problems that depend on the
+particular shell (let me know if you hit any).
 
 
 =head1 Options
@@ -122,17 +122,19 @@ It does know a few specific exceptions, such as that C<SublimeText> uses C<:n> i
 C<kompozer> doesn't seem to have a comparable option (but see
 L<http://sourceforge.net/tracker/index.php?func=detail&aid=2941487&group_id=170132&atid=853125>).
 
-C<whence> and C<type> return stereotyped responses for each kind of command.
+C<whence>, C<type>, C<which>, and C<where> return stereotyped responses
+for each kind of command.
 If your local versions return significantly different forms,
-you will need to adjust this script accordingly. It currently assumes:
+you will need to adjust this script accordingly.
 
-    xxx is aliased to `xxx -i'
-    xxx is a shell keyword
-    xxx is a shell builtin
-    xxx is a function
-    xxx is hashed (/home/mluther/bin/xxx)
-    xxx is /usr/bin/xxx
-    bash: type: xxx: not found (or in zsh, just "xxx not found")
+The categories used here are:
+    ALIAS    shell aliases
+    BUILTIN  shell builtin commands
+    COMMAND  scripts and binaries along \$PATH
+    FUNCTION shell functions
+    HASHED   (unused)
+    RESERVED shell keyword
+    NONE     (fail)
 
 
 =head1 Related commands
@@ -224,7 +226,7 @@ Add --addProfile.
 
 =item * 2021-01-21: Map 'open to line number' as needed per EDITOR.
 
-=item * 2021-03-10: Only add line arg if >1. Switch '+n' to ':n' for sublimeText.=======
+=item * 2021-03-10: Only add line arg if >1. Switch '+n' to ':n' for sublimeText.
 
 =item * 2021-11-17: Clean up, nuke useless error messages, start C<mapType>().
 
@@ -232,6 +234,9 @@ Add --addProfile.
 
 =item * 2022-08-18: Refactor and clean up searching. Make use 'whence', which
 hands back path info more often.
+
+=item * 2022-12-01: Refactor and clean use of whence/type/which/where.
+Show specific sample outputs for each. Clean up category names. Test.
 
 =back
 
@@ -306,96 +311,159 @@ sub fmtList {
     return "\n    " . join("\n    ", @theList) | "\n";
 }
 
+
+###############################################################################
+#
 my %typeNames = (
-    "ALIAS"    => "ALIAS",
-    "BUILTIN"  => "BUILTIN",
-    "COMMAND"  => "COMMAND",
-    "FUNCTION" => "FUNCTION",
-    "HASHED"   => "HASHED",
-    "NONE"     => "NOTFOUND",
-    "KEYWORD"  => "KEYWORD",
-    "BINARY"   => "BINARY",
+    "ALIAS"    => "ALIAS",      # ll
+    "HASHED"   => "HASHED",     # cc
+    "BUILTIN"  => "BUILTIN",    # typeset
+    "COMMAND"  => "COMMAND",    # *.py
+    "FUNCTION" => "FUNCTION",   # my utils
+    #"HASHED"   => "HASHED",    # ???
+    "RESERVED"  => "RESERVED",    # if
+    "NONE"     => "NONE",
 );
 
-# See what 'type' says about the command. But inside Perl we don't have \$PATH
-# or all the aliases, etc. user may have.
-# Force 'type' to run via an interactive shell, so profiles are in effect.
+# See what shell commands say about the command. But inside Perl we don't
+# have \$PATH or all the aliases, etc. user may have.
+# Relevant commands:
+#     whence -- use -w to get [path]: [typekeyword] output
+#     type -- in zsh, equivalent to 'whence -v'
+#     which -- in zsh, equivalent to 'whence -c'
+#     where --
 #
 sub findType {
     my ($login, $interactive, $cmd) = @_;
 
     my ($typeEnum, $path) = tryWhence($login, $interactive, $cmd);
-
-    if ($typeEnum eq "NOTFOUND") {
+    if ($typeEnum eq "NONE") {
         ($typeEnum, $path) = tryType($login, $interactive, $cmd);
     }
+    # TODO: Maybe add tryWhich, tryWhere.
+
     # Try manual search in the usual suspects
-    #if ($typeEnum eq "NOTFOUND") {
+    #if ($typeEnum eq "NONE") {
     #    ($typeEnum, $path) = trySearch($login, $interactive, $cmd);
     #}
     defined ($typeNames{$typeEnum}) || die
         "Unexpected type '$typeEnum'.\n";
-    ($verbose) && print
-        "Type: '$typeEnum'. Path: '$path'\n";
+    ($verbose) && warn "Type: '$typeEnum'. Path: '$path'\n";
     return $typeEnum, $path;
 }
 
+# Sample 'whence -w' responses (MacOS):
+#   ALIAS    ll: alias
+#   BUILTIN  set: builtin
+#   COMMAND  cc: command     # Does not give path
+#   FUNCTION gitsubs: function
+#   HASHED
+#   RESERVED if: reserved
+#   NONE     zork: none
+# run via an interactive shell, so profiles are in effect.
+#
 sub tryWhence {
-    # Sample 'whence' responses (MacOS):
-    #     ecmd is [path]
-    #     gitsubs is a shell function from [path]
-    #     ll is an alias for ls -o
-    #     zerg not found
-    #
     my ($login, $interactive, $cmd) = @_;
-    my $shellCmd = "whence '$cmd'";
+    my $shellCmd = "whence -w '$cmd'";
     my $tail = runShellCommandInRealEnv($login, $interactive, $shellCmd, 1);
-    ($verbose > 1) && warn "'whence' got: $tail\n";
-    if ($tail =~ m/(.*?) is a shell function from (.*)/) {
-        return "FUNCTION", $2;
-    }
-    if ($tail =~ m/(.*?) is an alias for (.*)/) {
-        return "ALIAS", "";
-    }
-    if ($tail =~ m/(.*?) not found/) {
-        return "NOTFOUND", "";
-    }
-    if ($tail =~ m/(.*?) is (.*)/) {
-        if (-B $2) { return "BINARY", $2; }
-        return "COMMAND", $2;
-    }
-    warn "Cannot understand 'whence' response: $tail.\n";
-    return "NOTFOUND", "";
+    ($verbose > 1) && warn "'$shellCmd' got: $tail\n";
+
+    ($tail =~ m/: alias/)    && return "ALIAS", "";
+    ($tail =~ m/: builtin/)  && return "BUILTIN", "";
+    ($tail =~ m/: command/)  && return "COMMAND", `which $cmd`;
+    ($tail =~ m/: function/) && return "FUNCTION", "";
+    # HASHED
+    ($tail =~ m/: reserved/) && return "RESERVED", "";
+    ($tail =~ m/: none/)     && return "NONE", "";
+    warn "Cannot understand '$shellCmd' response:\n    $tail\n";
+    return "NONE", "";
 }
 
+# Sample 'which' / 'whence -c' responses (MacOS, zsh):
+#   ALIAS    ll         --> ll: aliased to ls -o
+#   BUILTIN  set        --> set: shell built-in command
+#   COMMAND  cc         --> /usr/bin/cc
+#   FUNCTION gitsubs    --> gitsubs () { ... }
+#   HASHED              -->
+#   RESERVED if         --> if: shell reserved word
+#   NONE     zork       --> (nothing)
+# run via an interactive shell, so profiles are in effect.
+#
+sub tryWhich {
+    my ($login, $interactive, $cmd) = @_;
+    my $shellCmd = "which '$cmd'";
+    my $tail = runShellCommandInRealEnv($login, $interactive, $shellCmd, 1);
+    ($verbose > 1) && warn "'$shellCmd' got tail: $tail\n";
+
+    ($tail =~ m/: aliased to /)             && return "ALIAS", "";
+    ($tail =~ m/: shell built-in command/)  && return "BUILTIN", "";
+    (-x $tail)                              && return "COMMAND", $tail;
+    ($tail =~ m/\S+ \(\) \{/)               && return "FUNCTION", "";
+    # HASHED
+    ($tail =~ m/: shell reserved word/)     && return "RESERVED", "";
+    ($tail =~ m/^$/)                        && return "NONE", "";
+    warn "Cannot understand '$shellCmd' response: $tail.\n";
+    return "NONE", "";
+}
+
+# Sample 'type' / 'whence -v' responses (MacOS, zsh):
+#   ALIAS    ll         --> ll is an alias for ls -o
+#   BUILTIN  set        --> set is a shell builtin
+#   COMMAND  cc         --> cc is /usr/bin/cc
+#   FUNCTION gitsubs    --> gitsubs is a shell function from [path]
+#   HASHED              -->
+#   RESERVED if         --> if is a reserved word
+#   NONE     zork       --> zork not found
+# run via an interactive shell, so profiles are in effect.
+#
 sub tryType {
-    # Sample 'whtypeence' responses (MacOS):
-    #     ecmd is [path]
-    #     gitsubs is a shell function from [path]
-    #     ll is an alias for ls -o
-    #     zerg not found
-    #
     my ($login, $interactive, $cmd) = @_;
-    my $shellCmd = "type -w '$cmd'";
+    my $shellCmd = "type '$cmd'";
     my $tail = runShellCommandInRealEnv($login, $interactive, $shellCmd, 1);
-    ($verbose > 1) && warn "'type' got tail: $tail\n";
-    if ($tail =~ m/(.*?) is a shell function from (.*)/) {
-        return "FUNCTION", $2;
-    }
-    if ($tail =~ m/(.*?) is an alias for (.*)/) {
-        return "ALIAS", "";
-    }
-    if ($tail =~ m/(.*?) not found/) {
-        return "NOTFOUND", "";
-    }
-    if ($tail =~ m/(.*?) is (.*)/) {
-        if (-B $2) { return "BINARY", $2; }
-        return "COMMAND", $2;
-    }
-    warn "Cannot understand 'whence' response: $tail.\n";
-    return "NOTFOUND", "";
+    ($verbose > 1) && warn "'$shellCmd' got tail: $tail\n";
+
+    ($tail =~ m/ is an alias for /)              && return "ALIAS", "";
+    ($tail =~ m/ is a shell builtin/)            && return "BUILTIN", "";
+    my $pathPart = $tail;
+    $pathPart =~ s/^\S+ is //;
+    (-x $pathPart)                               && return "COMMAND", $pathPart;
+    ($tail =~ m/ is a shell function from (.*)/) && return "FUNCTION", $1;
+    # HASHED
+    ($tail =~ m/ is a reserved word/)            && return "RESERVED", "";
+    ($tail =~ m/ not found/)                     && return "NONE", "";
+    warn "Cannot understand '$shellCmd' response: $tail.\n";
+    return "NONE", "";
 }
 
+# Sample 'where' responses (MacOS, zsh):
+#   ALIAS    ll: aliased to ls -o
+#   BUILTIN  set: shell built-in command
+#   COMMAND  /usr/bin/cc
+#   FUNCTION gitsubs () { ... }
+#   HASHED
+#   RESERVED if: shell reserved word
+#   NONE     zork not found
+# run via an interactive shell, so profiles are in effect.
+#
+sub tryWhere {
+    my ($login, $interactive, $cmd) = @_;
+    my $shellCmd = "where '$cmd'";
+    my $tail = runShellCommandInRealEnv($login, $interactive, $shellCmd, 1);
+    ($verbose > 1) && warn "'$shellCmd' got tail: $tail\n";
+
+    ($tail =~ m/: aliased to /)             && return "ALIAS", "";
+    ($tail =~ m/: shell built-in command/)  && return "BUILTIN", "";
+    (-x $tail)                              && return "COMMAND", $tail;
+    ($tail =~ m/\S+ \(\) \{/)               && return "FUNCTION", "";
+    # HASHED
+    ($tail =~ m/: shell reserved word/)     && return "RESERVED", "";
+    ($tail =~ m/ not found/)                && return "NONE", "";
+    warn "Cannot understand '$shellCmd' response: $tail.\n";
+    return "NONE", "";
+}
+
+
+###############################################################################
 # Run a command via a shell, and grab the output. This is a bit of a pain
 # because you need to duplicate the user's environment in a new shell, including
 # aliases and other setup. Also, starting a shell may cause other output.
@@ -433,11 +501,9 @@ sub reportType {
     if ($quiet) { return; }
     my $msg = sprintf("'%s' is %s %s. ", $theCmdName, getArticle($typ), $typ);
     if ($file) {
-        $msg .= sprintf("Found at %s (%sopening).\n",
-            $file, $typ eq "binary" ? "not " : "");
-        #if ($line) { $msg .= ", line $line"; }
+        $msg .= "Found at $file\n";
     }
-    print $msg;
+    print "$msg\n";
 }
 
 sub getArticle {
@@ -457,7 +523,7 @@ sub getArticle {
 #     Whether effective user/group id != real user/group id AND -p not set.
 # Of course, the environment could depend on arbitrary logic in profiles....
 #
-# Fill in @profilePaths and @allPAths.
+# Fill in @profilePaths and @allPAths (-v -v to display as we go).
 #
 sub setupPaths {
     @profilePaths = getProfilePaths();
@@ -467,19 +533,19 @@ sub setupPaths {
     if ($ep) {
         @ecmdPaths = split /:/, $ENV{"ECMDPATH"};
     }
-    ($verbose) && warn
+    ($verbose > 1) && warn
         "\n\$ECMDPATH gives:" . fmtList(@ecmdPaths);
 
     @allPaths = (@profilePaths, @ecmdPaths);
-    ($verbose) && warn sprintf(
+    ($verbose > 1) && warn sprintf(
         "profilePaths |%d|, allPaths |%d|\n", scalar @profilePaths, scalar @allPaths);
 
-    ($verbose) && warn
+    ($verbose > 1) && warn
         "\n\@profilePaths for alias/function definitions: " . fmtList(@profilePaths);
 
     my $sjdDir = $ENV{"sjdUtilsDir"};
     if ($sjdDir && -d "$sjdDir/Public") {
-        ($verbose) && warn
+        ($verbose > 1) && warn
             "Adding sjd Utils from '$sjdDir/Public'.\n";
         my $bset = "$sjdDir/Public/*";
         push @allPaths, $bset;
@@ -510,12 +576,12 @@ sub getProfilePaths {
         "$ENV{HOME}/bin/bash_profile", # I keep stuff here so not invisible.
 
     );
-    ($verbose>1) && warn
+    ($verbose > 1) && warn
         "Initial profile paths:" . fmtList(@profilePaths);
 
     # NON-INTERACTIVE (must be expanded; don't use $PATH)
     if (defined $ENV{BASH_ENV}) {
-        ($verbose) && warn "Adding path: '$ENV{BASH_ENV}'\n";
+        ($verbose > 1) && warn "Adding path: '$ENV{BASH_ENV}'\n";
         push @profilePaths, $ENV{BASH_ENV};
     }
     if (defined $ENV{ENV}) { # only if 'sh'
@@ -532,9 +598,9 @@ sub getProfilePaths {
 # Functions to find specific definitions within a file (just use grep).
 #
 my %functionRegexes = (
-    "Python" =>     "^\\s*def\\s+\\w+\\s*\(",
-    "Perl" =>       "^\\s*sub\\s+\\w+\\s*{",
-    "C" =>          "^\\s*(\\w+)\\s*\\*?(\\w+)\\(",
+    "Python" => "^\\s*def\\s+\\w+\\s*\(",
+    "Perl" => "^\\s*sub\\s+\\w+\\s*{",
+    "C" => "^\\s*(\\w+)\\s*\\*?(\\w+)\\(",
 );
 
 sub findProgFunctionDef {
@@ -567,10 +633,10 @@ sub findAliasDef {
 sub findAll {
     my ($regex, $path, $doAllFiles) = @_;
     if ($path) {
-        ($verbose) && print "findAll: Searching in: $path.\n";
+        ($verbose) && warn "findAll: Searching in: $path.\n";
         return getAllLines($path, $regex);
     }
-    ($verbose) && printf("findAll: Searching in %d files.\n",
+    ($verbose) && warn sprintf("findAll: Searching in %d files.\n",
         scalar(@allPaths) + scalar(@profilePaths));
     my @allHitLocs = ();
     for my $curPath (@allPaths) {
@@ -629,6 +695,7 @@ setupPaths();
 
 # This only sets $path for some things (like, not aliases)
 my ($typ, $path) = findType($login, $interactive, $cmd);
+chomp $path;
 
 # Check for alias/shell function first, in case they overrode a name.
 #
@@ -656,20 +723,17 @@ elsif ($typ eq "ALIAS") {
         notFoundMsg($cmd, "ALIAS");
     }
 }
-elsif ($typ eq "BINARY") {
-    reportType($cmd, "BINARY", $path);
-}
 elsif ($typ eq "BUILTIN") {
     reportType($cmd, "BUILTIN", $path);
 }
 elsif ($typ eq "COMMAND") {
-    reportType($cmd, "non-binary COMMAND", $path);
+    reportType($cmd, "COMMAND", $path);
 }
-elsif ($typ eq "HASHED") {
+elsif ($typ eq "HASHED") {  # TODO: Not yet supported
     reportType($cmd, "HASHED", $path);
 }
-elsif ($typ eq "KEYWORD") {
-    reportType($cmd, "reserved shell keyword", "(nothing to edit)");
+elsif ($typ eq "RESERVED") {
+    reportType($cmd, "reserved shell keyword", "");
 }
 elsif ($typ eq "NONE") {
     # Could still be alias/shell function that script doesn't see?
@@ -682,16 +746,21 @@ else {
 
 #warn "Item definition found at '$path'\n";
 
-# If we found it, go edit it.
+# If we found it, go edit it unless it's binary.
 #
-if ($path && $typ ne "BINARY" && $edit) {
-    ($quiet) || printf("  Last modified %3.1f days ago.\n", -M($path));
+if ($path && $edit) {
+    ($quiet) || printf("    Last modified %3.1f days ago.\n", -M($path));
+    if (-B $path) {
+        print("    It's binary, so not editing.\n");
+        exit;
+    }
+
     if (defined $ENV{EDITOR}) {
         my $edcmd = "$ENV{EDITOR} " . lineSeekOption($fndLine) . " $path";
-        ($verbose) && warn "Editing with command: $edcmd\n";
-        system($edcmd) && warn("Failed.\n");
+        ($verbose) && warn "    Editing with command: $edcmd\n";
+        system($edcmd) && warn("    Failed.\n");
     }
     else {
-        warn "Environment variable \$EDITOR is not set. But file is at:\n    $path\n";
+        warn "    Environment variable \$EDITOR is not set. But file is at:\n    $path\n";
     }
 }

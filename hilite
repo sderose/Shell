@@ -36,11 +36,11 @@ using the normal ANSI terminal escapes for color (or by inserting HTML for color
 For example:
 
     hilite -c red/black/bold -e "foo\w*" myFile.txt
-    
+
 highlights all matches to the `-e` regex in bold red on a black background.
 
 B<Note>: Set I<-c> before I<-e>. I<-c> applies to I<following> expressions.
-    
+
 See my `colorNames.pod` for details on my naming conventions for colors and effects
 ([https://github.com/sderose/Color.git/blob/master/colorNames.md]).
 Terminal colors are discussed under C<sjdUtils.pm> and C<terminfo>.
@@ -50,7 +50,7 @@ in the documentation for the I<ColorManager> package.
 You can colorize XML tags pretty accurately with the following command
 (or just use the `--xml` option):
 
-    hilite -c blue -e "</?\w.*?>" myFile.txt -c green -e "<\!--.*?-->" 
+    hilite -c blue -e "</?\w.*?>" myFile.txt -c green -e "<\!--.*?-->"
         -c red -e "<\?.*?\?>" -c white/black -e "&.*?;"
 
 You can generate HTML markup that applies colors, instead of raw ANI terminal
@@ -178,9 +178,9 @@ B<Experimental>.
 
 Instead of inserting ANSI terminal escape sequences to create color, insert HTML markup.
 This inserts outermost "html" and "body" tags (but no DOCTYPE), and inserts "span" tags
-with inline "style" attributes to get colors and effects. 
+with inline "style" attributes to get colors and effects.
 It does not even attempt the "blink", "fblink", or "reverse" effects.
-However, it does accept #RGB colors as well as the usual ANSI names (it does I<not> 
+However, it does accept #RGB colors as well as the usual ANSI names (it does I<not>
 know the other HTML color names, however).
 It doesn't XML-escape the text, so take care of "<" and "&" first if needed.
 
@@ -327,7 +327,7 @@ See my C<prettyPrintXml.py>, C<normalizeXML>, etc. for more precise treatment.
 Overlapping matches may produce interesting highlighting.
 
 The I<--diff> option highlights some lines with ' | ' in them that aren't diffs.
-    
+
 
 =head1 To do
 
@@ -437,10 +437,10 @@ sub hColor {
 #
 
 my $testColor = "red/italic";
-my $cStart = my $testStart = hColor($testColor);
-my $cEnd   = hColor("default");
-($cStart && $cEnd) || die "Unable to set up test color '$testColor'.\n";
+my $testStart = hColor($testColor);
 my $cStart = hColor($curColor);
+my $cEnd = hColor("default");
+($cStart && $cEnd) || die "Unable to set up test color '$testColor'.\n";
 Getopt::Long::Configure ("ignore_case");
 my $haveSeenColorOption = 0;
 
@@ -478,7 +478,7 @@ my $result = GetOptions(
     },
     #"changeColor=s"        => \@changeColor,
     "cols|columns=s"       => sub { push(@columns, [ $curColor, $_[1] ]); },
-    "e|expr=s"             => sub { 
+    "e|expr=s"             => sub {
         $exprs{$_[1]} = $curColor;
         ($verbose && !$haveSeenColorOption) &&
             warn "Did you want to set --color before --expr? Defaulting to '$curColor'.\n";
@@ -573,7 +573,7 @@ sub getStartTag {
             $css .= "font-weight:medium; font-style:normal; font-decoration:none;";
         }
     }
-    
+
     my $tag = sprintf('<span style="%s">', $css);
     ($verbose) && warn(sprintf("Mapping '%s' to %s\n", $colorName, $tag));
     return $tag;
