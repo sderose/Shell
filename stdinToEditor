@@ -1,23 +1,106 @@
 #!/usr/bin/env perl -w
 #
 # stdinToEditor: Pipe stdin straight to an editor.
-#
 # 2007-12-17: Written by Steven J. DeRose.
-# 2008-01-16 sjd: Clean up temp file.
-# 2008-09-23 sjd: Option to choose/keep temp file.
-# 2010-08-10 sjd: perldoc, -k, close ofh. Background the editor.
-# 2010-09-12 sjd: Cleanup.
-# 2012-05-14 sjd: Cleanup.
-# 2015-08-25 sjd: Add --title.
-# 2016-02-24: Add --line and --target.
-#
-# To do:
 #
 use strict;
 use Getopt::Long;
 
-our $VERSION_DATE = "2016-02-24";
+our %metadata = (
+    "title"        => "stdinToEditor",
+    "description"  => "Pipe stdin straight to an editor.",
+    "rightsHolder" => "Steven J. DeRose",
+    "creator"      => "http://viaf.org/viaf/50334488",
+    "type"         => "http://purl.org/dc/dcmitype/Software",
+    "language"     => "Perl 5.18",
+    "created"      => "2007-12-17",
+    "modified"     => "2022-12-08",
+    "publisher"    => "http://github.com/sderose",
+    "license"      => "https://creativecommons.org/licenses/by-sa/3.0/"
+);
+our $VERSION_DATE = $metadata{"modified"};
 
+=pod
+
+=head1 Usage
+
+stdinToEditor [options] [file]
+
+Copies STDIN to a temp file, and launches your $EDITOR
+on it. In other words, lets you pipe straight into your editor.
+
+B<Note>: With a few editors (such as C<bbedit>), you can just pipe into them.
+This script is mainly useful with other editors.
+
+
+=head1 Options
+
+=over
+
+=item * B<--keep>
+
+Don't delete the temp file afterwards.
+
+=item * B<--line> I<n>
+
+After opening, move to line number I<n>.
+I<n> can be given in decimal (999), octal (0777), hex (0xFF), or binary (0b11).
+
+=item * B<--outfile file>
+
+Use this file instead of a temp file.
+
+=item * B<--target> I<regex>
+
+After opening, move to the first line that matches I<regex> (unfinished).
+Only works for C<emacs> at the moment.
+
+=item * B<--title> I<text>
+
+Add a I<-t> I<text> option to the command line invoking the editor.
+
+=item * B<--verbose> OR B<-v>.
+
+Add more messages.
+
+=item * B<--version>
+
+Display version info and exit.
+
+=back
+
+
+=head1 Known bugs and limitations
+
+I<--target> only works for C<emacs> at the moment. Information on how to
+accomplish this with other editors would be welcome.
+
+
+=head1 History
+
+    2007-12-17: Written by Steven J. DeRose.
+    2008-01-16 sjd: Clean up temp file.
+    2008-09-23 sjd: Option to choose/keep temp file.
+    2010-08-10 sjd: perldoc, -k, close ofh. Background the editor.
+    2010-09-12 sjd: Cleanup.
+    2012-05-14 sjd: Cleanup.
+    2015-08-25 sjd: Add --title.
+    2016-02-24: Add --line and --target.
+    2022-12-08: New layout. Non-decimal args.
+
+=head1 Ownership
+
+This work by Steven J. DeRose is licensed under a Creative Commons
+Attribution-Share Alike 3.0 Unported License. For further information on
+this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
+
+For the most recent version, see L<http://www.derose.net/steve/utilities/>.
+
+=cut
+
+
+###############################################################################
+#
 my $keep    = 0;
 my $line    = 0;
 my $outfile = "";
@@ -26,13 +109,11 @@ my $target  = "";
 my $title   = "";
 my $verbose = 0;
 
-# Process options
-#
 Getopt::Long::Configure ("ignore_case");
 my $result = GetOptions(
     "h|help|?"          => sub { system "perldoc $0"; exit; },
     "keep!"             => \$keep,
-	"line|goto-line=n"  => \$line,
+	"line|goto-line=o"  => \$line,
     "outfile=s"         => \$outfile,
     "q|quiet!"          => \$quiet,
     "target=s"          => \$target,
@@ -92,77 +173,3 @@ if (!$keep) {
 else {
     print "stdinToEditor saved input to '$tfile'.\n";
 }
-
-exit;
-
-
-
-###############################################################################
-###############################################################################
-###############################################################################
-#
-
-=pod
-
-=head1 Usage
-
-stdinToEditor [options] [file]
-
-Copies STDIN to a temp file, and launches your $EDITOR
-on it. In other words, lets you pipe straight into your editor.
-
-B<Note>: With a few editors (such as C<bbedit>), you can just pipe into them.
-This script is mainly useful with other editors.
-
-
-=head1 Options
-
-=over
-
-=item * B<--keep>
-
-Don't delete the temp file afterwards.
-
-=item * B<--line> I<n>
-
-After opening, move to line number I<n>.
-
-=item * B<--outfile file>
-
-Use this file instead of a temp file.
-
-=item * B<--target> I<regex>
-
-After opening, move to the first line that matches I<regex> (unfinished).
-Only works for C<emacs> at the moment.
-
-=item * B<--title> I<text>
-
-Add a I<-t> I<text> option to the command line invoking the editor.
-
-=item * B<--verbose> OR B<-v>.
-
-Add more messages.
-
-=item * B<--version>
-
-Display version info and exit.
-
-=back
-
-
-=head1 Known bugs and limitations
-
-I<--target> only works for C<emacs> at the moment. Information on how to
-accomplish this with other editors would be welcome.
-
-
-=head1 Ownership
-
-This work by Steven J. DeRose is licensed under a Creative Commons
-Attribution-Share Alike 3.0 Unported License. For further information on
-this license, see L<http://creativecommons.org/licenses/by-sa/3.0/>.
-
-For the most recent version, see L<http://www.derose.net/steve/utilities/>.
-
-=cut
