@@ -18,32 +18,35 @@ our %metadata = (
     'type'         => "http://purl.org/dc/dcmitype/Software",
     'language'     => "Perl 5.18",
     'created'      => "2006-11-03",
-    'modified'     => "2022-02-14",
+    'modified'     => "2022-12-16",
     'publisher'    => "http://github.com/sderose",
     'license'      => "https://creativecommons.org/licenses/by-sa/3.0/"
 );
 our $VERSION_DATE = $metadata{'modified'};
 
-
 =pod
 
 =head1 Usage
 
-Prints the file(s), or STDIN if no files are specified,
+Prints the file(s), or STDIN if no files are specified (or with --text,
+text from the command line),
 colorizing matches to any regex(es) specified,
 using the normal ANSI terminal escapes for color (or by inserting HTML for colors).
 
-For example:
+For example, to highlights all matches to the `-e` regex, from an input file,
+in bold red on a black background.
 
     hilite -c red/black/bold -e "foo\w*" myFile.txt
 
-highlights all matches to the `-e` regex in bold red on a black background.
-
 B<Note>: Set I<-c> before I<-e>. I<-c> applies to I<following> expressions.
 
-See my `colorNames.pod` for details on my naming conventions for colors and effects
-([https://github.com/sderose/Color.git/blob/master/colorNames.md]).
-Terminal colors are discussed under C<sjdUtils.pm> and C<terminfo>.
+To hilight all of "hello" in bold magenta, and send it to STDERR do this (or
+see C<colorstring>):
+
+    hilite --warn -c magenta/bold --text hello
+
+See my `colorNames.md` for details on my naming conventions for colors and
+effects. Terminal colors are discussed under C<sjdUtils.pm> and C<terminfo>.
 The color and effect names are described under I<--color> below, and
 in the documentation for the I<ColorManager> package.
 
@@ -362,6 +365,7 @@ Drop --useHtml. Redo --changeColor locally.
     2018-09-17: Fix accidentally hard-coded 'red'.
     2021-06-25: New layout.
     2022-02-14: Implement most of --useHtml. Add #comment and !COLOR to --file.
+    2022-12-16: Move options closer to colorstring to be less confusing.
 
 
 =head1 Ownership
@@ -381,61 +385,50 @@ For the most recent version, see L<http://www.derose.net/steve/utilities/>.
 #
 my @changeColor = ();        # Color-name remapping.
 my @columns     = ();        # Array of [ color, colspec ] pairs.
-my $curColor 	= "red";
-my %exprs 		= ();        # expressions to hilite => colorName
-my $file 		= "";        # load expressions from a file
-my $fixBars 	= 0;         # try harder to detect real diff change-lines
+my $curColor    = "red";
+my %exprs       = ();        # expressions to hilite => colorName
+my $file        = "";        # load expressions from a file
+my $fixBars     = 0;         # try harder to detect real diff change-lines
 our $ignoreCase = 1;         # ignore case for all -e exprs.
 my $listColors  = 0;
-my $only 		= 0;
-my $quiet 		= 0;
-my $test 		= 0;
+my $only        = 0;
+my $quiet       = 0;
+my $test        = 0;
+my $text        = 0;         # Take input from command line, not file/stdin.
 my $untabify    = 0;
 my $useHtml     = 0;
-my $verbose 	= 0;
-my $waitFor 	= "";
-my $wholeLines 	= 0;
+my $verbose     = 0;
+my $waitFor     = "";
+my $warn        = 0;         # Output to stderr
+my $wholeLines  = 0;
 
 # Option flags for pre-defined expression sets
 #
 my $predefined_cvsstatus = 0;
-my $predefined_diff 	 = 0;
+my $predefined_diff      = 0;
 my $predefined_entities  = 0;
-my $predefined_err 		 = 0;
-my $predefined_gi 		 = 0;
+my $predefined_err       = 0;
+my $predefined_gi        = 0;
 my $predefined_htmlstyle = 0;
-my $predefined_man 		 = 0;
-my $predefined_ns 		 = 0;
+my $predefined_man       = 0;
+my $predefined_ns        = 0;
 my $predefined_nonascii  = 0;
 my $predefined_pylint    = 0;
-my $predefined_regex 	 = 0;
-my $predefined_tag 		 = 0;
-my $predefined_uri 		 = 0;
-my $predefined_xml 		 = 0;
-my $predefined_css 		 = 0;
-my @predefined_aname 	 = ();
-my @predefined_avalue 	 = ();
+my $predefined_regex     = 0;
+my $predefined_tag       = 0;
+my $predefined_uri       = 0;
+my $predefined_xml       = 0;
+my $predefined_css       = 0;
+my @predefined_aname     = ();
+my @predefined_avalue    = ();
 
 #alogging::vMsg(1, "hilite calling sjdUtils::setColors().");
 sjdUtils::setColors(1);
-
 ColorManager::setColors(1);
 my %hColorOverrides = ();
 
-sub hColor {
-    my ($name) = @_;
-    if ($hColorOverrides{$name}) {
-        alogging::vMsg(2, "Using override for '$name'.\n");
-        return $hColorOverrides{$name};
-    }
-    my $cstr = ColorManager::getColorString($name); # undef on fail
-    #vMsg(2, "Setting up color '$name', got " . sjdUtils::showInvisibles($cstr) . ".\n");
-    return $cstr;
-}
-
 # Set up color table before handling options, so we can error-check "-c".
 #
-
 my $testColor = "red/italic";
 my $testStart = hColor($testColor);
 my $cStart = hColor($curColor);
@@ -448,6 +441,7 @@ my $result = GetOptions(
     # Predefined target expressions
     "aname=s"      => \@predefined_aname,
     "avalue=s"     => \@predefined_avalue,
+    "css!"         => \$predefined_css,
     "cvsstatus!"   => \$predefined_cvsstatus,
     "diff!"        => \$predefined_diff,
     "entities!"    => \$predefined_entities,
@@ -462,7 +456,6 @@ my $result = GetOptions(
     "tag=s"        => \$predefined_tag,
     "uri!"         => \$predefined_uri,
     "xml!"         => \$predefined_xml,
-    "css!"         => \$predefined_css,
 
     # Other options
     "c|color=s"    => sub {
@@ -484,7 +477,7 @@ my $result = GetOptions(
             warn "Did you want to set --color before --expr? Defaulting to '$curColor'.\n";
     },
     "file=s"               => sub {
-        (-f $_[1]) || die "Can't find file for -f $_[1].\n";
+        (-f $_[1]) || die "Can't find file of expressions for -f $_[1].\n";
         open F, "<$_[1]";
         my $nf = 0;
         while (my $rec = <F>) {
@@ -503,14 +496,30 @@ my $result = GetOptions(
     "q|quiet!"             => \$quiet,
     "r|regardCase!"        => sub { $ignoreCase = 0; },
     "test|dry-run|dryrun!" => \$test,
+    "text|msg|message!"    => \$text,
     "u|untabify|expand=o"  => \$untabify,
     "useHtml!"             => \$useHtml,
     "v|verbose+"           => \$verbose,
     "version"              => sub {
         die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
     },
-	"waitFor=s"            => \$waitFor,
+    "waitFor=s"            => \$waitFor,
+    "warn!"                => \$warn,
 );
+
+alogging::setLogVerbose($verbose);
+
+sub hColor {
+    my ($name) = @_;
+    #alogging::vMsg(2, "hColor: got request for color '$name'.");
+    if ($hColorOverrides{$name}) {
+        alogging::vMsg(2, "Using override for '$name'.\n");
+        return $hColorOverrides{$name};
+    }
+    my $cstr = ColorManager::getColorString($name); # undef on fail
+    #vMsg(2, "Setting up color '$name', got " . sjdUtils::showInvisibles($cstr) . ".\n");
+    return $cstr;
+}
 
 if ($verbose) {
     warn("\n******* Color/expression map *******\n");
@@ -547,16 +556,20 @@ my %effects = (
     "plain"      => 0,  # (can be used to express "no special effect")
 );
 
-# TODO: Move this into colorstring?
+
+###############################################################################
+# TODO: Move this into ColorManager?
+#
+my $colorExpr = '^#([0-9a-f][0-9a-f]){1,3}$';  # 2/4/6 hex digits for RGB
 #
 sub getStartTag {
     my ($colorName) = @_;
     my $css = "";
     my @c = split(/\//, $colorName);
-    if ($c[0] && (defined $colors{$c[0]} or $c[0] =~ m/^#([0-9a-f][0-9a-f]){1,3}$/)) {
+    if ($c[0] && (defined $colors{$c[0]} or $c[0] =~ m/$colorExpr/i)) {
         $css .= "color:" . $c[0] . ";";
     }
-    if ($c[1] && (defined $colors{$c[1]} or $c[1] =~ m/^#([0-9a-f][0-9a-f]){1,3}$/)) {
+    if ($c[1] && (defined $colors{$c[1]} or $c[1] =~ m/$colorExpr/i)) {
         $css .= "background:" . $c[1] . ";";
     }
     if ($c[2] && defined $effects{$c[2]}) {
@@ -566,6 +579,7 @@ sub getStartTag {
         elsif ($c[2] eq "underline") { $css .= "font-decoration:underline;"; }
         #elsif ($c[2] eq "blink")     { $css .= ""; }
         #elsif ($c[2] eq "fblink")    { $css .= ""; }
+        # https://stackoverflow.com/questions/17741629/how-can-i-invert-color-using-css
         #elsif ($c[2] eq "reverse")   { $css .= ""; }
         elsif ($c[2] eq "concealed") { $css .= "display:none;"; }
         elsif ($c[2] eq "strike")    { $css .= "text-decoration-line:line-through;"; }
@@ -675,12 +689,45 @@ if (!$quiet) { showSetup(); }
 my $tfile = "/tmp/hilite.txt_" . int(rand(100000));
 
 my $doneWaitingFor = 0;
-($useHtml) && print("<html>\n<head>\n<title></title>\n$headCSS</head>\n<body>");
+($useHtml) && issueLine("<html>\n<head>\n<title></title>\n$headCSS</head>\n<body>");
 
-while (my $line = <>) {
+if ($text) {
+    doLine(join(" ", @ARGV) . "\n");
+}
+else {
+    while (my $rec = <>) {
+        doLine($rec);
+    }
+}
+
+($useHtml) && issueLine("</body>\n</html>");
+
+system "rm $tfile 2>/dev/null";
+
+exit;
+
+
+###############################################################################
+#
+sub issueLine {
+    my ($line) = @_;
+    if ($warn) { warn $line . "\n"; }
+    else { print $line . "\n"; }
+}
+
+sub doLine {
+    my ($line) = @_;
     my $gotit = 0;
+
+    chomp $line;
+
     if (0 && $untabify) {
         $line = Text::Tabs::expand($line);
+    }
+
+    if (scalar %exprs == 0) {
+        issueLine("$cStart$line$cEnd");  # $color2esc{$curColor}
+        return;
     }
 
     if ($wholeLines) { # stop at first match per line
@@ -720,23 +767,17 @@ while (my $line = <>) {
         else { next; }
     }
     if ($only == 0 || $gotit) {
-        print $line;
+        issueLine $line;
     }
-} # while
-
-($useHtml) && print("</body>\n</html>\n");
-
-system "rm $tfile 2>/dev/null";
-
-exit;
+}
 
 
 ###############################################################################
 # Report the setup (*** fix to show colors, too ***)
 #
 sub showSetup {
-    ((scalar keys %exprs) > 0) || ($test) ||
-        die "hilite: No regexes specified.\n";
+    ((scalar keys %exprs) > 0) || ($test) || ($quiet) ||
+        warn "hilite: No regexes specified (see -e and -f).\n";
 
     if ($verbose || $test) {
         my @ekeys = keys %exprs;
