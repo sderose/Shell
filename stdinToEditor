@@ -152,7 +152,7 @@ if ($line) {
 	$cmd .= " +$line";
 }
 if ($target) {
-	if ($ENV{EDITOR} == "emacs") {
+	if ($ENV{EDITOR} eq "emacs") {
 		$cmd .= " --eval \"(isearch-forward-regexp '$target')\"";
 	}
 	else {
