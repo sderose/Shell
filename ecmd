@@ -48,10 +48,11 @@ the definition, and your \$EDITOR should open to the correct line.
 
 To search extra files that define aliases or shell functions (perhaps that are
 sourced from .bash_profile, .zprofile, etc...), list them in
-environment variable C<\$ECMDPATH>, separated by colons like with \$PATH.
+environment variable C<\$ECMDFILES>, separated by colons like with \$PATH
+(except that these should be specific files, not directories).
 Or specify them with the (repeatable) I<--addProfile> option.
 
-Use I<-v> to see a list of all the places to be searched.
+Use I<-v> to see a list of all the places to be searched (repeatable).
 
 This script was originally written for use with C<bash>, but has been updated
 to also handle zsh (such as knowing which profile files to look at).
@@ -71,7 +72,7 @@ Add the file at I<path> to (the end of) the list of places to look for
 definitions of aliases and shell functions. Repeatable.
 The usual suspects, such as F<.bash_profile>, F<.bashrc>, etc.
 are already covered (use C<-v> for a list).
-You can also/instead set environment variable C<\$ECMDPATH>.
+You can also/instead set environment variable C<\$ECMDFILES>.
 
 =item * B<--edit>
 
@@ -111,7 +112,9 @@ Does not check all possible places that an alias or shell function
 could be defined. In particular, does not consider files invoked by a
 setup file, or cases where a setup file defines different things in different
 situations. However, you can add such files by adding them in environment variable
-C<$ECMDPATH> or option C<--addProfile>.
+C<$ECMDFILES> or option C<--addProfile>.
+
+Does not (yet) have an option to keep looking, to find more than one possibility.
 
 Does not expand C<\$BASH_ENV> or C<\$ENV> before trying it as a path.
 
@@ -238,6 +241,9 @@ hands back path info more often.
 =item * 2022-12-01: Refactor and clean use of whence/type/which/where.
 Show specific sample outputs for each. Clean up category names. Test.
 
+=item * 2023-05-10: Introduce warn\d(). Fix alias and shell functions losing
+line numbers. Add getShell(). Rename $ECMDPATHS to $ECMDFILES. Add --all.
+
 =back
 
 
@@ -257,6 +263,7 @@ or L<http://github.com/sderose>.
 ###############################################################################
 # Options
 #
+my $doAllFiles    = 0;
 my @addProfile    = ();
 my $edit          = 1;
 my $interactive   = 1;
@@ -266,6 +273,7 @@ my $verbose       = 0;
 
 my %getoptHash = (
     "addProfile=s"    => \@addProfile,
+    "all!"            => \$doAllFiles,
     "edit!"           => \$edit,
     "h|help"          => sub { system "perldoc $0"; exit; },
     "interactive!"    => \$interactive,
@@ -289,9 +297,9 @@ my @allPaths;      # Paths to other scripts, from $ECMD_PATH and --addProfile
 my @profilePaths;  # Paths to standard bash and zsh .-files
 
 my %lineSeekPrefix = (  # lookups are via lowercased name
-    'emacs'  		=> '+',
-    'vi'	    	=> '+',
-    'pico'		    => '+',
+    'emacs'         => '+',
+    'vi'            => '+',
+    'pico'          => '+',
     'gedit'         => '+',
     'bbedit'        => '+',
     'xedit'         => '+',
@@ -300,16 +308,21 @@ my %lineSeekPrefix = (  # lookups are via lowercased name
 );
 
 sub lineSeekOption {
-    my ($editorName, $fndLine) = @_;
-    (!$fndLine) && return '';
+    my ($editorName, $foundLineNum) = @_;
+    ($foundLineNum) || return '';
     (defined $lineSeekPrefix{lc($editorName)}) || return '';
-    return $lineSeekPrefix{lc($editorName)} . $fndLine;
+    return $lineSeekPrefix{lc($editorName)} . $foundLineNum;
 }
 
 sub fmtList {
     my (@theList) = @_;
     return "\n    " . join("\n    ", @theList) | "\n";
 }
+
+sub warn0 { warn(join("", @_) . "\n"); }
+sub warn1 { ($verbose >= 1) && warn(join("", @_) . "\n"); }
+sub warn2 { ($verbose >= 2) && warn(join("", @_) . "\n"); }
+sub warn3 { ($verbose >= 3) && warn(join("", @_) . "\n"); }
 
 
 ###############################################################################
@@ -337,9 +350,11 @@ sub findType {
     my ($login, $interactive, $cmd) = @_;
 
     my ($typeEnum, $path) = tryWhence($login, $interactive, $cmd);
+    warn2("tryWhence for '$cmd' got type '$typeEnum', path '$path/'.");
     if ($typeEnum eq "NONE") {
         ($typeEnum, $path) = tryType($login, $interactive, $cmd);
     }
+    warn2("tryType for '$cmd' got type '$typeEnum', path '$path/'.");
     # TODO: Maybe add tryWhich, tryWhere.
 
     # Try manual search in the usual suspects
@@ -348,7 +363,7 @@ sub findType {
     #}
     defined ($typeNames{$typeEnum}) || die
         "Unexpected type '$typeEnum'.\n";
-    ($verbose) && warn "Type: '$typeEnum'. Path: '$path'\n";
+    warn1("Type: '$typeEnum'. Path: '$path'");
     return $typeEnum, $path;
 }
 
@@ -366,7 +381,7 @@ sub tryWhence {
     my ($login, $interactive, $cmd) = @_;
     my $shellCmd = "whence -w '$cmd'";
     my $tail = runShellCommandInRealEnv($login, $interactive, $shellCmd, 1);
-    ($verbose > 1) && warn "'$shellCmd' got: $tail\n";
+    warn2("'$shellCmd' got: $tail");
 
     ($tail =~ m/: alias/)    && return "ALIAS", "";
     ($tail =~ m/: builtin/)  && return "BUILTIN", "";
@@ -375,7 +390,7 @@ sub tryWhence {
     # HASHED
     ($tail =~ m/: reserved/) && return "RESERVED", "";
     ($tail =~ m/: none/)     && return "NONE", "";
-    warn "Cannot understand '$shellCmd' response:\n    $tail\n";
+    warn0("Cannot understand '$shellCmd' response:\n    $tail");
     return "NONE", "";
 }
 
@@ -393,7 +408,7 @@ sub tryWhich {
     my ($login, $interactive, $cmd) = @_;
     my $shellCmd = "which '$cmd'";
     my $tail = runShellCommandInRealEnv($login, $interactive, $shellCmd, 1);
-    ($verbose > 1) && warn "'$shellCmd' got tail: $tail\n";
+    warn2("'$shellCmd' got tail: $tail");
 
     ($tail =~ m/: aliased to /)             && return "ALIAS", "";
     ($tail =~ m/: shell built-in command/)  && return "BUILTIN", "";
@@ -402,7 +417,7 @@ sub tryWhich {
     # HASHED
     ($tail =~ m/: shell reserved word/)     && return "RESERVED", "";
     ($tail =~ m/^$/)                        && return "NONE", "";
-    warn "Cannot understand '$shellCmd' response: $tail.\n";
+    warn0("Cannot understand '$shellCmd' response: $tail.");
     return "NONE", "";
 }
 
@@ -420,7 +435,7 @@ sub tryType {
     my ($login, $interactive, $cmd) = @_;
     my $shellCmd = "type '$cmd'";
     my $tail = runShellCommandInRealEnv($login, $interactive, $shellCmd, 1);
-    ($verbose > 1) && warn "'$shellCmd' got tail: $tail\n";
+    warn2("'$shellCmd' got tail: $tail");
 
     ($tail =~ m/ is an alias for /)              && return "ALIAS", "";
     ($tail =~ m/ is a shell builtin/)            && return "BUILTIN", "";
@@ -431,7 +446,7 @@ sub tryType {
     # HASHED
     ($tail =~ m/ is a reserved word/)            && return "RESERVED", "";
     ($tail =~ m/ not found/)                     && return "NONE", "";
-    warn "Cannot understand '$shellCmd' response: $tail.\n";
+    warn0("Cannot understand '$shellCmd' response: $tail.");
     return "NONE", "";
 }
 
@@ -449,7 +464,7 @@ sub tryWhere {
     my ($login, $interactive, $cmd) = @_;
     my $shellCmd = "where '$cmd'";
     my $tail = runShellCommandInRealEnv($login, $interactive, $shellCmd, 1);
-    ($verbose > 1) && warn "'$shellCmd' got tail: $tail\n";
+    warn2("'$shellCmd' got tail: $tail");
 
     ($tail =~ m/: aliased to /)             && return "ALIAS", "";
     ($tail =~ m/: shell built-in command/)  && return "BUILTIN", "";
@@ -458,7 +473,7 @@ sub tryWhere {
     # HASHED
     ($tail =~ m/: shell reserved word/)     && return "RESERVED", "";
     ($tail =~ m/ not found/)                && return "NONE", "";
-    warn "Cannot understand '$shellCmd' response: $tail.\n";
+    warn0("Cannot understand '$shellCmd' response: $tail.");
     return "NONE", "";
 }
 
@@ -468,6 +483,14 @@ sub tryWhere {
 # because you need to duplicate the user's environment in a new shell, including
 # aliases and other setup. Also, starting a shell may cause other output.
 #
+sub getShell {
+    # Ideally, this should return the CURRENT shell, not the default.
+    # But that's hard (see my 'whichShell' script).
+    my $shPath = $ENV{SHELL};
+    $shPath =~ s|.*/||;
+    return $shPath;
+}
+
 sub runShellCommandInRealEnv {
     my ($login, $interactive, $shellCmd, $nTail) = @_;
     my $toRun = "";
@@ -482,14 +505,14 @@ sub runShellCommandInRealEnv {
     else {  # bash
         $toRun = "type -w '$shellCmd' 2>/dev/null >$tmpFile";
     }
-    ($verbose > 1) && warn "Running: $toRun\n";
+    warn2("Running: $toRun");
     my $cruft = `$toRun`;
-    ($verbose > 1) && warn "### Result: <<<\n$cruft>>>\n";
+    warn3("### Result: <<<\n$cruft>>>");
 
     my $tailLines = `cat $tmpFile`;
     ($tailLines) || die "No output from '$toRun'.\n";
     chomp $tailLines;
-    ($verbose > 1) && warn "### Last $nTail lines: <<<\n    $tailLines>>>\n";
+    warn2("### Last $nTail lines: <<<\n    $tailLines>>>");
     return $tailLines;
 }
 
@@ -501,7 +524,7 @@ sub reportType {
     if ($quiet) { return; }
     my $msg = sprintf("'%s' is %s %s. ", $theCmdName, getArticle($typ), $typ);
     if ($file) {
-        $msg .= "Found at $file\n";
+        $msg .= "Found at $file, line $line.\n";
     }
     print "$msg\n";
 }
@@ -515,81 +538,76 @@ sub getArticle {
 ###############################################################################
 # Places to look for startup/profile files
 #
-# The bash sequence depends on:
-#     Bash options --login, --noprofile, --rcfile, --norc, -c, -i
-#     Whether the shell is interactive and/or login
-#     Whether the shell was invoked as 'bash' or 'sh'
-#     Environment variable $BASH_ENV or $ENV
-#     Whether effective user/group id != real user/group id AND -p not set.
-# Of course, the environment could depend on arbitrary logic in profiles....
-#
-# Fill in @profilePaths and @allPAths (-v -v to display as we go).
-#
 sub setupPaths {
     @profilePaths = getProfilePaths();
 
-    my $ep = $ENV{"ECMDPATH"};
-    my @ecmdPaths = ();
+    my $ep = $ENV{"ECMDFILES"};
+    my @ECMDFILES = ();
     if ($ep) {
-        @ecmdPaths = split /:/, $ENV{"ECMDPATH"};
+        @ECMDFILES = split /:/, $ENV{"ECMDFILES"};
     }
-    ($verbose > 1) && warn
-        "\n\$ECMDPATH gives:" . fmtList(@ecmdPaths);
+    warn3("\nEnv var \$ECMDFILES gives:" . fmtList(@ECMDFILES));
 
-    @allPaths = (@profilePaths, @ecmdPaths);
-    ($verbose > 1) && warn sprintf(
-        "profilePaths |%d|, allPaths |%d|\n", scalar @profilePaths, scalar @allPaths);
+    @allPaths = (@profilePaths, @ECMDFILES);
+    warn2(sprintf(
+        "profilePaths |%d|, allPaths |%d|\n", scalar @profilePaths, scalar @allPaths));
 
-    ($verbose > 1) && warn
-        "\n\@profilePaths for alias/function definitions: " . fmtList(@profilePaths);
+    warn2("\n\@profilePaths for alias/function definitions: " . fmtList(@profilePaths));
 
     my $sjdDir = $ENV{"sjdUtilsDir"};
     if ($sjdDir && -d "$sjdDir/Public") {
-        ($verbose > 1) && warn
-            "Adding sjd Utils from '$sjdDir/Public'.\n";
+        warn2("Adding sjd Utils from '$sjdDir/Public'.\n");
         my $bset = "$sjdDir/Public/*";
         push @allPaths, $bset;
     }
 }
 
 sub getProfilePaths {
-    my $profile = "$ENV{HOME}/.bash_profile";
+    my $HOME = $ENV{HOME};
+    my $profile = "$HOME/.bash_profile";
 
-    # Test current shell first, and just add the needed ones? Or is it better
-    # to try all, so we can report other places the user may want?
-    #
-    my @profilePaths = (
-        "$ENV{HOME}/.zshenv",
-        "$ENV{HOME}/.zzprofile",
-        "$ENV{HOME}/.zshenv",
+    my @profilePaths = ();
+    my $whichShell = getShell();
 
-        # For bash (
-        # INTERACTIVE NON-LOGIN (or non-interactive with --login):
-        "/etc/profile",                # 1: system-wide startup
-        "$ENV{HOME}/.bash_profile",    # 2a: personal init
-        "$ENV{HOME}/.bash_login",      # 2b: personal init
-        "$ENV{HOME}/.profile",         # 2c: personal init
-        #"$ENV{HOME}/bin/bash_profile", # 2d: Author's convention
-        # INTERACTIVE NON-LOGIN:
-        "/etc/bash.bashrc",            # system-wide init
-        "$ENV{HOME}/.bashrc",          # personal init
-        "$ENV{HOME}/bin/bash_profile", # I keep stuff here so not invisible.
-
-    );
-    ($verbose > 1) && warn
-        "Initial profile paths:" . fmtList(@profilePaths);
-
-    # NON-INTERACTIVE (must be expanded; don't use $PATH)
-    if (defined $ENV{BASH_ENV}) {
-        ($verbose > 1) && warn "Adding path: '$ENV{BASH_ENV}'\n";
-        push @profilePaths, $ENV{BASH_ENV};
+    if ($whichShell eq "zsh") {
+        @profilePaths = (
+            "/etc/zshenv",             # All
+            "$HOME/.zshenv",
+            "/etc/zprofile",           # Login
+            "$HOME/.zprofile",
+            "/etc/zshrc",              # Interactive
+            "$HOME/.zshrc",
+            "/etc/zlogin",             # Login
+            "$HOME/.zlogin",
+        );
     }
+    elsif ($whichShell eq "bash") {
+        @profilePaths = (
+            "/etc/profile",             #
+            "$HOME/.bash_profile",      #
+            "$HOME/.bash_login",        #
+            "$HOME/.profile",           #
+            "/etc/bash.bashrc",         # Interactive
+            "$HOME/.bashrc",            # Interactive
+        );
+        if (defined $ENV{BASH_ENV}) {
+            warn2("Adding path: '$ENV{BASH_ENV}'");
+            push @profilePaths, $ENV{BASH_ENV};
+        }
+    }
+    else {
+        warn0("Unknown shell '$whichShell'.");
+    }
+
     if (defined $ENV{ENV}) { # only if 'sh'
         push @profilePaths, $ENV{ENV};
     }
+
     if (@addProfile) {
         push @profilePaths, @addProfile;
     }
+    #warn2("Profiles to search:" . fmtList(@profilePaths));
+
     return @profilePaths;
 }
 
@@ -597,32 +615,18 @@ sub getProfilePaths {
 ###############################################################################
 # Functions to find specific definitions within a file (just use grep).
 #
+# TODO: Perhaps add option to find class/function defs in prog langs
 my %functionRegexes = (
-    "Python" => "^\\s*def\\s+\\w+\\s*\(",
-    "Perl" => "^\\s*sub\\s+\\w+\\s*{",
-    "C" => "^\\s*(\\w+)\\s*\\*?(\\w+)\\(",
+    "bash"       => "^\\s*(\\w+)\\s*{",
+    "C"          => "^\\s*(\\w+)\\s*\\*?(\\w+)\\(",
+    "javascript" => "^\\s*function\\s+(\\w+)\\s*\(",
+    "Perl"       => "^\\s*sub\\s+\\w+\\s*{",
+    "Python"     => "^\\s*def\\s+\\w+\\s*\(",
+    "Ruby"       => "^\\s*def\\s+\\w+\\s*\(?",
+    "Scheme"     => "^\\s*\\(defun\\s",
+    "XSLT"       => "^\\s*(<xsl:function\\s",
+    # Java PHP C++ C# Rust PS SQL Ruby swift
 );
-
-sub findProgFunctionDef {
-    my ($cmd, $path) = @_;
-    my @hitLocs = ();
-    for my $lg (keys(%functionRegexes)) {
-        push (@hitLocs, findAll($functionRegexes{$lg}, $path));
-    }
-    return @hitLocs;
-}
-
-sub findFunctionDef {
-    my ($funcName, $path) = @_;
-    my @hitLocs = findAll("^ *$funcName()\\s{", $path);
-    return @hitLocs;
-}
-
-sub findAliasDef {
-    my ($cmd, $path) = @_;
-    my @hitLocs = findAll("^\\s*alias\\s+$cmd+=", $path);
-    return @hitLocs;
-}
 
 # Search for a given regex in a path somebody else found already,
 # or if that's nil then search all the files in passed lists.
@@ -630,45 +634,82 @@ sub findAliasDef {
 # or if $doAllFiles is set then all the hits in all the files.
 # Returns: a list of path:lineNum strings (as from grep).
 #
-sub findAll {
-    my ($regex, $path, $doAllFiles) = @_;
-    if ($path) {
-        ($verbose) && warn "findAll: Searching in: $path.\n";
-        return getAllLines($path, $regex);
-    }
-    ($verbose) && warn sprintf("findAll: Searching in %d files.\n",
-        scalar(@allPaths) + scalar(@profilePaths));
+sub findInProfiles {
+    my ($regex, $path) = @_;
     my @allHitLocs = ();
-    for my $curPath (@allPaths) {
-        my @hitLocs = getAllLines($curPath, $regex);
-        if (scalar @hitLocs == 0) { next; }
-        push(@allHitLocs, @hitLocs);
-        if (! $doAllFiles) { last; }
+    if ($path) {
+        warn1("findInProfiles: Searching only in path: $path.");
+        my $hitLocsRef = getAllLines($path, $regex);
+        push(@allHitLocs, @{$hitLocsRef});
     }
-    for my $curPath (@profilePaths) {
-        my @hitLocs = getAllLines($curPath, $regex);
-        if (scalar @hitLocs == 0) { next; }
-        push(@allHitLocs, @hitLocs);
-        if (! $doAllFiles) { last; }
+    else {
+        warn1(sprintf("findInProfiles: Searching in %d setup files.", scalar(@allPaths)));
+        foreach my $curPath (@allPaths) {
+            my $hitLocsRef = getAllLines($curPath, $regex);
+            my $nHitLocs = scalar @{$hitLocsRef};
+            if ($nHitLocs == 0) {
+                warn3("    0 hits in '$curPath'");
+                next;
+            }
+            else {
+                warn1(sprintf("    %d hits in '%s', first line %d", $nHitLocs,
+                    $curPath, ($nHitLocs) ? $hitLocsRef->[0] : -1));
+                push(@allHitLocs, "$curPath:" . $hitLocsRef->[0]);
+            }
+            if (scalar @allHitLocs && !$doAllFiles) { last; }
+        }
     }
     return(\@allHitLocs);
 }
 
-# Return array of lines matching the regex.
+sub findAlongPath {  # TODO Finish and hook up if needed
+    my ($regex, $path) = @_;
+    my @allHitLocs = ();
+    warn3(sprintf("findAlongPath: Searching in %d PATH entries for '%s'.", $regex));
+    foreach my $curPath (split($ENV{PATH}, ":")) {
+        warn2("Calling getAllHits to find /$regex/ in '$curPath'.");
+        die "Not yet supported";
+        my @hitLocs = `grep -n '$regex' $curPath/*`;
+        my $nHitLocs = scalar @hitLocs;
+        warn2("    $nHitLocs hits in '$curPath'");
+        if ($nHitLocs == 0) { next; }
+        push(@allHitLocs, @hitLocs);
+        if (scalar @allHitLocs && !$doAllFiles) { last; }
+    }
+    return(\@allHitLocs);
+}
+
+# Return ->array of lines matching the regex.
 #
 sub getAllLines {
     my ($file, $regex) = @_;
-    (-r $file) || return("");
-    ($verbose) && warn "getAllLines: grepping in '$file'.\n";
     my @hitLocs = ();
-    my $buf = `grep -r -n '$regex' $file`;
-    ($verbose) && warn "$file:\n    ++>$buf\n";
-    if ($buf =~ m/^(\d+):/) {
-        for my $line (split(/\n/, $buf)) {
-            push @hitLocs, $line =~ s/(^[^:]*:[^:]*):.*/$1/;
+    if (! -f $file) {
+        warn3("File not found: '$file'.");
+        return(\@hitLocs);
+    }
+    warn3("grepping in: '$file'.");
+    my @bufLines = `grep -n '$regex' $file`;
+    if ($? == 256) {
+        # No hits
+    }
+    elsif ($? > 0 && $? != 256) {
+        warn3("grep failed, rc $?");
+    }
+    else {
+        warn3(sprintf("grep got %d hits:\n    %s", scalar @bufLines,
+            join("\n    ", @bufLines)));
+        foreach my $hit (@bufLines) {
+            if ($hit =~ m/^ *(\d+):/) {
+                my $lineNum = $1;
+                push @hitLocs, $lineNum;
+            }
+            else {
+                warn0("Unexpected grep result line: $hit");
+            }
         }
     }
-    return(@hitLocs);
+    return(\@hitLocs);
 }
 
 sub notFoundMsg {
@@ -683,7 +724,7 @@ sub notFoundMsg {
 # Main
 #
 my $cmd = $ARGV[0];
-my $fndLine = 1;
+my $foundLineNum = 1;
 
 # Warn about environment issues
 #
@@ -696,15 +737,17 @@ setupPaths();
 # This only sets $path for some things (like, not aliases)
 my ($typ, $path) = findType($login, $interactive, $cmd);
 chomp $path;
+warn1("Initial findType() says type '$typ', path '$path'.\n");
 
-# Check for alias/shell function first, in case they overrode a name.
-#
 if ($typ eq "FUNCTION") {
-    my @hitLocs = findAll("^ *$cmd()\\s{", $path);
-    if (scalar @hitLocs) {
-        for my $hitLoc (@hitLocs) {
-            $hitLoc =~ s/.*://;
-            reportType($cmd, "FUNCTION", $path, $hitLoc);
+    my $hitLocsRef = findInProfiles("^ *$cmd()\\s{", $path);
+    if (scalar @{$hitLocsRef}) {
+        foreach my $hitLoc (@{$hitLocsRef}) {
+            $hitLoc =~ m/(.*):(.*)/;
+            $path = $1;
+            $foundLineNum = $2;
+            warn2("Reporting $hitLoc --> $1, $2.");
+            reportType($cmd, "FUNCTION", $1, $foundLineNum);
         }
     }
     else {
@@ -712,11 +755,14 @@ if ($typ eq "FUNCTION") {
     }
 }
 elsif ($typ eq "ALIAS") {
-    my @hitLocs = findAll("^\\s*alias\\s+$cmd+=", $path);
-    if (scalar @hitLocs) {
-        for my $hitLoc (@hitLocs) {
-            $hitLoc =~ s/.*://;
-            reportType($cmd, "ALIAS", $path, $hitLoc);
+    my $hitLocsRef = findInProfiles("^\\s*alias\\s+$cmd=", $path);
+    if (scalar @{$hitLocsRef}) {
+        foreach my $hitLoc (@{$hitLocsRef}) {
+            warn2("Reporting $hitLoc");
+            $hitLoc =~ m/(.*):(.*)/;
+            $path = $1;
+            $foundLineNum = $2;
+            reportType($cmd, "ALIAS", $1, $foundLineNum);
         }
     }
     else {
@@ -738,13 +784,13 @@ elsif ($typ eq "RESERVED") {
 elsif ($typ eq "NONE") {
     # Could still be alias/shell function that script doesn't see?
     #
-    ($verbose) && warn "Could not identify '$cmd'.\n";
+    warn1("Could not identify '$cmd'.");
 }
 else {
-    ($quiet) || warn "Unrecognized response from '$cmd':\n$typ\n";
+    ($quiet) || warn0("Unrecognized response from findType for '$cmd':\n$typ");
 }
 
-#warn "Item definition found at '$path'\n";
+#warn0("Item definition found at '$path'");
 
 # If we found it, go edit it unless it's binary.
 #
@@ -756,11 +802,11 @@ if ($path && $edit) {
     }
 
     if (defined $ENV{EDITOR}) {
-        my $edcmd = "$ENV{EDITOR} " . lineSeekOption($fndLine) . " $path";
-        ($verbose) && warn "    Editing with command: $edcmd\n";
-        system($edcmd) && warn("    Failed.\n");
+        my $edcmd = "$ENV{EDITOR} " . lineSeekOption($ENV{EDITOR}, $foundLineNum) . " $path";
+        warn1("    Editing with command: $edcmd");
+        system($edcmd) && warn0("    Failed.\n");
     }
     else {
-        warn "    Environment variable \$EDITOR is not set. But file is at:\n    $path\n";
+        warn0("    Environment variable \$EDITOR is not set. But file is at:\n    $path");
     }
 }
