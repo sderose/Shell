@@ -522,6 +522,7 @@ sub runShellCommandInRealEnv {
 sub reportType {
     my ($theCmdName, $typ, $file, $line) = @_;
     if ($quiet) { return; }
+    if (!defined $line) { $line = "?"; }
     my $msg = sprintf("'%s' is %s %s. ", $theCmdName, getArticle($typ), $typ);
     if ($file) {
         $msg .= "Found at $file, line $line.\n";
