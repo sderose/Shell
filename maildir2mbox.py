@@ -3,7 +3,6 @@
 #
 # maildir2mbox.py
 #
-from __future__ import print_function
 import sys
 import os
 import argparse
@@ -96,7 +95,7 @@ directory.
 
 ###############################################################################
 #
-def warn(msg):
+def warning(msg):
     sys.stderr.write(msg + "\n")
     return()
 
@@ -109,20 +108,20 @@ def maildir2mailbox(maildirname, mboxfilename):
     # open the existing maildir and the target mbox file
     maildir = mailbox.Maildir(maildirname, email.message_from_file)
     if (not maildir):
-        warn("Can't open maildir from '%s'." % (maildirname))
+        warning("Can't open maildir from '%s'." % (maildirname))
         sys.exit()
     nMessages = maildir.__len__()
-    warn("Opened maildir '%s', messages: %d." % (maildirname, nMessages))
+    warning("Opened maildir '%s', messages: %d." % (maildirname, nMessages))
 
     mboxfile = mailbox.mbox(mboxfilename, create=True)
     if (mboxfile is None):
-        warn("Can't open mboxfile from '%s'."% (mboxfilename))
+        warning("Can't open mboxfile from '%s'."% (mboxfilename))
         sys.exit()
-    warn("Opened output mbox '%s', messages: %d." %
+    warning("Opened output mbox '%s', messages: %d." %
         (mboxfilename, mboxfile.__len__()))
 
     if (args.test):
-        warn("Would convert '%s' to '%s'." % (maildirname, mboxfilename))
+        warning("Would convert '%s' to '%s'." % (maildirname, mboxfilename))
         return(0)
 
     # lock the mbox
@@ -133,7 +132,7 @@ def maildir2mailbox(maildirname, mboxfilename):
     for msg in maildir:
         recnum += 1
         if (args.tickInterval and (recnum % args.tickInterval==0)):
-            warn("Processing message %d of %d." % (recnum, nMessages))
+            warning("Processing message %d of %d." % (recnum, nMessages))
         mboxfile.add(msg)
 
     # close and unlock
@@ -178,7 +177,7 @@ parser.add_argument(
 args = parser.parse_args()
 
 if (not os.path.isdir(args.maildirpath)):
-    warn("maildir directory not found: '%s'." % (args.maildirpath))
+    warning("maildir directory not found: '%s'." % (args.maildirpath))
     sys.exit()
 
 
@@ -188,10 +187,10 @@ if (not os.path.isdir(args.maildirpath)):
 dirname = args.maildirpath
 mboxname = args.mboxpath
 if (not os.path.isdir(mboxname)):
-    warn("Cannot find mailbox at '%s'." % (mboxname))
+    warning("Cannot find mailbox at '%s'." % (mboxname))
     sys.exit()
 
-warn(dirname +' -> ' +mboxname)
+warning(dirname +' -> ' +mboxname)
 
 mboxdirname = mboxname+'.sbd'
 if not os.path.exists(mboxdirname):
@@ -206,7 +205,7 @@ for dirpath, dirnames, filenames in os.walk(dirname):
 
 if (args.text):
     for curDir in listofdirs:
-        warn("Would do " + curDir)
+        warning("Would do " + curDir)
     sys.exit(0)
 
 for curDir in listofdirs:
@@ -214,10 +213,10 @@ for curDir in listofdirs:
     curpath=os.path.join(*[dn+'.sbd' for dn in curlist if dn])
     if not os.path.exists(curpath):
         os.makedirs(curpath)
-    warn('| ' +curDir +' -> '+curpath[:-4])
+    warning('| ' +curDir +' -> '+curpath[:-4])
     maildir2mailbox(os.path.join(dirname,curDir),curpath[:-4])
 
 if (not args.quiet):
-    warn("Done.")
+    warning("Done.")
 
 sys.exit(0)
