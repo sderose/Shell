@@ -165,7 +165,7 @@ Fix several major logic bugs, clean up code.  Add --sep.
 
     Integrate into C<body> or C<grepData>.
     -b (byte-offset), -u (unix-byte-offsets) (strips CR).
-    Port to Pythong and integrate PowerWalk.
+    Port to Python and integrate PowerWalk.
     grep-like options? Port and switch to PowerWalk for most. files-with[out], --null,
         --only-matching, -x/--line-regexp, -w/--word-regexp
     Finish --color (incl. responding to $GREP_COLOR)
@@ -295,7 +295,7 @@ sub doOneFile {
         $totLines++;
         $matchesStart = matches($rec, $start);
         $matchesEnd = matches($rec, $end);
-        
+
         if ($maxLinesPerRange and scalar @pendingLines > $maxLinesPerRange) {  # Too far, cancel
             $inRange = 0;
             @pendingLines = ();
@@ -342,7 +342,7 @@ sub assembleOutputLine {
     my ($path, $lnum, $rec) = @_;
     return ($filename ? "$path:":"") . ($lineNumber ? "$lnum:":"") . $rec;
 }
-    
+
 sub matches {
     my ($s, $regex) = @_;
     if ($ignoreCase) {

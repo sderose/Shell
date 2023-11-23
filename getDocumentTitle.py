@@ -88,7 +88,7 @@ def tryOneItem(path):
             for child in os.listdir(path):
                 recnum += tryOneItem(os.path.join(path,child))
         else:
-            lg.vMsg(0, "Skipping directory '%s'." % (path))
+            lg.info0("Skipping directory '%s'." % (path))
     else:
         doOneFile(path)
     return(recnum)
@@ -170,4 +170,4 @@ for f in (args.files):
     lg.bumpStat("totalRecords", amount=recs)
 
 if (not args.quiet):
-    lg.vMsg(0,"Done.")
+    lg.info0("Done.")

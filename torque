@@ -5,11 +5,14 @@
 #
 #pylint: disable=W0703
 #
-from __future__ import print_function
 import sys
 import argparse
 import re
+from alogging import ALogger
+
 from pint import UnitRegistry  # In PyPI
+
+lg = ALogger()
 
 __metadata__ = {
     'title'        : "torque",
@@ -19,12 +22,11 @@ __metadata__ = {
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
     'created'      : "2020-04-08",
-    'modified'     : "2020-04-08",
+    'modified'     : "2023-11-23",
     'publisher'    : "http://github.com/sderose",
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__['modified']
-
 
 descr = """
 =head1 Description
@@ -38,7 +40,7 @@ force-length. For example:
 
 =head1 Related Commands
 
-*nix ''units''. However, it doesn't seem to handle torque units at all.
+*nix ''units''. However, it doesn't seem to handle torque at all.
 
 PyPi 'pint' for basic unit support [https://pypi.org/project/Pint/].
 [https://pint.readthedocs.io/en/0.10.1/wrapping.html#checking-dimensionality]
@@ -126,8 +128,6 @@ u2 = mat.group(2)
 
 sample = 1.0 * ureg.newton
 sample2 = 1.0 * ureg.newton_meter
-from alogging import ALogger
-lg = ALogger()
 #print("ureg \n%s" % (lg.formatRec(ureg.__dict__)))
 
 if (not hasattr(ureg, u1)):
