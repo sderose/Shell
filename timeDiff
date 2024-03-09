@@ -3,7 +3,6 @@
 # timeDiff
 # 2017-02-02: Written by Steven J. DeRose.
 #
-from __future__ import print_function
 import sys
 import argparse
 import re
@@ -25,7 +24,6 @@ __metadata__ = {
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__['modified']
-
 
 descr = """
 =Description=
@@ -85,32 +83,32 @@ def processOptions():
         parser = argparse.ArgumentParser(description=descr)
 
     parser.add_argument(
-        "--full", "-F",       action='store_true',
+        "--full", "-F", action='store_true',
         help='Make output include the start/end times, too.')
     parser.add_argument(
-        "--quiet", "-q",      action='store_true',
+        "--quiet", "-q", action='store_true',
         help='Make output terse.')
     parser.add_argument(
-        "--round",            type=int, default=0, metavar="M",
+        "--round", type=int, default=0, metavar="M",
         help='Round to multiple of M minutes. Default: 0 (no rounding).')
     parser.add_argument(
-        "--seconds", "-s",    action='store_true',
+        "--seconds", "-s", action='store_true',
         help='Just show total number of seconds.')
     parser.add_argument(
-        "--utc",              action='store_true',
+        "--utc", action='store_true',
         help='When defaulting time2, make it UTC instead of local.')
     parser.add_argument(
-        "--verbose", "-v",    action='count', default=0,
+        "--verbose", "-v", action='count', default=0,
         help='Add more messages (repeatable).')
     parser.add_argument(
         "--version", action='version', version=__version__,
         help='Display version information, then exit.')
 
     parser.add_argument(
-        "time1",              type=str,
+        "time1", type=str,
         help='Starting time.')
     parser.add_argument(
-        "time2",              type=str, nargs='?',
+        "time2", type=str, nargs='?',
         help='Ending time (optional?).')
 
     args0 = parser.parse_args()

@@ -3,7 +3,6 @@
 # tracePythonPackage.py: Find where a Python package is installed.
 # 2018-05-18: Written by Steven J. DeRose.
 #
-from __future__ import print_function
 import sys
 import os
 import argparse
@@ -12,7 +11,7 @@ import subprocess
 from subprocess import check_output
 
 __metadata__ = {
-    'title'        : "tracePythonPackage.py",
+    'title'        : "tracePythonPackage",
     'description'  : "Find where a Python package is installed.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",

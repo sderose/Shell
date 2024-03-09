@@ -3,7 +3,6 @@
 # cpPP.py: cp command, but with some additions.
 # 2021-11-09: Written by Steven J. DeRose.
 #
-from __future__ import print_function
 import sys
 import os
 #import codecs
@@ -22,7 +21,7 @@ except ImportError:
         "Warning: Seems to be MacOS, but pip 'rsrcfork' not found. Resource forks will not be handled.")
 
 __metadata__ = {
-    "title"        : "cpPP.py",
+    "title"        : "cpPP",
     "description"  : "cp command, but with some additions.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",

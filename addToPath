@@ -3,7 +3,6 @@
 # addToPath: Add a dir to a $PATH-like variable and display it.
 # 2020-02-11: Ported from my earlier Perl. Copyright by Steven J. DeRose.
 #
-from __future__ import print_function
 import sys
 import os
 import argparse
@@ -22,7 +21,6 @@ __metadata__ = {
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__['modified']
-
 
 descr = """
 =Description=

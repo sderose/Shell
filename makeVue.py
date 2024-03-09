@@ -3,7 +3,6 @@
 # makeVue.py: Create a Vue document with many boxes.
 # 2016-02-08: Written by: Steven J. DeRose.
 #
-from __future__ import print_function
 import sys
 import os
 import argparse
@@ -15,7 +14,7 @@ lg = ALogger(1)
 
 
 __metadata__ = {
-    'title'        : "makeVue.py",
+    'title'        : "makeVue",
     'description'  : "Create a Vue document with many boxes.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",

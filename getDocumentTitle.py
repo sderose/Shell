@@ -3,7 +3,6 @@
 # getDocumentTitle.py: Rudimentary document-title finder.
 # 2016-07-21: Written by Steven J. DeRose.
 #
-from __future__ import print_function
 import sys
 import os
 import argparse
@@ -14,7 +13,7 @@ from alogging import ALogger
 lg = ALogger(1)
 
 __metadata__ = {
-    'title'        : "getDocumentTitle.py",
+    'title'        : "getDocumentTitle",
     'description'  : "Rudimentary document-title finder.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",

@@ -2,7 +2,6 @@
 #
 # whichBoot: Is it UEFI or BIOS?
 #
-from __future__ import print_function
 import sys
 import os
 import argparse
@@ -49,6 +48,7 @@ or L<http://github.com/sderose>.
 =Options=
 """
 
+
 ###############################################################################
 # Process options
 #
@@ -57,20 +57,19 @@ parser = argparse.ArgumentParser(
 )
 
 parser.add_argument(
-    "-q",                action='store_true',  dest='quiet',
+    "-q", action='store_true', dest='quiet',
     help='Suppress most messages.')
 parser.add_argument(
-    "-verbose",          action='count',       default=0,
+    "-verbose", action='count', default=0,
     help='Add more messages (repeatable).')
 parser.add_argument(
-    '-version',          action='version',     version='Version of '+__version__,
+    '-version', action='version', version='Version of '+__version__,
     help='Display version information, then exit.')
 
 args = parser.parse_args()
 lg.setVerbose(args.verbose)
 
 
-###############################################################################
 ###############################################################################
 # Main
 #

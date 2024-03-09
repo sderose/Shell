@@ -3,16 +3,10 @@
 # spinner.py: Show a spinning clock or something.
 # 2018-03-24: Written by Steven J. DeRose.
 #
-from __future__ import print_function
-import sys
 import argparse
 
-PY3 = sys.version_info[0] == 3
-if PY3:
-    def unichr(n): return chr(n)
-
 __metadata__ = {
-    'title'        : "spinner.py",
+    'title'        : "spinner",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
@@ -93,7 +87,7 @@ cur = clockMax
 while(1):
     cur += 1
     if (cur>clockMax): cur = clockMin
-    u = unichr(cur)
-    #u = eval('u"\U%08x"' % (cur))  # unichr(cur)
+    u = chr(cur)
+    #u = eval('u"\U%08x"' % (cur))  # chr(cur)
     print(u + chr(8), end="")
     #sleep(1)

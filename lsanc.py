@@ -11,7 +11,7 @@ import stat
 #from PowerStat import PowerStat, statFormats
 
 __metadata__ = {
-    "title"        : "lsanc.py",
+    "title"        : "lsanc",
     "description"  : "Show permissions for all ancestors.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",

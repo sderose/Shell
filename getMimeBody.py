@@ -25,7 +25,7 @@ from alogging import ALogger
 lg = ALogger()
 
 __metadata__ = {
-    "title"        : "getMimeBody.py",
+    "title"        : "getMimeBody",
     "description"  : " Extract the 'main' content of an email file.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",

@@ -15,7 +15,7 @@ su = sjdUtils()
 lg = su.getLogger()
 
 __metadata__ = {
-    "title"        : "pythonpath.py",
+    "title"        : "pythonpath",
     "description"  : "Display and check where Python is going to look.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",

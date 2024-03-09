@@ -3,14 +3,13 @@
 # genKey.py: Generate a random key from given symbols and length.
 # 2016-01-04: Written by Steven J. DeRose.
 #
-from __future__ import print_function
 import sys
 import argparse
 import string
 import random
 
 __metadata__ = {
-    'title'        : "genKey.py",
+    'title'        : "genKey",
     "description"  : "Generate a random key from given symbols and length.",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",
@@ -22,11 +21,6 @@ __metadata__ = {
     'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__['modified']
-
-PY3 = sys.version_info[0] == 3
-if PY3:
-    def unichr(n): return chr(n)
-
 
 descr = """
 =Description=
@@ -144,7 +138,7 @@ elif (args.symbols == 'ascii'):
 elif (args.symbols == 'latin1'):
     symbolSet = string.ascii_letters + string.digits + string.punctuation
     for i in range(161, 255):   # No Yen / DEL, please.
-        c = unichr(i)
+        c = chr(i)
         if (c.isalpha()): symbolSet += c
 elif (args.symbols == 'utf8'):
     symbolSet = string.printable

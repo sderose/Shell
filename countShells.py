@@ -3,7 +3,6 @@
 # countShells.py: How many shells are running?
 # 2017-02-03: Written by Steven J. DeRose.
 #
-from __future__ import print_function
 import sys
 import os
 import argparse
@@ -14,7 +13,7 @@ from subprocess import check_output
 from collections import namedtuple
 
 __metadata__ = {
-    'title'        : "countShells.py",
+    'title'        : "countShells",
     "description"  : "How many shells are running?",
     'rightsHolder' : "Steven J. DeRose",
     'creator'      : "http://viaf.org/viaf/50334488",

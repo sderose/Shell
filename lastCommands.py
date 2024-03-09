@@ -3,7 +3,6 @@
 # lastCommands.py: Re-un the last N commands from the shell history.
 # 2014-06-19: Written by Steven J. DeRose.
 #
-from __future__ import print_function
 import sys
 import os
 import re
@@ -11,7 +10,7 @@ import codecs
 from subprocess import check_output
 
 __metadata__ = {
-    "title"        : "lastCommands.py",
+    "title"        : "lastCommands",
     "description"  : "Re-un the last N commands from the shell history.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",

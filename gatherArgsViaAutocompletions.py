@@ -3,7 +3,6 @@
 # gatherArgsViaAutocompletions.py: Use zsh autcomplete config to learn command args.
 # 2021-09-10: Written by Steven J. DeRose.
 #
-from __future__ import print_function
 import sys
 import os
 import codecs
@@ -11,7 +10,7 @@ import codecs
 from PowerWalk import PowerWalk
 
 __metadata__ = {
-    "title"        : "gatherArgsViaAutocompletions.py",
+    "title"        : "gatherArgsViaAutocompletions",
     "description"  : "Use zsh autcomplete config to learn command args.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",
@@ -184,7 +183,7 @@ if __name__ == "__main__":
             help="Path(s) to input file(s)")
 
         args0 = parser.parse_args()
-        if (args0.color == None):
+        if (args0.color is None):
             args0.color = ("CLI_COLOR" in os.environ and sys.stderr.isatty())
         return(args0)
 
@@ -196,4 +195,3 @@ if __name__ == "__main__":
     if (not args.configDir):
         for thisFile in os.listdir(args.configDir):
             extractInfo(thisFile)
-

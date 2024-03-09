@@ -3,7 +3,6 @@
 # wcPP.py: A slightly smarter version of 'wc' (word-count).
 # 2022-02-24: Written by Steven J. DeRose.
 #
-from __future__ import print_function
 import sys
 import os
 import re
@@ -24,7 +23,7 @@ def fatal(msg:str) -> None:
     lg.critical(msg); sys.exit()
 
 __metadata__ = {
-    "title"        : "wcPP.py",
+    "title"        : "wcPP",
     "description"  : "A slightly smarter version of 'wc' (word-count).",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",

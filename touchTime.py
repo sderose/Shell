@@ -9,7 +9,7 @@ import codecs
 from PowerWalk import PowerWalk, PWType
 
 __metadata__ = {
-    "title"        : "touchTime.py",
+    "title"        : "touchTime",
     "description"  : "Set the mod-time of a file via 'touch', but a little handier.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",

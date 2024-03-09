@@ -21,7 +21,7 @@ lg = logging.getLogger("fuseVars.py")
 
 
 __metadata__ = {
-    "title"        : "fuseVars.py",
+    "title"        : "fuseVars",
     "description"  : "Implement environment variable as a pseudo filesystem.",
     "rightsHolder" : "Steven J. DeRose",
     "creator"      : "http://viaf.org/viaf/50334488",

@@ -11,7 +11,7 @@ import mailbox
 import email
 
 __metadata__ = {
-    'title'        : "maildir2mbox.py",
+    'title'        : "maildir2mbox",
     'creator'      : "http://viaf.org/viaf/50334488",
     'type'         : "http://purl.org/dc/dcmitype/Software",
     'language'     : "Python 3.7",
