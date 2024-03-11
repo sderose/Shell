@@ -27,7 +27,14 @@ descr = """
 
 =Description=
 
-Insert needed %-escapes.
+Converts a string(s) to UTF-8 and insert needed %-escapes for it to go ok
+inside a URI.
+
+Use --plus to also turn spaces into "+" signs.
+
+Letters, digits, and '_.-~' are never quoted. Use --safe '...' to
+make other characters (such as "/" for scheme and directory separators, ":",
+"#" for fragment separator, "?" for queries, and so on.
 
 ==Usage==
 
@@ -38,10 +45,9 @@ Insert needed %-escapes.
 To escape a single string, put it on the command line (quoting if needed to
 avoid shell issues).
 
-If there is no such string, each line of STDIN will be escaped.
+If no such string is found there, then each line of STDIN will be read and escaped.
 
-This uses Python's ''urllib.parse.quote_plus()'', which turns spaces to "+",
-not "%20".
+This uses Python's ''urllib.parse.quote_plus()'', q.v.
 
 
 =See also=
@@ -65,6 +71,12 @@ Written 2024-03-11 by Steven J. DeRose. This work is dedicated to the public dom
 ###############################################################################
 # Main
 #
+def doit(s:str) -> str:
+    if (args.plus):
+        return urllib.parse.quote_plus(s, safe=args.safe)
+    else:
+        return urllib.parse.quote(s, safe=args.safe)
+
 if __name__ == "__main__":
     import argparse
 
@@ -76,6 +88,12 @@ if __name__ == "__main__":
         except ImportError:
             parser = argparse.ArgumentParser(description=descr)
 
+        parser.add_argument(
+            "--plus", action="store_true",
+            help="Encode spaces as plus-signs.")
+        parser.add_argument(
+            "--safe", type=str, default="/",
+            help="List of characters NOT to escape (default: '/').")
         parser.add_argument(
             "--version", action="version", version=__version__,
             help="Display version information, then exit.")
@@ -94,10 +112,10 @@ if __name__ == "__main__":
     if (args.rest):
         rest = "".join(args.rest)
         theBytes = bytes(rest.encode('utf-8'))
-        print(urllib.parse.quote_plus(theBytes))
+        print(doit(theBytes))
     else:
         while (True):
             rec = sys.stdin.readline()
             if (not rec): break
             theBytes = bytes(rec.encode('utf-8'))
-            print(urllib.parse.quote_plus(theBytes))
+            print(doit(theBytes))
