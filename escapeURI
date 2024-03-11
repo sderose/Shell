@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+#
+# escapeURI: %-escape a string as needed in a URI.
+# 2024-03-11: Written by Steven J. DeRose.
+#
+import sys
+import urllib.parse
+
+__metadata__ = {
+    "title"        : "escapeURI",
+    "description"  : "%-escape a string as needed in a URI.",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.9",
+    "created"      : "2024-03-11",
+    "modified"     : "2024-03-11",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
+}
+__version__ = __metadata__["modified"]
+
+descr = """
+=Name=
+    """ +__metadata__["title"] + ": " + __metadata__["description"] + """
+
+
+=Description=
+
+Insert needed %-escapes.
+
+==Usage==
+
+    escapeURI [options] [string]
+  OR
+    escapeURI [options]
+
+To escape a single string, put it on the command line (quoting if needed to
+avoid shell issues).
+
+If there is no such string, each line of STDIN will be escaped.
+
+This uses Python's ''urllib.parse.quote_plus()'', which turns spaces to "+",
+not "%20".
+
+
+=See also=
+
+My `unescapeURI`.
+
+
+=History=
+
+* 2024-03-11: Written by Steven J. DeRose.
+
+
+=Rights=
+
+Written 2024-03-11 by Steven J. DeRose. This work is dedicated to the public domain.
+
+=Options=
+"""
+
+
+###############################################################################
+# Main
+#
+if __name__ == "__main__":
+    import argparse
+
+    def processOptions() -> argparse.Namespace:
+        try:
+            from BlockFormatter import BlockFormatter
+            parser = argparse.ArgumentParser(
+                description=descr, formatter_class=BlockFormatter)
+        except ImportError:
+            parser = argparse.ArgumentParser(description=descr)
+
+        parser.add_argument(
+            "--version", action="version", version=__version__,
+            help="Display version information, then exit.")
+
+        parser.add_argument(
+            "rest", type=str, nargs='...', #argparse.REMAINDER,
+            help="A string to escape.")
+
+        args0 = parser.parse_args()
+        return(args0)
+
+    args = processOptions()
+
+    #print(repr(args.rest))
+
+    if (args.rest):
+        rest = "".join(args.rest)
+        theBytes = bytes(rest.encode('utf-8'))
+        print(urllib.parse.quote_plus(theBytes))
+    else:
+        while (True):
+            rec = sys.stdin.readline()
+            if (not rec): break
+            theBytes = bytes(rec.encode('utf-8'))
+            print(urllib.parse.quote_plus(theBytes))
