@@ -15,16 +15,16 @@ from pint import UnitRegistry  # In PyPI
 lg = ALogger()
 
 __metadata__ = {
-    'title'        : "torque",
-    'description'  : "Display torque in various units.",
-    'rightsHolder' : "Steven J. DeRose",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 3.7",
-    'created'      : "2020-04-08",
-    'modified'     : "2023-11-23",
-    'publisher'    : "http://github.com/sderose",
-    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+    "title"        : "torque",
+    "description"  : "Display torque in various units.",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2020-04-08",
+    "modified"     : "2023-11-23",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__['modified']
 

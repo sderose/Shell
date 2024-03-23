@@ -7,20 +7,12 @@ import sys
 import os
 import re
 from xml.dom.minidom import Node
+import logging
 #from typing import IO, Dict, List, Union
 
 from PowerWalk import PowerWalk, PWType
 
-import logging
 lg = logging.getLogger("wcPP.py")
-def info0(msg:str) -> None:
-    if (args.verbose >= 0): lg.info(msg)
-def info1(msg:str) -> None:
-    if (args.verbose >= 1): lg.info(msg)
-def info2(msg:str) -> None:
-    if (args.verbose >= 2): lg.info(msg)
-def fatal(msg:str) -> None: 
-    lg.critical(msg); sys.exit()
 
 __metadata__ = {
     "title"        : "wcPP",
@@ -39,12 +31,13 @@ __version__ = __metadata__["modified"]
 descr = """
 =Name=
     """ +__metadata__["title"] + ": " + __metadata__["description"] + """
-    
+
+
 =Description=
 
 A slightly smarter version of 'wc' (word-count). Specifically:
 
-* -c counts ''characters'', not bytes. -m also works, as in 'wc'. 
+* -c counts ''characters'', not bytes. -m also works, as in 'wc'.
 * -b counts bytes, instead of the usual -c.
 * Can handle many character encodings (--iencoding).
 * Can omit the filename(s). This is easier to use in shell script assignments.
@@ -57,6 +50,7 @@ If none of -b, -c, -l, or -w is specified, all will be counted.
 If neither -c nor -w is active, no attempt is made to decode the input text.
 
 Output goes in the order: line, word, character, byte, and filename.
+
 ==Usage==
 
     wcPP.py [options] [files]
@@ -102,10 +96,10 @@ or [https://github.com/sderose].
 ###############################################################################
 #
 totals = {
-    'byte': 0,
-    'char': 0,
-    'word': 0,
-    'line': 0,
+    "byte": 0,
+    "char": 0,
+    "word": 0,
+    "line": 0,
 }
 
 grandTotals = totals.copy()
@@ -114,22 +108,17 @@ def clearTotals():
     for k in totals.keys():
         totals[k] = 0
 
-def countRec(path:str, recnum:int, rec:str):
+def countRec(_path:str, _recnum:int, rec:str):
     totals["line"] += 1
     totals["byte"] += len(rec)
     if (args.characters or args.words):
-        try:
-            txt = rec.decode(args.iencoding)
-        except Exception as e:
-            lg.warning("%s:%d: Decoding problem:\n    %s", path, recnum, e)
-            return
-        totals["char"] += len(txt)
-        totals["word"] += len(tokenize(txt))
+        totals["char"] += len(rec)
+        totals["word"] += len(tokenize(rec))
 
 def tokenize(s:str) -> list:
     # TODO Overly simplistic...
     return re.split(r"\s+", s)
-    
+
 def report(tots:dict, filename:str):
     buf = ""
     if (args.line):      buf += "%6d" % (tots["line"])
@@ -138,8 +127,8 @@ def report(tots:dict, filename:str):
     if (args.byte):      buf += "%6d" % (tots["byte"])
     if (args.filename):  buf += "%s" % (filename)
     print(buf)
-    
-    
+
+
 ###############################################################################
 #
 def doOneFile(path:str) -> int:
@@ -150,9 +139,9 @@ def doOneFile(path:str) -> int:
         fh = sys.stdin
     else:
         try:
-            fh = open(path, "rb")
+            fh = open(path, "rb", encoding=args.iencoding)
         except IOError as e:
-            info0("Cannot open '%s':\n    %s" % (path, e))
+            lg.info("Cannot open '%s':\n    %s", path, e)
             return 0
 
     clearTotals()
@@ -180,8 +169,8 @@ def getTextNodes(node:Node) -> str:
         for ch in node.childNodes:
             yield getTextNodes(ch)
     return
-    
-    
+
+
 ###############################################################################
 # Main
 #
@@ -197,13 +186,10 @@ if __name__ == "__main__":
             parser = argparse.ArgumentParser(description=descr)
 
         parser.add_argument(
-            "--iencoding", type=str, metavar="E", default="utf-8",
-            help="Assume this character coding for input. Default: utf-8.")
-        parser.add_argument(
             "--bytes", "-b", action="store_true",
             help="Count bytes.")
         parser.add_argument(
-            "--characters", "--chars", "=m", "-c", action="store_true",
+            "--characters", "--chars", "-m", "-c", action="store_true",
             help="Count characters (see also --iencoding).")
         parser.add_argument(
             "--filenames", "-f", action="store_true",
@@ -217,6 +203,9 @@ if __name__ == "__main__":
         parser.add_argument(
             "--no-grandTotals", "--ng", action="store_false", dest="grandTotals",
             help="Display grand totals across all input files (default).")
+        parser.add_argument(
+            "--iencoding", type=str, metavar="E", default="utf-8",
+            help="Assume this character coding for input. Default: utf-8.")
         parser.add_argument(
             "--lines", "-l", action="store_true",
             help="Count lines.")
@@ -242,10 +231,9 @@ if __name__ == "__main__":
             "files", type=str, nargs=argparse.REMAINDER,
             help="Path(s) to input file(s)")
 
-        if (not (args.bytes | args.characters | args.words | args.lines)):
-            args.bytes = args.characters = args.words = args.lines = True
-            
         args0 = parser.parse_args()
+        if (not (args0.bytes | args0.characters | args0.words | args0.lines)):
+            args0.bytes = args0.characters = args0.words = args0.lines = True
         return(args0)
 
     ###########################################################################
@@ -253,7 +241,7 @@ if __name__ == "__main__":
     args = processOptions()
 
     if (len(args.files) == 0):
-        info0("wcPP.py: No files specified....")
+        lg.info("wcPP.py: No files specified....")
         doOneFile(None)
     else:
         pw = PowerWalk(args.files, open=False, close=False,
@@ -269,8 +257,8 @@ if __name__ == "__main__":
             report(totals, path0)
             for gtk in grandTotals.keys():
                 grandTotals[gtk] += totals[gtk]
-        
+
         if (args.grandTotals):
             report(grandTotals, args.grandLabel)
         if (not args.quiet):
-            info0("wcPP.py: Done, %d files.\n" % (pw.getStat("regular")))
+            lg.info("wcPP.py: Done, %d files.\n", pw.getStat("regular"))

@@ -7,22 +7,21 @@ import sys
 import os
 import argparse
 import subprocess
+import logging
 
-from alogging import ALogger
-
-lg = ALogger(1)
+lg = logging.getLogger()
 
 __metadata__ = {
-    'title'        : "getDocumentTitle",
-    'description'  : "Rudimentary document-title finder.",
-    'rightsHolder' : "Steven J. DeRose",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 3.7",
-    'created'      : "2016-07-21",
-    'modified'     : "2020-03-04",
-    'publisher'    : "http://github.com/sderose",
-    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+    "title"        : "getDocumentTitle",
+    "description"  : "Rudimentary document-title finder.",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2016-07-21",
+    "modified"     : "2020-03-04",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__['modified']
 
@@ -77,17 +76,17 @@ For the most recent version, see [http://www.derose.net/steve/utilities] or
 def tryOneItem(path):
     """Try to open a file (or directory, if -r is set).
     """
-    lg.info1("====Starting item '%s'" % (path))
+    lg.log(logging.INFO-1, "====Starting item '%s'", path)
     recnum = 0
     if (not os.path.exists(path)):
-        lg.error("Couldn't find '%s'." % (path))
+        lg.error("Couldn't find '%s'.", path)
     elif (os.path.isdir(path)):
         lg.bumpStat("totalDirs")
         if (args.recursive):
             for child in os.listdir(path):
                 recnum += tryOneItem(os.path.join(path,child))
         else:
-            lg.info0("Skipping directory '%s'." % (path))
+            lg.info("Skipping directory '%s'.", path)
     else:
         doOneFile(path)
     return(recnum)
@@ -99,7 +98,7 @@ def doOneFile(path):
     """Read and deal with one individual file.
     """
     t = ""
-    (root, ext) = os.path.splitext(path)
+    (_root, ext) = os.path.splitext(path)
     if (ext == 'html' or ext == 'htm'):
         cmd = "grep '<(title|h1).*?((</(title|h1)>|$)' '%s'" % (path)
         t = subprocess.check_output(cmd)
@@ -154,7 +153,9 @@ def processOptions():
         help='Path(s) to input file(s)')
 
     args0 = parser.parse_args()
-    if (args0.verbose): lg.setVerbose(args0.verbose)
+    if (lg and args0.verbose):
+        logging.basicConfig(level=logging.INFO - args0.verbose,
+            format="%(message)s")
     return(args0)
 
 args = processOptions()
@@ -169,4 +170,4 @@ for f in (args.files):
     lg.bumpStat("totalRecords", amount=recs)
 
 if (not args.quiet):
-    lg.info0("Done.")
+    lg.info("Done.")

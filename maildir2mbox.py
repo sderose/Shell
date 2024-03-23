@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-# maildir2mbox.py
+# maildir2mbox.py: Covert PERL POD doc to Markdown.
+# 2013-05-06: Written by Steven J. DeRose.
 #
 import sys
 import os
@@ -11,13 +12,14 @@ import mailbox
 import email
 
 __metadata__ = {
-    'title'        : "maildir2mbox",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 3.7",
-    'created'      : "2013-05-06",
-    'modified'     : "2020-03-01",
-    'publisher'    : "http://github.com/sderose",
+    "title"        : "maildir2mbox",
+    "descript"     : "Covert PERL POD doc to Markdown.",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2013-05-06",
+    "modified"     : "2020-03-01",
+    "publisher"    : "http://github.com/sderose",
 }
 __version__ = __metadata__['modified']
 
@@ -30,7 +32,7 @@ Convert a MacOSX email directory, to `mbox` files.
 =History=
 
 * 2013-05-06: Adapted by Steven J. DeRose, from maildir2mbox.py by
-Frédéric Grosshans, 19 January 2012 and
+FrÃ©dÃ©ric Grosshans, 19 January 2012 and
 Nathan R. Yergler, 6 June 2010. See
 [http://yergler.net/blog/2010/06/06/batteries-included-or-maildir-to-mbox-again].
 * 2015-09-19: Cleanup, sjdUtils, MarkupHelpFormatter, etc.
@@ -47,7 +49,6 @@ Comparison_of_email_clients#Database.2C_folders_and_customization
 http://email.about.com/od/macosxmailaddons/gr/emlx_to_mbox.htm
 * Or just "Save As" "Raw Message Source".
 
-
 =Doc from original version=
 
 maildir2mbox.py: Find and convert
@@ -59,7 +60,7 @@ See also https://freeshell.de//~kaosmos/mboximport-en.html
 
 =Background=
 
-    Frédéric Grosshans, 19 January 2012
+    FrÃ©dÃ©ric Grosshans, 19 January 2012
     Nathan R. Yergler, 6 June 2010
 
 This file does not contain sufficient creative expression to invoke
@@ -110,7 +111,7 @@ def maildir2mailbox(maildirname, mboxfilename):
     if (not maildir):
         warning("Can't open maildir from '%s'." % (maildirname))
         sys.exit()
-    nMessages = maildir.__len__()
+    nMessages = len(maildir)
     warning("Opened maildir '%s', messages: %d." % (maildirname, nMessages))
 
     mboxfile = mailbox.mbox(mboxfilename, create=True)
@@ -118,7 +119,7 @@ def maildir2mailbox(maildirname, mboxfilename):
         warning("Can't open mboxfile from '%s'."% (mboxfilename))
         sys.exit()
     warning("Opened output mbox '%s', messages: %d." %
-        (mboxfilename, mboxfile.__len__()))
+        (mboxfilename, len(mboxfile)))
 
     if (args.test):
         warning("Would convert '%s' to '%s'." % (maildirname, mboxfilename))

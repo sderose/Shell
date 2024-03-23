@@ -9,16 +9,16 @@ import argparse
 import re
 
 __metadata__ = {
-    'title'        : "addToPath",
-    'description'  : "Add a dir to a $PATH-like variable and display it.",
-    'rightsHolder' : "Steven J. DeRose",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 3.7",
-    'created'      : "2020-02-11",
-    'modified'     : "2021-11-11",
-    'publisher'    : "http://github.com/sderose",
-    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+    "title"        : "addToPath",
+    "description"  : "Add a dir to a $PATH-like variable and display it.",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2020-02-11",
+    "modified"     : "2021-11-11",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__['modified']
 

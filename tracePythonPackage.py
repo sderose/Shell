@@ -11,16 +11,16 @@ import subprocess
 from subprocess import check_output
 
 __metadata__ = {
-    'title'        : "tracePythonPackage",
-    'description'  : "Find where a Python package is installed.",
-    'rightsHolder' : "Steven J. DeRose",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 3.7",
-    'created'      : "2018-05-18",
-    'modified'     : "2020-10-07",
-    'publisher'    : "http://github.com/sderose",
-    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+    "title"        : "tracePythonPackage",
+    "description"  : "Find where a Python package is installed.",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2018-05-18",
+    "modified"     : "2020-10-07",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__['modified']
 

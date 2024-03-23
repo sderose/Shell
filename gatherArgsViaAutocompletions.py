@@ -160,9 +160,6 @@ if __name__ == "__main__":
         parser.add_argument(
             "--quiet", "-q", action="store_true",
             help="Suppress most messages.")
-        if (0): parser.add_argument(
-            "--recursive", action="store_true",
-            help="Descend into subdirectories.")
         parser.add_argument(
             "--tickInterval", type=anyInt, metavar="N", default=10000,
             help="Report progress every n records.")

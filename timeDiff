@@ -6,22 +6,22 @@
 import sys
 import argparse
 import re
-#import string
 import math
 from subprocess import check_output, CalledProcessError
 import datetime
 #from datetime import tzinfo
 
 __metadata__ = {
-    'title'        : "timeDiff",
-    'rightsHolder' : "Steven J. DeRose",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 3.7",
-    'created'      : "2017-02-02",
-    'modified'     : "2020-08-31",
-    'publisher'    : "http://github.com/sderose",
-    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+    "title"        : "timeDiff",
+    "description"  : "Show the difference between any two dates/times.",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2017-02-02",
+    "modified"     : "2020-08-31",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__['modified']
 
@@ -200,7 +200,7 @@ try:
         else:
             ctime2 = check_output([ 'date' ])
 except CalledProcessError as e:
-    print("Unable to feth ctime via *nix 'date' command." % (args.time1))
+    print("Unable to feth ctime via *nix 'date' command.")
     sys.exit()
 
 ctime1 = ctime1.strip()

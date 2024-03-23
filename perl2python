@@ -8,6 +8,7 @@ import argparse
 import re
 import time
 import datetime
+from typing import IO
 
 __metadata__ = {
     "title"        : "perl2python",
@@ -401,7 +402,9 @@ Problems:
 
 =Related commands=
 
-`perl`, `python`
+`perl`, `python`.
+
+LLMs have gotten fairly good at this since.
 
 
 =History=
@@ -479,7 +482,7 @@ args = None
 
 def info(msg):
     sys.stderr.write("Info: %s\n" % (msg))
-def warn(msg):
+def warning(msg):
     sys.stderr.write("Warning: %s\n" % (msg))
 def error(msg):
     sys.stderr.write("Error: %s\n" % (msg))
@@ -959,7 +962,6 @@ def varsInString1(s:str) -> str:
         com = s[mat.start():]
         s = s[0:mat.start()]
 
-    buf = ""
     re.sub(r'"(.*?(?<!\\))"', varSubFunc, s)
     s = re.sub(r'\\n"$', "\"", s)
     return s+com
@@ -1008,7 +1010,7 @@ def varsInString2(s:str) -> str:
 
     """
     if (args.varsInString):
-        warn("===>%s<===" % (s))
+        warning("===>%s<===" % (s))
     buf = ""              # Build up the result here
     inQuote = ""          # What kind of Perl quote are we in ("" = none)
     outQuote = ""         # String we expect in Perl, to end the quote
@@ -1054,7 +1056,7 @@ def varsInString2(s:str) -> str:
                 toMakeClose = '""")'
             elif (c == ";"):
                 buf += "\n" + indent
-            elif (c == "<" and re.match(r'<<EOF',s[pos:])):   # start 'here'
+            elif (c == "<" and re.match(r'<<EOF', s[pos:])):   # start 'here'
                 buf += '"""'
                 pos += 4
                 inQuote = "<<EOF"
@@ -1066,14 +1068,14 @@ def varsInString2(s:str) -> str:
                 if (mat):
                     inQuote = mat.group(1)
                     interpolate = 0
-                    if (re.match("qq|qx|m|qr|s",mat.group(1))):
+                    if (re.match("qq|qx|m|qr|s", mat.group(1))):
                         interpolate = 1
-                    twoArgs = 0
-                    if (re.match("s|tr|y",mat.group(1))):
-                        twoArgs = 1
+                    _twoArgs = 0
+                    if (re.match("s|tr|y", mat.group(1))):
+                        _twoArgs = 1
                     pos += len(inQuote)
                     delim = mat.group(2)
-                    delim = re.sub(r"^\s+","",delim)
+                    delim = re.sub(r"^\s+", "", delim)
                     if (delim == "("):
                         delim = ")"
                     elif (delim == "["):
@@ -1096,7 +1098,7 @@ def varsInString2(s:str) -> str:
                 toMakeClose = ""
                 inQuote = ""
             elif (interpolate and c in [ "$", "@" ]):         # variable
-                mat = re.match(r".\w+",s[pos:])
+                mat = re.match(r".\w+", s[pos:])
                 if (mat):
                     buf += outQuote + " + str(" + mat.group() + ") + " + inQuote
                     pos = mat.end()
@@ -1160,7 +1162,7 @@ def niceText(names, dest=None, nargs=None, action=None, typ=None) -> str:
 
     return(theOpt)
 
-def makeOneOption(nameList, suffix, varType, varName, append) -> str:
+def makeOneOption(nameList:str, suffix:str, varType:str, varName:str, append:bool) -> str:
     """Sort out just what argparse options we need, based on GetOpt flags.
      Let niceText() above, do the layout from that.
     """
@@ -1169,8 +1171,7 @@ def makeOneOption(nameList, suffix, varType, varName, append) -> str:
     dest = None
     if (varName and varName != nameList): dest = varName
     action = ""
-    if (append == True):
-        action = "append"
+    if (append):  action = "append"
 
     names = re.split(r'\|', nameList)
     if   (suffix == ""):                      # flag
@@ -1214,9 +1215,10 @@ def addBoilerPlate() -> str:
 """
     return(bp)
 
-def handleGetOpt(ifh):
+def handleGetOpt(ifh:IO) -> int:
     """Parse the actual Getopt::Long call and convert to Python.
     This may be overly picky about layout....
+    Returns how many records we consumed doing this.
     """
     optionsResult = """
         parser = argparse.ArgumentParser(
@@ -1225,14 +1227,13 @@ def handleGetOpt(ifh):
         """
     lastLineBad = 0
 
-    global recnum
-    recnum = 0
+    recsReadHere = 0
     while (True):
         rec = ifh.readline()
         if (not rec):                                       # EOF
             flag("EOF found in middle of GetOpt")
             break
-        recnum = recnum + 1
+        recsReadHere = recsReadHere + 1
 
         if (re.match(r"\s*\)\s*;", rec)):                    # end of GetOpt()
             break
@@ -1256,7 +1257,7 @@ def handleGetOpt(ifh):
             rec)
         if (not mat):
             if (not lastLineBad): # don't issue lots of messages in a row
-                flag("in GetOpt (line #" + str(recnum) + "):")
+                flag("in GetOpt:")
                 lastLineBad = 1
             print("##" + rec)
             continue
@@ -1291,6 +1292,7 @@ def handleGetOpt(ifh):
 
     optionsResult += addBoilerPlate()
     print(optionsResult)
+    return recsReadHere
 # handleGetOpt
 
 def notableDiff(s1:str, s2:str) -> bool:
@@ -1406,11 +1408,11 @@ while (rec0):
         podIndent = 0
 
     elif (re.match(r"(my\s+)?\$\w+\s*=\s*GetOptions\s*\(", rec0)): # GetOpt::Long
-        handleGetOpt(ifh0)
+        recnum += handleGetOpt(ifh0)
 
     elif (args.getOptVar and
           re.match(r"\s*(my\s+)?[$%]\s*=", rec0)):       # Args for GetOpt::Long
-        handleGetOpt(ifh0)
+        recnum += handleGetOpt(ifh0)
 
     elif (re.match(r'\s*"[^"]*";?\s*(#.*)?$', rec0)):    # lone "string"
         print(varsInString(rec0))

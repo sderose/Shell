@@ -14,21 +14,21 @@ lg = ALogger(1)
 
 
 __metadata__ = {
-    'title'        : "makeVue",
-    'description'  : "Create a Vue document with many boxes.",
-    'rightsHolder' : "Steven J. DeRose",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 3.7",
-    'created'      : "2016-02-08",
-    'modified'     : "2020-03-04",
-    'publisher'    : "http://github.com/sderose",
-    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+    "title"        : "makeVue",
+    "description"  : "Create a Vue document with many boxes.",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2016-02-08",
+    "modified"     : "2020-03-04",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__['modified']
 
 
-descr="""
+descr = """
 =Description=
 
 Turn a text file (one item per line),

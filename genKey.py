@@ -7,18 +7,19 @@ import sys
 import argparse
 import string
 import random
+import codecs
 
 __metadata__ = {
-    'title'        : "genKey",
+    "title"        : "genKey",
     "description"  : "Generate a random key from given symbols and length.",
-    'rightsHolder' : "Steven J. DeRose",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 3.7",
-    'created'      : "2016-01-04",
-    'modified'     : "2020-03-01",
-    'publisher'    : "http://github.com/sderose",
-    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2016-01-04",
+    "modified"     : "2020-03-01",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__['modified']
 
@@ -84,6 +85,9 @@ def processOptions():
         parser = argparse.ArgumentParser(description=descr)
 
     parser.add_argument(
+        "--dencoding", type=str, metavar='E', default="utf-8",
+        help='Assume this character set for dictionary files. Default: utf-8.')
+    parser.add_argument(
         "--dict", type=str, default='/usr/share/dict/words',
         help='A dictionary file to use with --symbols words.')
     parser.add_argument(
@@ -143,7 +147,9 @@ elif (args.symbols == 'latin1'):
 elif (args.symbols == 'utf8'):
     symbolSet = string.printable
 elif (args.symbols == 'words'):
-    symbolSet = open(args.dict, 'r').read().split()
+    dfh = codecs.open(args.dict, 'rw', encoding=args.dencoding)
+    symbolSet = dfh.read().split()
+    dfh.close()
 else:
     print("Unknown symbol set '%s'." % (args.symbols))
     sys.exit()

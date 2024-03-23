@@ -13,16 +13,16 @@ from subprocess import check_output
 from collections import namedtuple
 
 __metadata__ = {
-    'title'        : "countShells",
+    "title"        : "countShells",
     "description"  : "How many shells are running?",
-    'rightsHolder' : "Steven J. DeRose",
-    'creator'      : "http://viaf.org/viaf/50334488",
-    'type'         : "http://purl.org/dc/dcmitype/Software",
-    'language'     : "Python 3.7",
-    'created'      : "2017-02-03",
-    'modified'     : "2021-04-21",
-    'publisher'    : "http://github.com/sderose",
-    'license'      : "https://creativecommons.org/licenses/by-sa/3.0/"
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.7",
+    "created"      : "2017-02-03",
+    "modified"     : "2021-04-21",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
 __version__ = __metadata__['modified']
 
@@ -78,22 +78,22 @@ For the most recent version, see [http://www.derose.net/steve/utilities] or
 ###############################################################################
 #
 linuxStateCodes = {
-    'D': 'uninterruptible sleep (usually IO)',
-    'R': 'running or runnable (on run queue)',
-    'S': 'interruptible sleep (waiting for an event to complete)',
-    'T': 'stopped, either by a job control signal or because it is being traced',
-    'W': 'paging (not valid since the 2.6.xx kernel)',
-    'X': 'dead (should never be seen)',
-    'Z': 'defunct ("zombie") process, terminated but not reaped by its parent',
+    "D": 'uninterruptible sleep (usually IO)',
+    "R": 'running or runnable (on run queue)',
+    "S": 'interruptible sleep (waiting for an event to complete)',
+    "T": 'stopped, either by a job control signal or because it is being traced',
+    "W": 'paging (not valid since the 2.6.xx kernel)',
+    "X": 'dead (should never be seen)',
+    "Z": 'defunct ("zombie") process, terminated but not reaped by its parent',
 
       # For BSD formats and when the stat keyword is used, additional
       # characters may be displayed:
 
     '<': 'high-priority (not nice to other users)',
-    'N': 'low-priority (nice to other users)',
-    'L': 'has pages locked into memory (for real-time and custom IO)',
-    's': 'is a session leader',
-    'l': 'is multi-threaded (using CLONE_THREAD, like NPTL pthreads do)',
+    "N": 'low-priority (nice to other users)',
+    "L": 'has pages locked into memory (for real-time and custom IO)',
+    "s": 'is a session leader',
+    "l": 'is multi-threaded (using CLONE_THREAD, like NPTL pthreads do)',
     '+': 'is in the foreground process group',
 }
 
