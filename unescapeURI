@@ -1,327 +1,103 @@
-#!/usr/bin/env perl -w
+#!/usr/bin/env python3
 #
-# unescapeURI: Undo %ff or a few other kinds of special-char escaping.
-# 2014-04-22: Written by Steven J. DeRose.
+# unescapeURI: Handle % and + escape in URLs, even for Unicode.
+# 2024-04-14: Written by Steven J. DeRose.
 #
-use strict;
-use Getopt::Long;
-use Encode;
-use Encode qw(decode_utf8);
+from urllib.parse import unquote
 
-use alogging;
-
-our %metadata = (
-    'title'        => "unescapeURI",
-    'description'  => "Undo %ff or a few other kinds of special-char escaping.",
-    'rightsHolder' => "Steven J. DeRose",
-    'creator'      => "http://viaf.org/viaf/50334488",
-    'type'         => "http://purl.org/dc/dcmitype/Software",
-    'language'     => "Perl 5.18",
-    'created'      => "2014-04-2",
-    'modified'     => "2021-07-23",
-    'publisher'    => "http://github.com/sderose",
-    'license'      => "https://creativecommons.org/licenses/by-sa/3.0/"
-);
-our $VERSION_DATE = $metadata{'modified'};
-
-
-=pod
-
-
-=head1 Usage
-
-unescapeURI [options] [string|file]
-
-Expand %xx special-character codes as if [string]
-(or the content of [uri]) were a URI.
-This works even if the codes represent bytes of UTF-8.
-
-The output is written as UTF-8, unless you set I<--oencoding>.
-
-Can also undo some other escaping mechanisms:
-  * Any char specified, followed by 2 hex digits (--escape)
-  * MIME header cases, with =ff (--mime)
-  * URI "+" to mean space (--space)
-  
-
-=head1 Options
-
-(prefix 'no' to negate where applicable)
-
-=over
-
-=item * B<--escape> I<char>
-
-Treat I<char> as the character which indicates the next 2 characters should
-be taken as the hexadecimal value of a character or byte. Default: '%'.
-Although '%' is the character specified by HTML for this purpose, 
-some other systems use other characters (such as '=') analogously.
-
-B<Note>: This changes I<char> followed by two hex digits,
-to the standard URI '%' plus the digits, then does a normal URI escape.
-It will still change any pre-existing %-escapes, too. This could be a bug or
-a feature, depending on what you want.
-
-=item * B<--entify>
-
-B<UNFINISHED>
-
-At the end, convert non-ASCII to C<&#x0FFFF;> form (HTML/XML/SGML hexadecimal numeric
-character references).
-
-=item * B<--files>
-
-If this flag is set, the remainder of the command line will be treated as paths
-for files to be unescaped. Otherwise, it will be taken as a literal string.
-If the post-option part of the command line is empty, 
-then STDIN will be unescaped.
-
-=item * B<--iencoding> I<e>
-
-Assume the input is in encoding I<e>. Output is always utf-8.
-
-=item * B<--mime>
-
-Instead of decoding URI escapes, decode MIME header ones such as:
-
-    Subject: =?utf-8?Q?Fwd:_Invite_friends._Earn_credit._=28It=E2=80=99s_really?=
-
-These are defined by RFC 2231 and several related RFCs. This script has a list
-of some common character set names encounted in MIME, and uses Perl's
-I<Encode::decode> library to convert them. However, there are certainly
-character sets it doesn't know.
-
-=item * B<--oencoding> I<e>
-
-Write output in encoding I<e>. Default: utf-8.
-
-=item * B<--plusToSpace>
-
-If set, replace "+" with space (this is done before the usual %xx expansion).
-Default: on (use I<--noplusToSpace> to turn off).
-
-=item * B<--quiet> OR B<-q>
-
-Suppress most messages.
-
-=item * B<--verbose> or B<-v>
-
-Add more messages (repeatable).
-
-=item * B<--version>
-
-Show version info and exit.
-
-=back
-
-
-=head1 Related commands
-
-My C<renameFiles> script has an option that does the same thing.
-
-
-=head1 Known Bugs and Limitations
-
-  With I<--mime>, perhaps delete string-final '=' and certain internal '?'.
-  Also often [QB]?...?= after a charset change -- not sure what that is.
-
-
-=head1 To do
-
-  * MIME stuff like:
-      Subject: =?utf-8?Q?Fwd:_Invite_friends._Earn_credit._=28It=E2=80=99s_really?=
-  * Perl and Python cases like \n\r\t, \xff, \uffff, \u{fffff}, \777
-  * SGML/XML/HTML entities
-  * POD special characters
-  * Possibly LaTex and others (see CharDisplay.py, strfchr.py, etc.) 
-  * U+fffff
-  
-Compare list of forms that countChars can recognize.
-
-Consider also catching likely mistakes, such as common characters done in one code
-character set but interpreted as another.
-
-
-=head1 History
-
-  2014-04-22: Written by Steven J. DeRoseg.
-  2014-08-29: Add --esc to allow other than '%'.
-  2014-08-31f: Fix --escape to use right context. Multi-file. i/o encodings.
-  2015-09-15: Adding MIME support, fix use of sjdUtils::unescapeURI().
-  2021-09-16: Minor cleanup.
-  2022-01-07: Start adding --entify. Move in unescapeURI() from sjdUtils.
-  
-
-=head1 Rights
-
-Copyright 2014-04-22 by Steven J. DeRose. This work is licensed under a
-Creative Commons Attribution-Share Alike 3.0 Unported License.
-For further information on this license, see
-L<https://creativecommons.org/licenses/by-sa/3.0>.
-
-For the most recent version, see L<http://www.derose.net/steve/utilities> or
-L<https://github.com/sderose>.
-
-
-=cut
-
-
-###############################################################################
-# Options
-#
-my $entify        = 0;
-my $esc           = '%';
-my $files         = 0;
-my $iencoding     = "";
-my $mime          = 0;
-my $oencoding     = "utf8";
-my $plusToSpace   = 1;
-my $quiet         = 0;
-my $verbose       = 0;
-
-my %getoptHash = (
-    "entify!"                 => \$entify,
-    "escape=s"                => \$esc,
-    "f|files!"                => \$files,
-    "h|help"                  => sub { system "perldoc $0"; exit; },
-    "iencoding=s"             => \$iencoding,
-    "mime!"                   => \$mime,
-    "oencoding=s"             => \$oencoding,
-    "plusToSpace!"            => \$plusToSpace,
-    "quiet!"                  => \$quiet,
-    "v|verbose+"              => \$verbose,
-    "version"                 => sub {
-        die "Version of $VERSION_DATE, by Steven J. DeRose.\n";
-    },
-);
-Getopt::Long::Configure ("ignore_case");
-GetOptions(%getoptHash) || die "Bad options.\n";
-
-alogging::setLogVerbose($verbose);
-
-if (length($esc) != 1) {
-    eMsg(-1, "-esc must specify exactly one character.");
+__metadata__ = {
+    "title"        : "unescapeURI",
+    "description"  : "Handle % and + escape in URLs, even for Unicode.",
+    "rightsHolder" : "Steven J. DeRose",
+    "creator"      : "http://viaf.org/viaf/50334488",
+    "type"         : "http://purl.org/dc/dcmitype/Software",
+    "language"     : "Python 3.9",
+    "created"      : "2024-04-14",
+    "modified"     : "2024-04-14",
+    "publisher"    : "http://github.com/sderose",
+    "license"      : "https://creativecommons.org/licenses/by-sa/3.0/"
 }
+__version__ = __metadata__["modified"]
 
-print("");
-binmode(STDOUT, ":encoding($oencoding)");
-
-my %MIMEcharsets = (  # Ignore case
-    # MIME name       # Perl Encode name
-    "cp1252"       => "cp1252",
-    "windows-1252" => "cp1252",
-    "us-ascii"     => "ascii",
-    "utf-8"        => "utf8",
-    "iso-8859-1"   => "iso-8859-1",
-    "iso-8859-2"   => "iso-8859-2",
-    "iso-8859-3"   => "iso-8859-3",
-    "iso-8859-4"   => "iso-8859-4",
-    "iso-8859-5"   => "iso-8859-5",
-    "iso-8859-6"   => "iso-8859-6",
-    "iso-8859-7"   => "iso-8859-7",
-    "iso-8859-8"   => "iso-8859-8",
-    "iso-8859-9"   => "iso-8859-9",
-    "shiftjis"     => "shiftjis",
-);
+descr = """
+=Name=
+    """ +__metadata__["title"] + ": " + __metadata__["description"] + """
 
 
-###############################################################################
-#
-sub convertString {
-    my ($s) = @_;
-    vMsg(1, "Converting literal '$s'.");
-    if ($mime) {
-        my @parts = split(/(=\?[-\w]+\?)/, $s);
-        alogging::vMsg(1, "Parts:\n    " . join("\n    ", @parts));
-        my $charset = 'ascii';
-        my $buf = "";
-        for my $p (@parts) {
-            if ($p =~ m/^=\?([-\w]+\?)/) {
-                my $c = lc(substr($p, 2, length($p)-3));
-                alogging::vMsg(1, "Charset change: $c");
-                if (!defined $MIMEcharsets{$c}) {
-                    alogging::vMsg(1, "Unknown MIME charset '$c' in:\n    $s");
-                }
-                else {
-                    $charset = $MIMEcharsets{$c};
-                }
-            }
-            else {
-                $p =~ s/=([a-f0-9][a-f0-9])/{ chr(hex("0x$1")); }/gei;
-                $p = decode($charset, $p, 1);
-                $buf .= $p;
-            }
-        }
-        $s = $buf;
-    }
-    else {
-        $s = unescapeURI($s, $plusToSpace, $esc, $entify);
-    }
+=Description=
 
-    return($s);
-}
+==Usage==
 
-# Pulled from sjdUtils.pm, since it's all we use from there and we add entify.
-#
-sub unescapeURI {
-    my ($s, $plusToSpace, $escapeChar, $entity) = @_;
-    if (!$escapeChar) { $escapeChar='%'; }
-    ($s) || return("");
-    if ($plusToSpace) {
-        $s =~ s/\+/ /g;
-    }
-    my $s2 = "";
-    if (!$entify) {
-        if ($escapeChar eq '%') {
-            $s2 =~ s/%([0-9a-f][0-9a-f])/{ chr(hex("0x$1")); }/gie;
-        }
-        else {
-            $s2 =~ s/$escapeChar([0-9a-f][0-9a-f])/{ chr(hex("0x$1")); }/gie;
-        }
-        $s = $s2;
-    }
-    else {
-        alogging::vMsg(1, "Entifying");
-        $s2 = $s;
-        $s2 =~ s/$escapeChar([0-9a-f][0-9a-f])/{ chr(hex("0x$1")); }/gie;
-        my $s3 = decode_utf8($s2);
-        my $s4 = decode_utf8("");
-        alogging::vMsg(1, sprintf("   original |%d|, utf |%d|, decoded |%d|.",
-            length($s), length($s2), length($s3))); 
-        foreach my $c (split //, $3) {
-            $s4 .= (ord($c) < 0x80) ? $c : sprintf("&#x%05x;", ord($c));
-        }
-        $s = encode_utf8($s4);
-    }
+    unescapeURI.py [options] [s]
 
-    # Seems to work fine for UTF-8
-    return($s);
-}
+Resolve and %xx escapes in s, Interpret the result as utf-8, and display.
+If --plus is set, also turn any unescaped "+" into spaces.
+
+=See also=
+
+My `escapeURI`.
+
+
+=History=
+
+* 2024-04-14: Written by Steven J. DeRose to replace old Perl version.
+
+
+=Rights=
+
+By Steven J. DeRose. This work is dedicated to the public domain.
+
+For the most recent version, see [http://www.derose.net/steve/utilities]
+or [https://github.com/sderose].
+
+
+=Options=
+"""
 
 
 ###############################################################################
 # Main
 #
-if ($files || scalar(@ARGV) == 0) {
-    if (scalar(@ARGV) == 0) {
-        push @ARGV, "-";
-    }
-    while (my $file = shift) {
-        vMsg(1, "Starting file '$file'.");
-        open(F, "<$file");
-        if ($iencoding) {
-            binmode(F, ":encoding($iencoding)");
-        }
-        while (my $u = <F>) {
-            print convertString("$u");
-        }
-        close(F);
-    }
-}
-else {
-    if (-f $ARGV[0] && !$quiet) {
-        vMsg(0, "Did you forget -f?");
-    }
-    my $u = join(" ", @ARGV);
-    print convertString("$u");
-}
+if __name__ == "__main__":
+    import argparse
+
+    def processOptions() -> argparse.Namespace:
+        try:
+            from BlockFormatter import BlockFormatter
+            parser = argparse.ArgumentParser(
+                description=descr, formatter_class=BlockFormatter)
+        except ImportError:
+            parser = argparse.ArgumentParser(description=descr)
+
+        parser.add_argument(
+            "--plus", action="store_true",
+            help="Also turn (unescaped) '+' into space.")
+        parser.add_argument(
+            "--quiet", "-q", action="store_true",
+            help="Suppress most messages.")
+        parser.add_argument(
+            "--version", action="version", version=__version__,
+            help="Display version information, then exit.")
+
+        parser.add_argument(
+            "uri", type=str, nargs=argparse.REMAINDER,
+            help="A percent-escaped string to fix.")
+
+        args0 = parser.parse_args()
+
+        return(args0)
+
+
+    ###########################################################################
+    #
+    args = processOptions()
+
+    if (not args.uri):
+        args.uri = "https://example.edu/foo+bar%e2%80%a2+baz"
+        print("No string supplied. For example:\n%s  ==>" % (args.uri))
+
+    s = args.uri
+    if (args.plus): s = s.replace("+", " ")
+    s = unquote(s)
+    s = s.encode('utf-8').decode('utf-8')
+    print(s)
