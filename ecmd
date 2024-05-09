@@ -556,9 +556,9 @@ sub setupPaths {
     warn2("\n\@profilePaths for alias/function definitions: " . fmtList(@profilePaths));
 
     my $sjdDir = $ENV{"sjdUtilsDir"};
-    if ($sjdDir && -d "$sjdDir/Public") {
-        warn2("Adding sjd Utils from '$sjdDir/Public'.\n");
-        my $bset = "$sjdDir/Public/*";
+    if ($sjdDir && -d "$sjdDir") {
+        warn2("Adding sjdUtilDir children from '$sjdDir'.\n");
+        my $bset = "$sjdDir/*";
         push @allPaths, $bset;
     }
 }
@@ -645,6 +645,7 @@ sub findInProfiles {
     }
     else {
         warn1(sprintf("findInProfiles: Searching in %d setup files.", scalar(@allPaths)));
+        warn2("    " . join("\n    ", @allPaths));
         foreach my $curPath (@allPaths) {
             my $hitLocsRef = getAllLines($curPath, $regex);
             my $nHitLocs = scalar @{$hitLocsRef};
@@ -686,7 +687,7 @@ sub getAllLines {
     my ($file, $regex) = @_;
     my @hitLocs = ();
     if (! -f $file) {
-        warn3("File not found: '$file'.");
+        warn1("File not found: '$file'.");
         return(\@hitLocs);
     }
     warn3("grepping in: '$file'.");
