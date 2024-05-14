@@ -32,12 +32,16 @@ kwInfos = {
 actions = [ "store_false", "store_true", "store_const", "append", "count" ]
 # nargs REMAINDER
 #
+shortMetaVars = True
 
 helpExpr = "(-|--)(h|he|hel|help)"
 
 initBuf = ""
 parseBuf = ""
 helpBuf = ""
+
+funcName = "?"
+
 
 mainNames = {}
 
@@ -66,18 +70,18 @@ def add_argument(
             assert False, "Option '%s': already defined." % (mainName)
         kwValues[kw] = kv
 
-    if (not kw["metavar"]):
-        if (args.shortMetaVars): kw["metavar"] = mainName[0].upper()
-        else: kw["metavar"] = mainName.upper()
+    if (not kwValues["metavar"]):
+        if (shortMetaVars): kwValues["metavar"] = mainName[0].upper()
+        else: kwValues["metavar"] = mainName.upper()
 
-    if (not kw["dest"]):
-        kw["dest"] = re.sub(r"[^\w]", "_", mainName)
+    if (not kwValues["dest"]):
+        kwValues["dest"] = re.sub(r"[^\w]", "_", mainName)
 
-    if (kw["default"] and kw[type] != Any):
-        kw["default"] = kw[type](kw["default"])
+    if (kwValues["default"] and kwValues[type] != Any):
+        kwValues["default"] = kwValues[type](kwValues["default"])
 
-    if (kw["const"] and kw[type] != Any):
-        kw["const"] = kw[type](kw["const"])
+    if (kwValues["const"] and kwValues[type] != Any):
+        kwValues["const"] = kwValues[type](kwValues["const"])
 
     takesArg = False
     if (kwValues["type"]): takesArg = True
@@ -143,6 +147,6 @@ EOF
     done
 
 }
-""") % (helpExpr, args.funcName, initBuf, helpBuf, parseBuf)
+""") % (helpExpr, funcName, initBuf, helpBuf, parseBuf)
 
     print(buf)

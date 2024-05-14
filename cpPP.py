@@ -18,7 +18,8 @@ try:
 except ImportError:
     rscfork = None
     if (isMac): sys.stderr.write(
-        "Warning: Seems to be MacOS, but pip 'rsrcfork' not found. Resource forks will not be handled.")
+        "Warning: Seems to be MacOS, but pip 'rsrcfork' not found. " +
+        "Resource forks will not be handled.")
 
 __metadata__ = {
     "title"        : "cpPP",
@@ -255,7 +256,7 @@ if __name__ == "__main__":
             "--newer", action="store_true",
             help="Overwrite a like-named file at the target, if replacement is newer.")
         parser.add_argument(
-            "--noOverwrite", "--no-overwrite""-n", action="store_true",
+            "--noOverwrite", "--no-overwrite", "-n", action="store_true",
             help="Never overwrite (supercedes -i and -f, always (unlike `cp`).")
         parser.add_argument(
             "--noLinks", "--no-links", "-P", action="store_true",
@@ -316,7 +317,7 @@ if __name__ == "__main__":
 
     pw = PowerWalk(args.files, open=False, close=False,
         encoding=args.iencoding)
-    pw.setOptionsFromArgparse(args)
+    pw.applyOptionsFromArgparse(args)
     for path0, fh0, what0 in pw.traverse():
         if (what0 != PWType.LEAF): continue
         doOneFile(path0, args.tgtDir, depth=0)

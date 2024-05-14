@@ -380,7 +380,7 @@ if __name__ == "__main__":
         fatal("getMimeBody.py: No files specified....")
 
     pw = PowerWalk(args.files, open=False, close=False)
-    pw.setOptionsFromArgparse(args)
+    pw.applyOptionsFromArgparse(args)
     for path0, fh0, what0 in pw.traverse():
         if (what0 == PWType.LEAF): doOneFile(path0)
     if (not args.quiet):

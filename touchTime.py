@@ -167,7 +167,7 @@ if __name__ == "__main__":
         sys.exit()
 
     pw = PowerWalk(args.files, open=False, close=False)
-    pw.setOptionsFromArgparse(args)
+    pw.applyOptionsFromArgparse(args)
     for path0, fh0, what0 in pw.traverse():
         if (what0 != PWType.LEAF): continue
         if (path0.endswith(".xml")): doOneXmlFile(path0)

@@ -293,7 +293,7 @@ Getopt::Long::Configure ("ignore_case");
 ###############################################################################
 # Globals
 #
-my @allPaths;      # Paths to other scripts, from $ECMD_PATH and --addProfile
+my @allPaths;      # Paths to other scripts, from $ECMDFILES and --addProfile
 my @profilePaths;  # Paths to standard bash and zsh .-files
 
 my %lineSeekPrefix = (  # lookups are via lowercased name
@@ -717,7 +717,7 @@ sub getAllLines {
 sub notFoundMsg {
     my ($cmdName, $type) = @_;
     reportType($cmdName, $type, sprintf(
-        ", not found in any of %d profiles, %d other files (see \$ECMD_PATH).",
+        ", not found in any of %d profiles, %d other files (see \$ECMDFILES).",
         scalar @profilePaths, scalar @allPaths));
 }
 

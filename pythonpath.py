@@ -5,14 +5,15 @@
 #
 import sys
 import os
+import codecs
 import re
 import argparse
 from subprocess import check_output, CalledProcessError
-#import glob
+import logging
 
-from sjdUtils import sjdUtils
+from sjdUtils import sjdUtils  # for colorize
 su = sjdUtils()
-lg = su.getLogger()
+lg = logging.getLogger()
 
 __metadata__ = {
     "title"        : "pythonpath",
@@ -56,7 +57,7 @@ and other).
 * Identify pip, port, brew, easy_install, etc.
 * Hook up getClassDefs2()!!! TODO
 * Check for files or classes defined at more than one place on path
-
+* Drop sjdUtils, just use ColorManager.
 
 =History=
 
@@ -114,7 +115,7 @@ def getClassDefs(path, recursive=False):
     #flist = glob.glob(path+"/*.py")
     #if (len(flist)<1): return("")
     #cmdTokens.extend(flist)
-    lg.info("getClassDefs cmd: %s" % ("\\\n    ".join(cmdTokens)))
+    lg.info("getClassDefs cmd: %s", "\\\n    ".join(cmdTokens))
     bufRecs = []
     try:
         buf = check_output(cmdTokens, shell=False, stderr=None)
@@ -141,13 +142,13 @@ def getClassDefs2(path):
     try:
         classDict = pyclbr.readmodule(name, path=curDir)
     except ImportError as e:
-        lg.info("    Unable to access module '%s/%s': %s" % (curDir, name, e))
+        lg.info("    Unable to access module '%s/%s': %s", curDir, name, e)
         return([])
     bigDict = {}
     for k, v in classDict.items():
-        lg.info("    %-16s %-16s %s" % (k, v.module, v.file))
+        lg.info("    %-16s %-16s %s", k, v.module, v.file)
         if (k in bigDict):
-            lg.info("    DUPLICATE %-16s %-16s %s" % (k, v.module, v.file))
+            lg.info("    DUPLICATE %-16s %-16s %s", k, v.module, v.file)
             bigDict[k] += "\n" + v.file
         else:
             bigDict[k] = v.file
@@ -191,7 +192,7 @@ def showClasses(curDir):
             lg.warning0("    ... %s" % (cd[len(curDir):]))
         if (cd in classesSeen):
             cl = re.sub(r"^.*class ", "", cd)
-            lg.warning("        -- Duplicate def of class '%s'" % cl)
+            lg.warning("        -- Duplicate def of class '%s'", cl)
             classesSeen[cd] += "\n\t" + curDir
         else:
             classesSeen[cd] = curDir
@@ -213,7 +214,8 @@ def checkPYTHONPATH():
     classesSeen = {}
     lastD = ""
     for curDir in (dirs):
-        if (args.classes): lg.info(0,"")
+        if (args.classes):
+            lg.info("")
         if (args.abbrevs):
             clen = commonLen(lastD, curDir, onlyEndAt="/")
             printD = (" " * (clen+1)) + curDir[clen:]
@@ -225,7 +227,7 @@ def checkPYTHONPATH():
         lg.warning(printD)
 
         if (curDir in dirsSeen):
-            lg.warning("    Duplicate PYTHONPATH entry '%s'" % (curDir))
+            lg.warning("    Duplicate PYTHONPATH entry '%s'", curDir)
         dirsSeen[curDir] = 1
 
         if (curDir == ""):
@@ -249,13 +251,13 @@ def checkPYTHONPATH():
     return(dirs, dirsSeen, classesSeen)
 
 def searchForFile(sysdirs, tgt):
-    toss = open("/dev/null", mode="w")
+    toss = codecs.open("/dev/null", mode="wb", encoding=args.oencoding)
     tgt += ".*"
     print("\nRunning finds for '%s'..." % (tgt))
     whereFound = []
     for curDir in sysdirs:
         fcmd = [ "find", curDir, "-name", tgt, "-print", "-maxdepth", "1" ]
-        lg.info("Running: %s" % (" ".join(fcmd)))
+        lg.info("Running: %s", " ".join(fcmd))
         try:
             out = check_output(fcmd, stderr=toss)
             if (out.strip()): whereFound.append(out.strip())
@@ -295,6 +297,9 @@ def processOptions():
         "--init", action="store_true",
         help="Report any paths with no __init__.py file.")
     parser.add_argument(
+        "--encoding", "--oencoding", type=str, default="utf-8",
+        help="What character encoding to use for the input.")
+    parser.add_argument(
         "--pathmods", action="store_true",
         help="Search for code that modifies sys.path.")
     parser.add_argument(
@@ -318,9 +323,9 @@ def processOptions():
 
 classDefs = {}
 args = processOptions()
-su.setVerbose(args.verbose)
-su.setColors(args.color)
 
+if (args.verbose):
+    logging.basicConfig(level=logging.INFO - args.verbose, format="%(message)s")
 if (args.where): args.classes = True
 
 if ("PYTHONHOME" in os.environ):

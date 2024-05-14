@@ -246,7 +246,7 @@ if __name__ == "__main__":
     else:
         pw = PowerWalk(args.files, open=False, close=False,
             encoding=args.iencoding)
-        pw.setOptionsFromArgparse(args)
+        pw.applyOptionsFromArgparse(args)
         for path0, fh0, what0 in pw.traverse():
             if (what0 != PWType.LEAF): continue
             _name, ext = os.path.splitext(path0)
