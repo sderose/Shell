@@ -9,7 +9,7 @@ import argparse
 import subprocess
 import logging
 
-lg = logging.getLogger()
+lg = logging.getLogger("getDocumentTitle")
 
 __metadata__ = {
     "title"        : "getDocumentTitle",

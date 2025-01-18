@@ -21,7 +21,7 @@ __version__ = __metadata__["modified"]
 
 descr = """
 =Name=
-    """ +__metadata__["title"] + ": " + __metadata__["description"] + """
+unescapeURI: Handle % and + escape in URLs, even for Unicode.
 
 
 =Description=

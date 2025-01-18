@@ -36,7 +36,7 @@ __version__ = __metadata__["modified"]
 
 descr = """
 =Name=
-    """ +__metadata__["title"] + ": " + __metadata__["description"] + """
+fuseVars: Implement environment variable as a pseudo filesystem.
 
 [UNFINISHED]
 

@@ -7,8 +7,6 @@ import sys
 import os
 import codecs
 
-from PowerWalk import PowerWalk
-
 __metadata__ = {
     "title"        : "gatherArgsViaAutocompletions",
     "description"  : "Use zsh autcomplete config to learn command args.",
@@ -172,8 +170,6 @@ if __name__ == "__main__":
         parser.add_argument(
             "--version", action="version", version=__version__,
             help="Display version information, then exit.")
-
-        PowerWalk.addOptionsToArgparse(parser)
 
         parser.add_argument(
             "files", type=str, nargs=argparse.REMAINDER,

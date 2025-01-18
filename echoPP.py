@@ -24,7 +24,7 @@ __version__ = __metadata__["modified"]
 
 descr = """
 =Name=
-    """ +__metadata__["title"] + ": " + __metadata__["description"] + """
+echoPP: Slight improvement on *nix 'echo'.
 
 
 =Description=
